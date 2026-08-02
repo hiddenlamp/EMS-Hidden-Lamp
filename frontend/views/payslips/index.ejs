@@ -105,6 +105,7 @@
       <table class="table">
         <thead>
           <tr>
+            <th>Payslip Ref No</th>
             <th>Period</th>
             <th>Employee Name & Email</th>
             <th style="text-align: right;">Monthly Gross</th>
@@ -116,8 +117,19 @@
         </thead>
         <tbody>
           <% payslips.forEach(ps => { %>
-            <% const registeredEmail = ps.user_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com'); %>
+            <% 
+              const registeredEmail = ps.user_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com'); 
+              const periodParts = (ps.period || '2026-07').split('-');
+              const mNameShort = periodParts.length >= 2 ? new Date(periodParts[0], parseInt(periodParts[1]) - 1, 1).toLocaleString('en-US', { month: 'short' }).toUpperCase() : 'JUL';
+              const yNameShort = periodParts[0] || '2026';
+              const payslipRefNo = `HL/PS/${mNameShort}${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
+            %>
             <tr>
+              <td>
+                <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1e40af; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid #bfdbfe;">
+                  <%= payslipRefNo %>
+                </span>
+              </td>
               <td><strong><%= ps.period %></strong></td>
               <td>
                 <strong><%= ps.employee_name %></strong>
