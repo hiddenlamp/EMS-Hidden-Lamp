@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
+const cors = require('cors');
 const session = require('express-session');
 const SqliteSessionStore = require('./utils/session-store');
 const { attachUser } = require('./middleware/auth');
@@ -17,6 +18,19 @@ const expensesRouter = require('./routes/expenses');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'hidden_lamp_payroll_secret_key_change_in_production';
+
+// CORS Middleware (Enables Cross-Origin API requests from Hostinger Frontend)
+const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:3000'];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow requests
+    }
+  },
+  credentials: true
+}));
 
 // Body Parser Middleware
 app.use(express.urlencoded({ extended: true }));
