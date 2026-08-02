@@ -400,9 +400,9 @@
     <% const breakdown = ps.breakdown; %>
     <% const monthYearStr = formatMonthYear(breakdown.period); %>
     <% const periodParts = (breakdown.period || '2026-07').split('-'); %>
-    <% const mNameShort = periodParts.length >= 2 ? new Date(periodParts[0], parseInt(periodParts[1]) - 1, 1).toLocaleString('en-US', { month: 'short' }).toUpperCase() : 'JUL'; %>
+    <% const mNum = periodParts.length >= 2 ? String(periodParts[1]).padStart(2, '0') : '07'; %>
     <% const yNameShort = periodParts[0] || '2026'; %>
-    <% const payslipRefNo = breakdown.receipt_no || `HL/PS/${mNameShort}${yNameShort}/${String(breakdown.employee.id || (index + 1)).padStart(3, '0')}`; %>
+    <% const payslipRefNo = breakdown.receipt_no || `HL/PS/${mNum}-${yNameShort}/${String(breakdown.employee.id || (index + 1)).padStart(3, '0')}`; %>
     <% const empCode = breakdown.employee.employee_code || ('HL' + String(breakdown.employee.id).padStart(12, '0')); %>
     <% const paidDays = breakdown.days_present || (breakdown.days_in_month ? (breakdown.days_in_month - breakdown.days_lop) : 31); %>
     <% const lopDays = breakdown.days_lop || 0; %>

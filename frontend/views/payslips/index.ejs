@@ -120,9 +120,9 @@
             <% 
               const registeredEmail = ps.user_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com'); 
               const periodParts = (ps.period || '2026-07').split('-');
-              const mNameShort = periodParts.length >= 2 ? new Date(periodParts[0], parseInt(periodParts[1]) - 1, 1).toLocaleString('en-US', { month: 'short' }).toUpperCase() : 'JUL';
+              const mNum = periodParts.length >= 2 ? String(periodParts[1]).padStart(2, '0') : '07';
               const yNameShort = periodParts[0] || '2026';
-              const payslipRefNo = `HL/PS/${mNameShort}${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
+              const payslipRefNo = `HL/PS/${mNum}-${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
             %>
             <tr>
               <td>
