@@ -511,11 +511,13 @@
               <% for (let i = 0; i < maxRows; i++) { %>
                 <% const earn = earnings[i]; %>
                 <% const ded = deductions[i]; %>
+                <% const earnVal = earn ? (typeof earn.amount !== 'undefined' ? earn.amount : (typeof earn.prorated_amount !== 'undefined' ? earn.prorated_amount : (earn.base_amount || 0))) : null; %>
+                <% const dedVal = ded ? (typeof ded.amount !== 'undefined' ? ded.amount : (typeof ded.prorated_amount !== 'undefined' ? ded.prorated_amount : (ded.base_amount || 0))) : null; %>
                 <tr>
                   <td><%= earn ? earn.name : '' %></td>
-                  <td class="amt"><%= earn ? ('₹' + earn.prorated_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '' %></td>
+                  <td class="amt"><%= earnVal !== null ? ('₹' + Number(earnVal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '' %></td>
                   <td style="border-left: 1px solid #e2e8f0;"><%= ded ? ded.name : '' %></td>
-                  <td class="amt"><%= ded ? ('₹' + ded.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (i === 0 ? '₹0.00' : '') %></td>
+                  <td class="amt"><%= dedVal !== null ? ('₹' + Number(dedVal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (i === 0 ? '₹0.00' : '') %></td>
                 </tr>
               <% } %>
               <tr class="summary-row">

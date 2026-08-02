@@ -547,9 +547,10 @@
             <tbody>
               <% if (breakdown.earnings && breakdown.earnings.length > 0) { %>
                 <% breakdown.earnings.forEach(item => { %>
+                  <% const itemVal = typeof item.amount !== 'undefined' ? item.amount : (typeof item.prorated_amount !== 'undefined' ? item.prorated_amount : (item.base_amount || 0)); %>
                   <tr>
                     <td><%= item.name %></td>
-                    <td class="amount-val">₹<%= item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                    <td class="amount-val">₹<%= Number(itemVal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
                   </tr>
                 <% }); %>
               <% } else { %>
@@ -582,9 +583,10 @@
             <tbody>
               <% if (breakdown.deductions && breakdown.deductions.length > 0) { %>
                 <% breakdown.deductions.forEach(item => { %>
+                  <% const itemVal = typeof item.amount !== 'undefined' ? item.amount : (typeof item.prorated_amount !== 'undefined' ? item.prorated_amount : (item.base_amount || 0)); %>
                   <tr>
                     <td><%= item.name %></td>
-                    <td class="amount-val">₹<%= item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                    <td class="amount-val">₹<%= Number(itemVal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
                   </tr>
                 <% }); %>
               <% } else { %>
