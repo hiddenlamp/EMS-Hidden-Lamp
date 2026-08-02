@@ -1,0 +1,170 @@
+<%- include('../partials/header', { title: 'Salary Structure' }) %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Salary Structure: <%= employee.name %></h1>
+    <p class="page-description"><%= employee.designation %> | <%= employee.department %> (<%= employee.work_location %>)</p>
+  </div>
+  <a href="/employees" class="btn btn-secondary">← Back to Employees</a>
+</div>
+
+<% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<% if (success) { %>
+  <div class="alert alert-success"><%= success %></div>
+<% } %>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Earnings & Deductions Component Breakdown</h2>
+    <span class="badge badge-<%= employee.status %>"><%= employee.status %></span>
+  </div>
+
+  <form action="/employees/<%= employee.id %>/salary" method="POST" id="salaryForm">
+    <div class="table-responsive">
+      <table class="table" id="componentsTable">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Component Name</th>
+            <th style="width: 25%;">Type</th>
+            <th style="width: 25%;">Monthly Amount (₹)</th>
+            <th style="width: 10%; text-align: center;">Remove</th>
+          </tr>
+        </thead>
+        <tbody id="componentsContainer">
+          <% if (components.length === 0) { %>
+            <!-- Default pre-filled sample rows if empty -->
+            <tr class="component-row">
+              <td><input type="text" name="component_name[]" class="form-control comp-name" value="Basic" placeholder="e.g. Basic Salary" required></td>
+              <td>
+                <select name="type[]" class="form-control comp-type">
+                  <option value="earning" selected>Earning</option>
+                  <option value="deduction">Deduction</option>
+                </select>
+              </td>
+              <td><input type="number" step="0.01" min="0" name="amount[]" class="form-control comp-amount" value="30000" required></td>
+              <td style="text-align: center;"><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+            </tr>
+            <tr class="component-row">
+              <td><input type="text" name="component_name[]" class="form-control comp-name" value="House Rent Allowance (HRA)" placeholder="e.g. HRA" required></td>
+              <td>
+                <select name="type[]" class="form-control comp-type">
+                  <option value="earning" selected>Earning</option>
+                  <option value="deduction">Deduction</option>
+                </select>
+              </td>
+              <td><input type="number" step="0.01" min="0" name="amount[]" class="form-control comp-amount" value="15000" required></td>
+              <td style="text-align: center;"><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+            </tr>
+            <tr class="component-row">
+              <td><input type="text" name="component_name[]" class="form-control comp-name" value="Provident Fund (PF)" placeholder="e.g. PF" required></td>
+              <td>
+                <select name="type[]" class="form-control comp-type">
+                  <option value="earning">Earning</option>
+                  <option value="deduction" selected>Deduction</option>
+                </select>
+              </td>
+              <td><input type="number" step="0.01" min="0" name="amount[]" class="form-control comp-amount" value="1800" required></td>
+              <td style="text-align: center;"><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+            </tr>
+          <% } else { %>
+            <% components.forEach(comp => { %>
+              <tr class="component-row">
+                <td><input type="text" name="component_name[]" class="form-control comp-name" value="<%= comp.component_name %>" required></td>
+                <td>
+                  <select name="type[]" class="form-control comp-type">
+                    <option value="earning" <%= comp.type === 'earning' ? 'selected' : '' %>>Earning</option>
+                    <option value="deduction" <%= comp.type === 'deduction' ? 'selected' : '' %>>Deduction</option>
+                  </select>
+                </td>
+                <td><input type="number" step="0.01" min="0" name="amount[]" class="form-control comp-amount" value="<%= comp.amount %>" required></td>
+                <td style="text-align: center;"><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+              </tr>
+            <% }); %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+      <button type="button" id="addRowBtn" class="btn btn-secondary">+ Add Component Row</button>
+      <div style="text-align: right; font-size: 0.95rem; font-weight: 600;">
+        <span style="margin-right: 1.5rem;">Gross Earnings: <span id="totalEarnings" style="color: #059669;">₹0.00</span></span>
+        <span style="margin-right: 1.5rem;">Total Deductions: <span id="totalDeductions" style="color: #dc2626;">₹0.00</span></span>
+        <span>Estimated Net Pay: <span id="totalNet" style="color: #2563eb;">₹0.00</span></span>
+      </div>
+    </div>
+
+    <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+      <a href="/employees" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">Save Salary Structure</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function updateTotals() {
+    let earnings = 0;
+    let deductions = 0;
+
+    const rows = document.querySelectorAll('.component-row');
+    rows.forEach(row => {
+      const type = row.querySelector('.comp-type').value;
+      const amt = parseFloat(row.querySelector('.comp-amount').value) || 0;
+
+      if (type === 'earning') {
+        earnings += amt;
+      } else if (type === 'deduction') {
+        deductions += amt;
+      }
+    });
+
+    const net = earnings - deductions;
+
+    document.getElementById('totalEarnings').innerText = '₹' + earnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('totalDeductions').innerText = '₹' + deductions.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('totalNet').innerText = '₹' + net.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  document.getElementById('addRowBtn').addEventListener('click', function() {
+    const container = document.getElementById('componentsContainer');
+    const newRow = document.createElement('tr');
+    newRow.className = 'component-row';
+    newRow.innerHTML = `
+      <td><input type="text" name="component_name[]" class="form-control comp-name" placeholder="Component Name (e.g. Special Allowance)" required></td>
+      <td>
+        <select name="type[]" class="form-control comp-type">
+          <option value="earning" selected>Earning</option>
+          <option value="deduction">Deduction</option>
+        </select>
+      </td>
+      <td><input type="number" step="0.01" min="0" name="amount[]" class="form-control comp-amount" value="0" required></td>
+      <td style="text-align: center;"><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+    `;
+    container.appendChild(newRow);
+    attachListenersToRow(newRow);
+    updateTotals();
+  });
+
+  function attachListenersToRow(row) {
+    row.querySelector('.remove-row').addEventListener('click', function() {
+      const container = document.getElementById('componentsContainer');
+      if (container.querySelectorAll('.component-row').length > 1) {
+        row.remove();
+        updateTotals();
+      } else {
+        alert('Salary structure must have at least one component.');
+      }
+    });
+
+    row.querySelector('.comp-type').addEventListener('change', updateTotals);
+    row.querySelector('.comp-amount').addEventListener('input', updateTotals);
+  }
+
+  document.querySelectorAll('.component-row').forEach(attachListenersToRow);
+  updateTotals();
+</script>
+
+<%- include('../partials/footer') %>

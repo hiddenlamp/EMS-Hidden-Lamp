@@ -1,0 +1,534 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db/database');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { numberToIndianWords } = require('../utils/numberToWords');
+const { sendPayslipEmail } = require('../utils/mailer');
+const { logAction } = require('../middleware/audit');
+const htmlPdf = require('html-pdf-node');
+
+// Helper to get total days in a given YYYY-MM period
+function getDaysInMonth(periodStr) {
+  if (!periodStr || !periodStr.includes('-')) return 30;
+  const [year, month] = periodStr.split('-').map(Number);
+  return new Date(year, month, 0).getDate();
+}
+
+// GET /payroll (List all runs & Calendar Month Picker)
+router.get('/', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const runs = db.prepare('SELECT * FROM payroll_runs ORDER BY period DESC').all();
+
+  const selectedYear = parseInt(req.query.year) || 2026;
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const calendarMonths = monthNames.map((name, index) => {
+    const monthNum = String(index + 1).padStart(2, '0');
+    const period = `${selectedYear}-${monthNum}`;
+    const daysInMonth = getDaysInMonth(period);
+    const existingRun = runs.find(r => r.period === period);
+    const lastDay = new Date(selectedYear, index + 1, 0).toISOString().substring(0, 10);
+
+    return {
+      name,
+      monthNum,
+      period,
+      daysInMonth,
+      lastDay,
+      existingRun: existingRun || null
+    };
+  });
+
+  res.render('payroll/index', {
+    runs,
+    selectedYear,
+    calendarMonths,
+    error: null,
+    success: null
+  });
+});
+
+// POST /payroll (Create new run)
+router.post('/', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const { period, pay_date } = req.body;
+
+  if (!period || !pay_date) {
+    return res.redirect('/payroll');
+  }
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO payroll_runs (period, pay_date, status)
+      VALUES (?, ?, 'draft')
+    `).run(period.trim(), pay_date.trim());
+
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_PAYROLL', 'Payroll Run', result.lastInsertRowid, { period: period.trim() });
+    res.redirect(`/payroll/${result.lastInsertRowid}`);
+  } catch (err) {
+    const isDuplicate = err.message.includes('UNIQUE');
+    if (isDuplicate) {
+      const existing = db.prepare('SELECT id FROM payroll_runs WHERE period = ?').get(period.trim());
+      if (existing) return res.redirect(`/payroll/${existing.id}`);
+    }
+    res.status(400).render('error', { title: 'Error', message: err.message });
+  }
+});
+
+// GET /payroll/:id (View run details, Calendar days & LOP entry)
+router.get('/:id', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+  }
+
+  const daysInMonth = getDaysInMonth(run.period);
+
+  const employees = db.prepare("SELECT * FROM employees WHERE status = 'active' ORDER BY work_location ASC, name ASC").all();
+
+  const attendanceRows = db.prepare('SELECT * FROM attendance WHERE period = ?').all(run.period);
+  const attendanceMap = {};
+  attendanceRows.forEach(row => {
+    attendanceMap[row.employee_id] = row.days_lop;
+  });
+
+  const payslips = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.designation, e.department, e.work_location, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ?
+    ORDER BY e.work_location ASC, e.name ASC
+  `).all(run.id);
+
+  res.render('payroll/show', {
+    run,
+    daysInMonth,
+    employees,
+    attendanceMap,
+    payslips,
+    error: null,
+    success: req.query.success ? req.query.success : null
+  });
+});
+
+// POST /payroll/:id/calculate (Calendar-day basis proration)
+router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+  }
+
+  if (run.status === 'approved') {
+    return res.status(400).render('error', { title: 'Action Locked', message: 'This payroll run is approved and locked.' });
+  }
+
+  const daysInMonth = getDaysInMonth(run.period);
+  const lopData = req.body.lop || {};
+  const activeEmployees = db.prepare("SELECT * FROM employees WHERE status = 'active'").all();
+
+  try {
+    db.exec('BEGIN TRANSACTION');
+    db.prepare('DELETE FROM payslips WHERE payroll_run_id = ?').run(run.id);
+
+    const upsertAttendance = db.prepare(`
+      INSERT INTO attendance (employee_id, period, days_present, days_lop)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(employee_id, period) DO UPDATE SET
+        days_present = excluded.days_present,
+        days_lop = excluded.days_lop
+    `);
+
+    const insertPayslip = db.prepare(`
+      INSERT INTO payslips (payroll_run_id, employee_id, gross_pay, total_deductions, net_pay, breakdown_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const emp of activeEmployees) {
+      let rawLop;
+      if (lopData[emp.id] !== undefined && lopData[emp.id] !== '') {
+        rawLop = parseFloat(lopData[emp.id]);
+      } else {
+        const autoLop = db.prepare(`
+          SELECT 
+            SUM(CASE WHEN status = 'Absence' THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN status = 'Half Day' THEN 0.5 ELSE 0 END) as total_lop
+          FROM attendance_logs
+          WHERE employee_id = ? AND date LIKE ?
+        `).get(emp.id, `${run.period}%`);
+        rawLop = (autoLop && autoLop.total_lop) ? autoLop.total_lop : 0;
+      }
+      const lopDays = isNaN(rawLop) || rawLop < 0 ? 0 : (rawLop > daysInMonth ? daysInMonth : rawLop);
+      const daysPresent = daysInMonth - lopDays;
+
+      upsertAttendance.run(emp.id, run.period, daysPresent, lopDays);
+
+      const components = db.prepare('SELECT * FROM salary_components WHERE employee_id = ?').all(emp.id);
+
+      const earnings = [];
+      const deductions = [];
+
+      let grossPay = 0;
+      let basicSalary = 0;
+      let totalDeductions = 0;
+
+      // 1. Calculate Full Base Earnings & Fixed Deductions
+      components.forEach(comp => {
+        if (comp.type === 'earning') {
+          const compAmount = Math.round(comp.amount * 100) / 100;
+          earnings.push({
+            name: comp.component_name,
+            base_amount: compAmount,
+            prorated_amount: compAmount
+          });
+          grossPay += compAmount;
+          if (comp.component_name.toLowerCase().includes('basic')) {
+            basicSalary += compAmount;
+          }
+        } else if (comp.type === 'deduction') {
+          const deductionAmount = Math.round(comp.amount * 100) / 100;
+          deductions.push({
+            name: comp.component_name,
+            amount: deductionAmount
+          });
+          totalDeductions += deductionAmount;
+        }
+      });
+
+      if (basicSalary === 0) {
+        basicSalary = grossPay;
+      }
+
+      // 2. Calculate LOP / Attendance Deduction based on BASIC SALARY
+      if (lopDays > 0 && basicSalary > 0) {
+        const lopDeductionAmount = Math.round((basicSalary * lopDays / daysInMonth) * 100) / 100;
+        deductions.unshift({
+          name: `Loss of Pay (${lopDays} LOP Days)`,
+          amount: lopDeductionAmount
+        });
+        totalDeductions += lopDeductionAmount;
+      }
+
+      grossPay = Math.round(grossPay * 100) / 100;
+      totalDeductions = Math.round(totalDeductions * 100) / 100;
+      const netPay = Math.round((grossPay - totalDeductions) * 100) / 100;
+      const netPayInWords = numberToIndianWords(netPay);
+
+      const breakdown = {
+        employee: {
+          id: emp.id,
+          name: emp.name,
+          designation: emp.designation,
+          department: emp.department,
+          work_location: emp.work_location,
+          pan: emp.pan,
+          bank_name: emp.bank_name,
+          bank_account: emp.bank_account
+        },
+        period: run.period,
+        days_in_month: daysInMonth,
+        pay_date: run.pay_date,
+        days_present: daysPresent,
+        days_lop: lopDays,
+        earnings,
+        deductions,
+        gross_pay: grossPay,
+        total_deductions: totalDeductions,
+        net_pay: netPay,
+        net_pay_in_words: netPayInWords
+      };
+
+      insertPayslip.run(
+        run.id,
+        emp.id,
+        grossPay,
+        totalDeductions,
+        netPay,
+        JSON.stringify(breakdown)
+      );
+    }
+
+    db.exec('COMMIT');
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CALCULATE_PAYROLL', 'Payroll Run', run.id, { period: run.period });
+    res.redirect(`/payroll/${run.id}?success=Payroll+calculated+successfully+on+${daysInMonth}-day+calendar+basis.`);
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    res.status(500).render('error', { title: 'Calculation Error', message: err.message });
+  }
+});
+
+// POST /payroll/:id/approve (Lock run & optional bulk email)
+router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+  }
+
+  db.prepare("UPDATE payroll_runs SET status = 'approved' WHERE id = ?").run(run.id);
+
+  logAction((req.user || req.session?.user || {}).email || 'system', 'APPROVE_PAYROLL', 'Payroll Run', run.id, { period: run.period });
+
+  // If send_emails checkbox is checked
+  if (req.body.send_emails === 'true') {
+    const payslips = db.prepare(`
+      SELECT p.*, e.name as employee_name, e.email as user_email
+      FROM payslips p
+      JOIN employees e ON p.employee_id = e.id
+      WHERE p.payroll_run_id = ?
+    `).all(run.id);
+
+    const protocol = req.protocol;
+    const host = req.get('host');
+
+    for (const ps of payslips) {
+      const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+      const breakdown = JSON.parse(ps.breakdown_json);
+      const payslipUrl = `${protocol}://${host}/payroll/${run.id}/payslip/${ps.employee_id}`;
+
+      try {
+        await sendPayslipEmail({
+          to: targetEmail,
+          employeeName: ps.employee_name,
+          period: run.period,
+          payDate: run.pay_date,
+          grossPay: ps.gross_pay,
+          totalDeductions: ps.total_deductions,
+          netPay: ps.net_pay,
+          netPayInWords: breakdown.net_pay_in_words,
+          breakdown,
+          payslipUrl
+        });
+      } catch (e) {
+        console.error(`Failed to send email to ${targetEmail}:`, e.message);
+      }
+    }
+    return res.redirect(`/payroll/${run.id}?success=Payroll+approved+and+payslips+emailed+to+employees.`);
+  }
+
+  res.redirect(`/payroll/${run.id}?success=Payroll+run+approved+and+locked.`);
+});
+
+// POST /payroll/:id/send-email/:employeeId (Send single employee email)
+router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  const payslip = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ? AND p.employee_id = ?
+  `).get(req.params.id, req.params.employeeId);
+
+  if (!run || !payslip) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip record not found.' });
+  }
+
+  const targetEmail = payslip.user_email || `${payslip.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+  const breakdown = JSON.parse(payslip.breakdown_json);
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const payslipUrl = `${protocol}://${host}/payroll/${run.id}/payslip/${payslip.employee_id}`;
+
+  try {
+    const mailResult = await sendPayslipEmail({
+      to: targetEmail,
+      employeeName: payslip.employee_name,
+      period: run.period,
+      payDate: run.pay_date,
+      grossPay: payslip.gross_pay,
+      totalDeductions: payslip.total_deductions,
+      netPay: payslip.net_pay,
+      netPayInWords: breakdown.net_pay_in_words,
+      breakdown,
+      payslipUrl
+    });
+
+    const redirectPath = req.body.redirect || `/payroll/${run.id}`;
+    let successMsg = `Real Email dispatched successfully to ${targetEmail}!`;
+    if (mailResult && mailResult.previewUrl) {
+      successMsg += ` (Live Preview: ${mailResult.previewUrl})`;
+    }
+    res.redirect(`${redirectPath}?success=${encodeURIComponent(successMsg)}`);
+  } catch (err) {
+    const redirectPath = req.body.redirect || `/payroll/${run.id}`;
+    res.redirect(`${redirectPath}?error=Failed+to+send+email:+${encodeURIComponent(err.message)}`);
+  }
+});
+
+// POST /payroll/:id/send-all-emails (Bulk send emails to all employees)
+router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+  }
+
+  const payslips = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ?
+  `).all(run.id);
+
+  const protocol = req.protocol;
+  const host = req.get('host');
+  let sentCount = 0;
+
+  for (const ps of payslips) {
+    const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+    const breakdown = JSON.parse(ps.breakdown_json);
+    const payslipUrl = `${protocol}://${host}/payroll/${run.id}/payslip/${ps.employee_id}`;
+
+    try {
+      await sendPayslipEmail({
+        to: targetEmail,
+        employeeName: ps.employee_name,
+        period: run.period,
+        payDate: run.pay_date,
+        grossPay: ps.gross_pay,
+        totalDeductions: ps.total_deductions,
+        netPay: ps.net_pay,
+        netPayInWords: breakdown.net_pay_in_words,
+        breakdown,
+        payslipUrl
+      });
+      sentCount++;
+    } catch (e) {
+      console.error(`Failed sending to ${targetEmail}:`, e.message);
+    }
+  }
+
+  res.redirect(`/payroll/${run.id}?success=Successfully+emailed+${sentCount}+payslips+to+employees.`);
+});
+
+// GET /payroll/:id/payslip/:employeeId (Single printable payslip)
+router.get('/:id/payslip/:employeeId', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const payslip = db.prepare(`
+    SELECT p.*, r.period, r.pay_date, r.status as run_status
+    FROM payslips p
+    JOIN payroll_runs r ON p.payroll_run_id = r.id
+    WHERE p.payroll_run_id = ? AND p.employee_id = ?
+  `).get(req.params.id, req.params.employeeId);
+
+  if (!payslip) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip not found for this run.' });
+  }
+
+  const breakdown = JSON.parse(payslip.breakdown_json);
+
+  res.render('payslips/single', {
+    payslip,
+    breakdown
+  });
+});
+
+// GET /payroll/:id/payslip/:employeeId/pdf (Download PDF payslip)
+router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
+  const payslip = db.prepare(`
+    SELECT p.*, r.period, r.pay_date, r.status as run_status
+    FROM payslips p
+    JOIN payroll_runs r ON p.payroll_run_id = r.id
+    WHERE p.payroll_run_id = ? AND p.employee_id = ?
+  `).get(req.params.id, req.params.employeeId);
+
+  if (!payslip) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip not found for this run.' });
+  }
+
+  const breakdown = JSON.parse(payslip.breakdown_json);
+  
+  // Render HTML first with isPdf: true
+  res.render('payslips/single', { payslip, breakdown, isPdf: true }, (err, html) => {
+    if (err) return res.status(500).send('Error rendering HTML: ' + err.message);
+
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+
+    // Inject base URL so relative paths for CSS and images work in Puppeteer
+    const styledHtml = html.replace('<head>', `<head><base href="${baseUrl}">`);
+
+    const file = { content: styledHtml };
+    const options = { 
+      format: 'A4', 
+      printBackground: true, 
+      margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' },
+      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    };
+    
+    htmlPdf.generatePdf(file, options).then(pdfBuffer => {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Payslip_${breakdown.employee.name.replace(/\\s+/g, '_')}_${breakdown.period}.pdf"`);
+      res.send(pdfBuffer);
+    }).catch(pdfErr => {
+      res.status(500).send('Error generating PDF: ' + pdfErr.message);
+    });
+  });
+});
+
+// GET /payroll/:id/print-all (2-up per A4 sheet print view)
+router.get('/:id/print-all', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+  }
+
+  const payslips = db.prepare(`
+    SELECT p.*
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ?
+    ORDER BY e.work_location ASC, e.name ASC
+  `).all(run.id);
+
+  const payslipBreakdowns = payslips.map(p => ({
+    ...p,
+    breakdown: JSON.parse(p.breakdown_json)
+  }));
+
+  res.render('payslips/print_all', {
+    run,
+    payslips: payslipBreakdowns
+  });
+});
+
+// GET /payroll/:id/report (CSV Report Download)
+router.get('/:id/report', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).send('Payroll run not found.');
+  }
+
+  const payslips = db.prepare(`
+    SELECT p.*, e.employee_code, e.name as employee_name, e.designation, e.department, e.work_location, e.bank_name, e.bank_account, e.payment_mode
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ?
+    ORDER BY e.work_location ASC, e.name ASC
+  `).all(run.id);
+
+  let csvContent = 'Employee ID,Name,Designation,Department,Location,Payment Mode,Bank Name,Account Number,Gross Pay,Total Deductions,Net Pay\n';
+  
+  payslips.forEach(ps => {
+    const code = ps.employee_code || ('#' + ps.employee_id);
+    const row = [
+      `"${code}"`,
+      `"${ps.employee_name}"`,
+      `"${ps.designation}"`,
+      `"${ps.department}"`,
+      `"${ps.work_location}"`,
+      `"${ps.payment_mode || 'Bank Transfer'}"`,
+      `"${ps.bank_name || ''}"`,
+      `"${ps.bank_account || ''}"`,
+      ps.gross_pay,
+      ps.total_deductions,
+      ps.net_pay
+    ].join(',');
+    csvContent += row + '\n';
+  });
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="Payroll_Report_${run.period}.csv"`);
+  res.send(csvContent);
+});
+
+module.exports = router;

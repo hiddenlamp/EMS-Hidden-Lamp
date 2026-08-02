@@ -1,0 +1,30 @@
+{
+  "name": "employee-payroll-hidden-lamp",
+  "version": "1.0.0",
+  "description": "Employee Payroll Management System for Hidden Lamp",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js"
+  },
+  "keywords": [
+    "payroll",
+    "employee-management",
+    "sqlite",
+    "express",
+    "ejs"
+  ],
+  "author": "Hidden Lamp",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "groq-sdk": "^1.4.1",
+    "html-pdf-node": "^1.0.8",
+    "nodemailer": "^9.0.3"
+  }
+}
