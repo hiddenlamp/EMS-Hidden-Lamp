@@ -23,11 +23,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'hidden_lamp_payroll_secret
 const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:3000'];
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow requests
-    }
+    callback(null, true); // Allow cross-origin requests
   },
   credentials: true
 }));
@@ -35,6 +31,15 @@ app.use(cors({
 // Body Parser Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Health Check Endpoints for Render / Monitoring
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', app: 'Hidden Lamp Payroll Management System', timestamp: new Date().toISOString() });
+});
+
+app.get('/api', (req, res) => {
+  res.json({ status: 'ok', message: 'Hidden Lamp Payroll Backend API is active' });
+});
 
 // Serve Static Frontend Assets (CSS, Client JS, Logos, Signatures)
 app.use(express.static(path.join(__dirname, '../frontend/public')));
