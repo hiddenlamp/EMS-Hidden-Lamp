@@ -63,21 +63,35 @@ app.use(session({
 // Attach User Info to Views
 app.use(attachUser);
 
+const apiRouter = require('./routes/api');
+
 // Backend Modular API & Controller Routes
+app.use('/api', apiRouter);
 app.use('/', authRoutes);
 app.use('/employees', employeesRouter);
 app.use('/payroll', payrollRouter);
 app.use('/payslips', payslipsRouter);
 app.use('/analytics', analyticsRouter);
-app.use('/audit-logs', auditRouter);
-app.use('/expenses', expensesRouter);
+// Serve Static Frontend Assets & Built React App
+const distPath = path.join(__dirname, '../frontend/dist-hostinger');
+app.use(express.static(distPath));
+app.use(express.static(path.join(__dirname, '../frontend/public')));
+
+// SPA Wildcard Route Fallback for React Router (Non-API requests)
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.includes('.')) {
+    return next();
+  }
+  const reactIndex = path.join(distPath, 'index.html');
+  if (require('fs').existsSync(reactIndex)) {
+    return res.sendFile(reactIndex);
+  }
+  next();
+});
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).render('error', {
-    title: '404 Not Found',
-    message: 'The requested page could not be found.'
-  });
+  res.status(404).json({ error: '404 Not Found', message: 'The requested resource could not be found.' });
 });
 
 // 500 Global Error Handler
