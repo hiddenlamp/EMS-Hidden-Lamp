@@ -1,5 +1,7 @@
 node_modules/
 backend/node_modules/
+dist-hostinger/
+*.zip
 backend/.env
 .env
 *.log
