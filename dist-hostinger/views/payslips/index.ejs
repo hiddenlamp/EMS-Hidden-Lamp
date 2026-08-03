@@ -1,0 +1,168 @@
+<%- include('../partials/header', { title: 'All Payslips', path: '/payslips' }) %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Global Payslip Directory</h1>
+    <p class="page-description">Filter payslips by Month and Year, search employees, view details, download PDF, or send email notifications.</p>
+  </div>
+</div>
+
+<% if (locals.success) { %>
+  <div class="alert alert-success" style="margin-bottom: 1.5rem;"><%= success %></div>
+<% } %>
+
+<% if (locals.error) { %>
+  <div class="alert alert-danger" style="margin-bottom: 1.5rem;"><%= error %></div>
+<% } %>
+
+<!-- MONTH & YEAR FILTER BAR -->
+<div class="card" style="margin-bottom: 1.5rem; background: #ffffff; padding: 1.25rem;">
+  <form action="/payslips" method="GET" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin: 0;">
+    <div style="flex: 1; min-width: 150px;">
+      <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
+        <i class="fa-solid fa-calendar-days" style="color: var(--accent);"></i> Select Month
+      </label>
+      <select name="month" class="form-control" style="font-size: 0.9rem;">
+        <option value="">⚡ All Months</option>
+        <% monthNames.forEach(m => { %>
+          <option value="<%= m.num %>" <%= selectedMonth === m.num ? 'selected' : '' %>><%= m.name %></option>
+        <% }); %>
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 130px;">
+      <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
+        <i class="fa-solid fa-calendar" style="color: var(--accent);"></i> Select Year
+      </label>
+      <select name="year" class="form-control" style="font-size: 0.9rem;">
+        <option value="">⚡ All Years</option>
+        <% years.forEach(y => { %>
+          <option value="<%= y %>" <%= selectedYear === y ? 'selected' : '' %>><%= y %></option>
+        <% }); %>
+      </select>
+    </div>
+
+    <div style="flex: 1.5; min-width: 220px;">
+      <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
+        <i class="fa-solid fa-magnifying-glass" style="color: var(--accent);"></i> Search Employee
+      </label>
+      <input type="text" name="search" class="form-control" placeholder="Search by Employee Name, Code or Location..." value="<%= searchQuery %>" style="font-size: 0.9rem;">
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-primary" style="font-size: 0.88rem; font-weight: 600;">
+        <i class="fa-solid fa-filter"></i> Apply Filter
+      </button>
+      <% if (selectedMonth || selectedYear || searchQuery) { %>
+        <a href="/payslips" class="btn btn-secondary" style="font-size: 0.88rem; font-weight: 600;">
+          ✖ Clear
+        </a>
+      <% } %>
+    </div>
+  </form>
+</div>
+
+<div class="metrics-grid">
+  <div class="metric-card bg-pastel-purple">
+    <div class="metric-icon"><i class="fa-solid fa-file-invoice"></i></div>
+    <div>
+      <div class="metric-value"><%= totalGenerated %></div>
+      <div class="metric-label">Filtered Generated Payslips</div>
+    </div>
+  </div>
+
+  <div class="metric-card bg-pastel-green">
+    <div class="metric-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+    <div>
+      <div class="metric-value">₹<%= totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
+      <div class="metric-label">Filtered Disbursed Net Salary</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <h2 class="card-title">
+      Employee Payslip Directory
+      <% if (selectedMonth || selectedYear) { %>
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent); background: #eff6ff; padding: 0.2rem 0.6rem; border-radius: 6px; margin-left: 0.5rem;">
+          Filtered: <%= selectedMonth ? monthNames.find(m=>m.num===selectedMonth)?.name : '' %> <%= selectedYear %>
+        </span>
+      <% } %>
+    </h2>
+  </div>
+
+  <% if (payslips.length === 0) { %>
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+      <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+      <p style="font-size: 1rem; font-weight: 600; color: #475569;">No payslips match your selected Month/Year or Search criteria.</p>
+      <% if (selectedMonth || selectedYear || searchQuery) { %>
+        <a href="/payslips" class="btn btn-secondary" style="margin-top: 0.75rem; font-size: 0.85rem;">View All Payslips</a>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Payslip Ref No</th>
+            <th>Period</th>
+            <th>Employee Name & Email</th>
+            <th style="text-align: right;">Monthly Gross</th>
+            <th style="text-align: right;">Deductions</th>
+            <th style="text-align: right;">Net Salary</th>
+            <th style="text-align: center;">Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% payslips.forEach(ps => { %>
+            <% 
+              const registeredEmail = ps.user_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com'); 
+              const periodParts = (ps.period || '2026-07').split('-');
+              const mNum = periodParts.length >= 2 ? String(periodParts[1]).padStart(2, '0') : '07';
+              const yNameShort = periodParts[0] || '2026';
+              const payslipRefNo = `HL/PS/${mNum}-${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
+            %>
+            <tr>
+              <td>
+                <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1e40af; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid #bfdbfe;">
+                  <%= payslipRefNo %>
+                </span>
+              </td>
+              <td><strong><%= ps.period %></strong></td>
+              <td>
+                <strong><%= ps.employee_name %></strong>
+                <br><small style="color: var(--accent); font-weight: 500;"><i class="fa-regular fa-envelope"></i> <%= registeredEmail %></small>
+              </td>
+              <td style="text-align: right; color: #059669;">₹<%= ps.gross_pay.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; color: #dc2626;">₹<%= ps.total_deductions.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 700; color: #2563eb;">₹<%= ps.net_pay.toLocaleString('en-IN') %></td>
+              <td style="text-align: center;">
+                <% if (ps.run_status === 'approved') { %>
+                  <span class="badge" style="background: #d1fae5; color: #065f46;">Issued</span>
+                <% } else { %>
+                  <span class="badge" style="background: #fef3c7; color: #92400e;">Pending</span>
+                <% } %>
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap;">
+                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">👁️ View</a>
+                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">📥 PDF</a>
+                  <form action="/payroll/<%= ps.payroll_run_id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline; margin: 0;">
+                    <input type="hidden" name="redirect" value="/payslips">
+                    <button type="submit" class="btn btn-sm" style="padding: 0.25rem 0.55rem; font-size: 0.8rem; background: #2563eb; color: #fff; border: 1px solid #2563eb; border-radius: 6px; font-weight: 600; cursor: pointer;" title="Send payslip to <%= registeredEmail %>">
+                      ✉️ Email
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

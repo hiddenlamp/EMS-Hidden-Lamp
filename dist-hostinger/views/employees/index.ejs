@@ -1,0 +1,79 @@
+<%- include('../partials/header', { title: 'Employees' }) %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Employees Register</h1>
+    <p class="page-description">Location-wise headcount and monthly salary register for Hidden Lamp.</p>
+  </div>
+  <a href="/employees/new" class="btn btn-primary">+ Add New Employee</a>
+</div>
+
+<% if (locals.success) { %>
+  <div class="alert alert-success" style="margin-bottom: 1.5rem;"><%= success %></div>
+<% } %>
+
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+    <!-- Status & Location Filter Links -->
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+      <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); margin-right: 0.25rem;">Location:</span>
+      <a href="/employees?status=<%= statusFilter %>&location=all" class="btn btn-sm <%= locationFilter === 'all' ? 'btn-primary' : 'btn-secondary' %>">All Locations</a>
+      <% locations.forEach(loc => { %>
+        <a href="/employees?status=<%= statusFilter %>&location=<%= encodeURIComponent(loc) %>" class="btn btn-sm <%= locationFilter === loc ? 'btn-primary' : 'btn-secondary' %>"><%= loc %></a>
+      <% }); %>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="/employees?status=active&location=<%= encodeURIComponent(locationFilter) %>" class="btn btn-sm <%= statusFilter === 'active' ? 'btn-primary' : 'btn-secondary' %>">Active</a>
+      <a href="/employees?status=exited&location=<%= encodeURIComponent(locationFilter) %>" class="btn btn-sm <%= statusFilter === 'exited' ? 'btn-primary' : 'btn-secondary' %>">Exited</a>
+      <a href="/employees?status=all&location=<%= encodeURIComponent(locationFilter) %>" class="btn btn-sm <%= statusFilter === 'all' ? 'btn-primary' : 'btn-secondary' %>">All</a>
+    </div>
+  </div>
+
+  <% if (employees.length === 0) { %>
+    <p style="color: var(--text-muted); text-align: center; padding: 2rem;">No employees found in this view.</p>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Emp Code</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>Department</th>
+            <th>Location</th>
+            <th>Joining Date</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% employees.forEach(emp => { %>
+            <tr>
+              <td><strong><%= emp.employee_code || ('HL' + String(emp.id).padStart(4, '0')) %></strong></td>
+              <td>
+                <strong><%= emp.name %></strong>
+                <% if (emp.email) { %><br><small style="color: var(--text-muted);"><%= emp.email %></small><% } %>
+              </td>
+              <td><%= emp.designation %></td>
+              <td><%= emp.department %></td>
+              <td><span style="background: #f1f5f9; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #334155;"><%= emp.work_location %></span></td>
+              <td><%= emp.date_of_joining || 'N/A' %></td>
+              <td>
+                <span class="badge badge-<%= emp.status %>"><%= emp.status %></span>
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                  <a href="/employees/<%= emp.id %>/salary" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">⚙️ Salary</a>
+                  <a href="/employees/<%= emp.id %>/edit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">✏️ Edit</a>
+                </div>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

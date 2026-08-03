@@ -1,0 +1,158 @@
+<%- include('../partials/header', { title: 'Payroll Run ' + run.period }) %>
+
+<div class="page-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <h1 class="page-title">Payroll Run: <%= run.period %></h1>
+      <span class="badge badge-<%= run.status %>" style="font-size: 0.9rem; padding: 0.25rem 0.75rem;"><%= run.status %></span>
+      <span style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-weight: 700; font-size: 0.85rem; padding: 0.25rem 0.75rem; border-radius: 9999px;">
+        📅 <%= daysInMonth %> Calendar Days in Month
+      </span>
+    </div>
+    <p class="page-description">Disbursement Date: <%= run.pay_date %> | Formula: Monthly Salary / <%= daysInMonth %> × Paid Days</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="/payroll" class="btn btn-secondary">← Back to Calendar</a>
+    <% if (payslips.length > 0) { %>
+      <form action="/payroll/<%= run.id %>/send-all-emails" method="POST" onsubmit="return confirm('Send email payslips to all employees for this period?');" style="margin: 0;">
+        <button type="submit" class="btn btn-secondary">📧 Email All Payslips</button>
+      </form>
+      <a href="/payroll/<%= run.id %>/print-all" target="_blank" class="btn btn-secondary">🖨️ Print All (2-up)</a>
+      <a href="/payroll/<%= run.id %>/report" class="btn btn-secondary" download>📊 Download Report</a>
+    <% } %>
+  </div>
+</div>
+
+<% if (success) { %>
+  <div class="alert alert-success"><%= success %></div>
+<% } %>
+
+<% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<form action="/payroll/<%= run.id %>/calculate" method="POST" id="calcForm">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">1. Attendance & Leave Without Pay (LOP) Days</h2>
+      <% if (run.status === 'draft') { %>
+        <button type="submit" class="btn btn-primary">⚡ <%= payslips.length > 0 ? 'Recalculate Payroll' : 'Calculate Payroll' %></button>
+      <% } else { %>
+        <span style="color: var(--text-muted); font-size: 0.875rem;">🔒 Locked (Run Approved)</span>
+      <% } %>
+    </div>
+
+    <% if (employees.length === 0) { %>
+      <p style="color: var(--text-muted); text-align: center; padding: 2rem;">No active employees found in the system.</p>
+    <% } else { %>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Employee Name</th>
+              <th>Designation</th>
+              <th>Department</th>
+              <th style="width: 150px;">LOP Days</th>
+              <th style="width: 160px; text-align: right;">Paid Days (of <%= daysInMonth %>)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% employees.forEach(emp => { %>
+              <% const lopDays = attendanceMap[emp.id] !== undefined ? attendanceMap[emp.id] : 0; %>
+              <% const paidDays = Math.max(0, daysInMonth - lopDays); %>
+              <tr>
+                <td>
+                  <span style="background: #f1f5f9; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #334155;"><%= emp.work_location %></span>
+                </td>
+                <td><strong><%= emp.name %></strong></td>
+                <td><%= emp.designation %></td>
+                <td><%= emp.department %></td>
+                <td>
+                  <input type="number" step="0.5" min="0" max="<%= daysInMonth %>" name="lop[<%= emp.id %>]" class="form-control lop-input" data-emp-id="<%= emp.id %>" data-days-in-month="<%= daysInMonth %>" value="<%= lopDays %>" <%= run.status === 'approved' ? 'disabled' : '' %> required>
+                </td>
+                <td style="text-align: right; font-weight: 700; color: #059669;" id="present-<%= emp.id %>">
+                  <%= paidDays.toFixed(1) %> / <%= daysInMonth %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</form>
+
+<!-- Calculated Payslips Section -->
+<% if (payslips.length > 0) { %>
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">2. Calculated Payslips Summary (<%= daysInMonth %> Days Basis)</h2>
+      <% if (run.status === 'draft') { %>
+        <form action="/payroll/<%= run.id %>/approve" method="POST" onsubmit="return confirm('Are you sure you want to approve this payroll run? This will lock calculations.');" style="display: flex; align-items: center; gap: 1rem; margin: 0;">
+          <label style="font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-main);">
+            <input type="checkbox" name="send_emails" value="true" checked> 📧 Email payslips to all employees upon approval
+          </label>
+          <button type="submit" class="btn btn-success">✅ Approve & Lock Payroll Run</button>
+        </form>
+      <% } %>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Location</th>
+            <th>Employee</th>
+            <th>Designation</th>
+            <th style="text-align: right;">Gross Pay (Prorated)</th>
+            <th style="text-align: right;">Deductions</th>
+            <th style="text-align: right;">Net Pay</th>
+            <th style="text-align: center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% payslips.forEach(ps => { %>
+            <tr>
+              <td><span style="background: #f1f5f9; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #334155;"><%= ps.work_location %></span></td>
+              <td>
+                <strong><%= ps.employee_name %></strong>
+                <br><small style="color: var(--text-muted);"><%= ps.user_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com') %></small>
+              </td>
+              <td><%= ps.designation %></td>
+              <td style="text-align: right; color: #059669;">₹<%= ps.gross_pay.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %></td>
+              <td style="text-align: right; color: #dc2626;">₹<%= ps.total_deductions.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %></td>
+              <td style="text-align: right; font-weight: 700; color: #2563eb;">₹<%= ps.net_pay.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %></td>
+              <td style="text-align: center; white-space: nowrap;">
+                <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                  <a href="/payroll/<%= run.id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">👁️ View</a>
+                  <a href="/payroll/<%= run.id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">📥 PDF</a>
+                </div>
+                <form action="/payroll/<%= run.id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline-block; margin-top: 0.5rem;">
+                  <button type="submit" class="btn btn-sm btn-outline-primary">📧 Email</button>
+                </form>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% } %>
+
+<script>
+  document.querySelectorAll('.lop-input').forEach(input => {
+    input.addEventListener('input', function() {
+      const empId = this.getAttribute('data-emp-id');
+      const totalDays = parseFloat(this.getAttribute('data-days-in-month')) || 30;
+      const val = parseFloat(this.value) || 0;
+      const present = Math.max(0, totalDays - val);
+      const cell = document.getElementById('present-' + empId);
+      if (cell) {
+        cell.innerText = present.toFixed(1) + ' / ' + totalDays;
+      }
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>
