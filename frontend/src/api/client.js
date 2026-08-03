@@ -7,8 +7,8 @@ if (typeof window !== 'undefined') {
   if (window.ENV?.API_BASE_URL) {
     baseURL = `${window.ENV.API_BASE_URL.replace(/\/$/, '')}/api`;
   } else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    // Production Hostinger -> Render API fallback
-    baseURL = 'https://hiddenlamp-payroll-api.onrender.com/api';
+    // Exact Live Production Render API URL
+    baseURL = 'https://ems-hidden-lamp-1.onrender.com/api';
   }
 }
 

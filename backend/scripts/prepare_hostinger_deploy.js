@@ -17,6 +17,15 @@ try {
   process.exit(1);
 }
 
+// Inject Hostinger Config
+const configContent = `// Production Render Backend API URL Config
+window.ENV = {
+  API_BASE_URL: 'https://ems-hidden-lamp-1.onrender.com'
+};
+`;
+fs.writeFileSync(path.join(distDir, 'config.js'), configContent, 'utf8');
+console.log('  ✅ Injected Production config.js with API URL https://ems-hidden-lamp-1.onrender.com');
+
 // Create Hostinger SPA .htaccess File inside frontend/dist-hostinger
 const htaccessContent = `<IfModule mod_rewrite.c>
   RewriteEngine On
