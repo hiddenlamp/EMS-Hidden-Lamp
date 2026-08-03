@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const baseURL = window.ENV?.API_BASE_URL ? `${window.ENV.API_BASE_URL}/api` : '/api';
+// Automatically detect local vs production Render API URL
+let baseURL = '/api';
+
+if (typeof window !== 'undefined') {
+  if (window.ENV?.API_BASE_URL) {
+    baseURL = `${window.ENV.API_BASE_URL.replace(/\/$/, '')}/api`;
+  } else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    // Production Hostinger -> Render API fallback
+    baseURL = 'https://hiddenlamp-payroll-api.onrender.com/api';
+  }
+}
 
 const api = axios.create({
   baseURL,

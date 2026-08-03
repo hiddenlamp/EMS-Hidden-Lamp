@@ -19,11 +19,23 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'hidden_lamp_payroll_secret_key_change_in_production';
 
+// Trust proxy on Render / HTTPS reverse proxies
+app.set('trust proxy', 1);
+
 // CORS Middleware (Enables Cross-Origin API requests from Hostinger Frontend)
-const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:3000'];
+const allowedOrigins = [
+  'https://ems.hiddenlamp.in',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
   origin: (origin, callback) => {
-    callback(null, true); // Allow cross-origin requests
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
+      return callback(null, true);
+    }
+    callback(null, true); // Allow all valid web clients
   },
   credentials: true
 }));
@@ -48,7 +60,8 @@ app.use(express.static(path.join(__dirname, '../frontend/public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../frontend/views'));
 
-// Session Configuration
+// Session Configuration (Production HTTPS & Cross-site support)
+const isProd = process.env.NODE_ENV === 'production';
 app.use(session({
   store: new SqliteSessionStore(),
   secret: SESSION_SECRET,
@@ -56,7 +69,9 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax'
   }
 }));
 
