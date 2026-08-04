@@ -1,6 +1,7 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
 const dbDir = path.join(__dirname);
 if (!fs.existsSync(dbDir)) {
@@ -148,36 +149,26 @@ function initSchema() {
 
 initSchema();
 
-try {
-  db.exec('ALTER TABLE employees ADD COLUMN employee_code TEXT;');
-} catch (e) {}
+// Safely alter existing tables if missing columns
+try { db.exec('ALTER TABLE employees ADD COLUMN employee_code TEXT;'); } catch (e) {}
+try { db.exec('ALTER TABLE employees ADD COLUMN email TEXT;'); } catch (e) {}
+try { db.exec("ALTER TABLE employees ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer';"); } catch (e) {}
+try { db.exec("ALTER TABLE travel_expenses ADD COLUMN claim_type TEXT DEFAULT 'Travel';"); } catch (e) {}
+try { db.exec("ALTER TABLE travel_expenses ADD COLUMN item_title TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE travel_expenses ADD COLUMN submission_source TEXT DEFAULT 'Offline Form';"); } catch (e) {}
+try { db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;"); } catch (e) {}
 
-try {
-  db.exec('ALTER TABLE employees ADD COLUMN email TEXT;');
-} catch (e) {}
+// Seed Default Admin User if missing
+function seedAdmin() {
+  const existingAdmin = db.prepare('SELECT * FROM users WHERE email = ?').get('admin@hiddenlamp.com');
+  if (!existingAdmin) {
+    const hash = bcrypt.hashSync('admin123', 10);
+    db.prepare('INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)').run('admin@hiddenlamp.com', hash, 'admin');
+    console.log('✅ Default Admin User created: admin@hiddenlamp.com / admin123');
+  }
+}
 
-try {
-  db.exec("ALTER TABLE employees ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer';");
-} catch (e) {}
-
-try {
-  db.exec("ALTER TABLE travel_expenses ADD COLUMN claim_type TEXT DEFAULT 'Travel';");
-} catch (e) {}
-
-try {
-  db.exec("ALTER TABLE travel_expenses ADD COLUMN item_title TEXT;");
-} catch (e) {}
-
-try {
-  db.exec("ALTER TABLE travel_expenses ADD COLUMN submission_source TEXT DEFAULT 'Offline Form';");
-} catch (e) {}
-
-try {
-  db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;");
-} catch (e) {}
-
-try {
-  db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;");
-} catch (e) {}
+seedAdmin();
 
 module.exports = db;
