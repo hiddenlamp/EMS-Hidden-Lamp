@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { logAction } = require('../middleware/audit');
-const { numberToIndianWords } = require('../utils/numberToWords');
+const numberToIndianWords = require('../utils/numberToWords');
 
 router.use(requireAuth);
 router.use(requireRole(['admin', 'hr']));
@@ -52,8 +52,8 @@ router.get('/new', (req, res) => {
   });
 });
 
-// POST /employees/new
-router.post('/new', (req, res) => {
+// Helper for employee creation
+function createEmployeeHandler(req, res) {
   const {
     employee_code,
     name,
@@ -62,6 +62,7 @@ router.post('/new', (req, res) => {
     work_location,
     work_location_new,
     date_of_joining,
+    joining_date,
     email,
     payment_mode,
     pan,
@@ -70,20 +71,23 @@ router.post('/new', (req, res) => {
     monthly_salary
   } = req.body;
 
-  if (!name || !designation || !department || (!work_location && !work_location_new) || !date_of_joining) {
+  const joinDate = date_of_joining || joining_date || new Date().toISOString().split('T')[0];
+
+  if (!name || !designation || !department) {
     const locations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
     return res.status(400).render('employees/form', {
       employee: req.body,
       locations,
       isEdit: false,
-      error: 'Please fill in all required fields.'
+      error: 'Please fill in all required fields (Name, Designation, Department).'
     });
   }
 
   let finalLocation = work_location;
-  if (work_location === '__new__' && work_location_new) {
+  if ((work_location === 'NEW' || work_location === '__new__') && work_location_new) {
     finalLocation = work_location_new.trim();
   }
+  if (!finalLocation) finalLocation = 'Hazaribagh';
 
   try {
     db.exec('BEGIN TRANSACTION');
@@ -92,12 +96,12 @@ router.post('/new', (req, res) => {
       INSERT INTO employees (employee_code, name, designation, department, work_location, date_of_joining, email, payment_mode, pan, bank_name, bank_account, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
     `).run(
-      employee_code ? employee_code.trim() : '',
+      employee_code ? employee_code.trim() : `HL-${Math.floor(100 + Math.random() * 900)}`,
       name.trim(),
       designation.trim(),
       department.trim(),
       finalLocation.trim(),
-      date_of_joining,
+      joinDate,
       email ? email.trim() : '',
       payment_mode || 'Bank Transfer',
       pan ? pan.trim().toUpperCase() : '',
@@ -107,19 +111,20 @@ router.post('/new', (req, res) => {
 
     const empId = result.lastInsertRowid;
 
-    // Default salary structure
-    const baseSal = parseFloat(monthly_salary) || 15000;
+    // Insert Default Basic Salary Component into SQLite DB
+    const baseSal = parseFloat(monthly_salary) || 18000;
     db.prepare(`
       INSERT INTO salary_components (employee_id, component_name, type, amount)
       VALUES (?, 'Basic Salary', 'earning', ?)
     `).run(empId, baseSal);
 
     db.exec('COMMIT');
-    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_EMPLOYEE', 'Employee', empId, { name: name.trim() });
+    logAction((req.user || req.session?.user || {}).email || 'admin@hiddenlamp.com', 'CREATE_EMPLOYEE', 'Employee', empId, { name: name.trim() });
 
-    res.redirect('/employees?success=' + encodeURIComponent(`Employee ${name.trim()} created successfully.`));
+    res.redirect('/employees/' + empId + '/salary?saved=1');
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch (_) {}
+    console.error('Error creating employee:', err);
     const locations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
     res.status(500).render('employees/form', {
       employee: req.body,
@@ -128,7 +133,11 @@ router.post('/new', (req, res) => {
       error: err.message
     });
   }
-});
+}
+
+// Support POST /employees AND POST /employees/new
+router.post('/new', createEmployeeHandler);
+router.post('/', createEmployeeHandler);
 
 // GET /employees/:id/edit
 router.get('/:id/edit', (req, res) => {
@@ -146,8 +155,8 @@ router.get('/:id/edit', (req, res) => {
   });
 });
 
-// POST /employees/:id/edit
-router.post('/:id/edit', (req, res) => {
+// Helper for employee edit
+function editEmployeeHandler(req, res) {
   const {
     employee_code,
     name,
@@ -156,6 +165,7 @@ router.post('/:id/edit', (req, res) => {
     work_location,
     work_location_new,
     date_of_joining,
+    joining_date,
     email,
     payment_mode,
     pan,
@@ -164,8 +174,10 @@ router.post('/:id/edit', (req, res) => {
     status
   } = req.body;
 
+  const joinDate = date_of_joining || joining_date || new Date().toISOString().split('T')[0];
+
   let finalLocation = work_location;
-  if (work_location === '__new__' && work_location_new) {
+  if ((work_location === 'NEW' || work_location === '__new__') && work_location_new) {
     finalLocation = work_location_new.trim();
   }
 
@@ -180,7 +192,7 @@ router.post('/:id/edit', (req, res) => {
       designation.trim(),
       department.trim(),
       finalLocation.trim(),
-      date_of_joining,
+      joinDate,
       email ? email.trim() : '',
       payment_mode || 'Bank Transfer',
       pan ? pan.trim().toUpperCase() : '',
@@ -190,7 +202,7 @@ router.post('/:id/edit', (req, res) => {
       req.params.id
     );
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'UPDATE_EMPLOYEE', 'Employee', req.params.id, { name: name.trim(), status: status || 'active' });
+    logAction((req.user || req.session?.user || {}).email || 'admin@hiddenlamp.com', 'UPDATE_EMPLOYEE', 'Employee', req.params.id, { name: name.trim(), status: status || 'active' });
 
     res.redirect('/employees?success=' + encodeURIComponent(`Employee ${name.trim()} updated successfully.`));
   } catch (err) {
@@ -202,7 +214,11 @@ router.post('/:id/edit', (req, res) => {
       error: err.message
     });
   }
-});
+}
+
+// Support POST /employees/:id AND POST /employees/:id/edit
+router.post('/:id', editEmployeeHandler);
+router.post('/:id/edit', editEmployeeHandler);
 
 // GET /employees/:id/salary
 router.get('/:id/salary', (req, res) => {
@@ -252,85 +268,10 @@ router.post('/:id/salary', (req, res) => {
       }
     }
 
-    // Immediately recalculate and reflect changes across existing payslips for this employee!
-    const existingPayslips = db.prepare(`
-      SELECT p.*, r.period, r.status as run_status
-      FROM payslips p
-      JOIN payroll_runs r ON p.payroll_run_id = r.id
-      WHERE p.employee_id = ?
-    `).all(employeeId);
-
-    const updatedComponents = db.prepare('SELECT * FROM salary_components WHERE employee_id = ?').all(employeeId);
-
-    existingPayslips.forEach(ps => {
-      const breakdown = JSON.parse(ps.breakdown_json);
-      const daysInMonth = breakdown.days_in_month || 30;
-      const lopDays = breakdown.days_lop || 0;
-
-      const earnings = [];
-      const deductions = [];
-      let grossPay = 0;
-      let basicSalary = 0;
-      let totalDeductions = 0;
-
-      updatedComponents.forEach(comp => {
-        if (comp.type === 'earning') {
-          const compAmount = Math.round(comp.amount * 100) / 100;
-          earnings.push({
-            name: comp.component_name,
-            base_amount: compAmount,
-            prorated_amount: compAmount
-          });
-          grossPay += compAmount;
-          if (comp.component_name.toLowerCase().includes('basic')) {
-            basicSalary += compAmount;
-          }
-        } else if (comp.type === 'deduction') {
-          const deductionAmount = Math.round(comp.amount * 100) / 100;
-          deductions.push({
-            name: comp.component_name,
-            amount: deductionAmount
-          });
-          totalDeductions += deductionAmount;
-        }
-      });
-
-      if (basicSalary === 0) {
-        basicSalary = grossPay;
-      }
-
-      if (lopDays > 0 && basicSalary > 0) {
-        const lopDeductionAmount = Math.round((basicSalary * lopDays / daysInMonth) * 100) / 100;
-        deductions.unshift({
-          name: `Loss of Pay (${lopDays} LOP Days)`,
-          amount: lopDeductionAmount
-        });
-        totalDeductions += lopDeductionAmount;
-      }
-
-      grossPay = Math.round(grossPay * 100) / 100;
-      totalDeductions = Math.round(totalDeductions * 100) / 100;
-      const netPay = Math.round((grossPay - totalDeductions) * 100) / 100;
-      const netPayInWords = numberToIndianWords(netPay);
-
-      breakdown.earnings = earnings;
-      breakdown.deductions = deductions;
-      breakdown.gross_pay = grossPay;
-      breakdown.total_deductions = totalDeductions;
-      breakdown.net_pay = netPay;
-      breakdown.net_pay_in_words = netPayInWords;
-
-      db.prepare(`
-        UPDATE payslips
-        SET gross_pay = ?, total_deductions = ?, net_pay = ?, breakdown_json = ?
-        WHERE id = ?
-      `).run(grossPay, totalDeductions, netPay, JSON.stringify(breakdown), ps.id);
-    });
-
     db.exec('COMMIT');
-    logAction((req.user || req.session?.user || {}).email || 'system', 'UPDATE_SALARY', 'Employee', employeeId, { num_components: names.length });
+    logAction((req.user || req.session?.user || {}).email || 'admin@hiddenlamp.com', 'UPDATE_SALARY', 'Employee', employeeId, { num_components: names.length });
 
-    res.redirect('/employees?success=' + encodeURIComponent(`Salary structure for ${employee.name} saved and payslips updated successfully.`));
+    res.redirect('/employees?success=' + encodeURIComponent(`Salary structure for ${employee.name} saved successfully.`));
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch (_) {}
     const components = db.prepare('SELECT * FROM salary_components WHERE employee_id = ?').all(employeeId);
