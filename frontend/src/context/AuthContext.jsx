@@ -10,12 +10,14 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       const res = await api.get('/auth/me');
-      if (res.data.authenticated) {
+      if (res.data.authenticated && res.data.user) {
         setUser(res.data.user);
       } else {
+        localStorage.removeItem('token');
         setUser(null);
       }
     } catch (err) {
+      localStorage.removeItem('token');
       setUser(null);
     } finally {
       setLoading(false);
