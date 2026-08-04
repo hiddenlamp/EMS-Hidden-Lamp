@@ -25,7 +25,7 @@ const EmployeesPage = () => {
     department: 'Operations',
     work_location: 'Hazaribagh',
     joining_date: new Date().toISOString().split('T')[0],
-    status: 'Active',
+    status: 'active',
     bank_account: '',
     ifsc_code: ''
   });
@@ -44,7 +44,10 @@ const EmployeesPage = () => {
     try {
       const res = await api.get('/employees');
       setEmployees(res.data.employees || []);
-      setLocations(res.data.locations || ['Dantewada', 'Deoghar', 'Gomia', 'Gumla', 'Hazaribagh', 'Khunti', 'Patna', 'Ranchi', 'Sahibganj']);
+      const dbLocs = res.data.locations || [];
+      const defaultLocs = ['Dantewada', 'Deoghar', 'Gomia', 'Gumla', 'Hazaribagh', 'Khunti', 'Patna', 'Ranchi', 'Sahibganj'];
+      const combinedLocs = Array.from(new Set([...defaultLocs, ...dbLocs])).sort();
+      setLocations(combinedLocs);
     } catch (err) {
       console.error('Failed to fetch employees:', err);
     } finally {
@@ -61,7 +64,7 @@ const EmployeesPage = () => {
     try {
       await api.post('/employees', empForm);
       setShowAddModal(false);
-      setEmpForm({ employee_code: '', name: '', email: '', designation: 'Staff', department: 'Operations', work_location: 'Hazaribagh', joining_date: new Date().toISOString().split('T')[0], status: 'Active', bank_account: '', ifsc_code: '' });
+      setEmpForm({ employee_code: '', name: '', email: '', designation: 'Staff', department: 'Operations', work_location: 'Hazaribagh', joining_date: new Date().toISOString().split('T')[0], status: 'active', bank_account: '', ifsc_code: '' });
       fetchEmployees();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add employee.');
@@ -111,10 +114,10 @@ const EmployeesPage = () => {
     }
   };
 
-  // Filter employees by Location & Status
+  // Filter employees by Location & Status (case-insensitive status match!)
   const filteredEmployees = employees.filter(emp => {
     const locMatch = selectedLocation === 'all' || emp.work_location === selectedLocation;
-    const statusMatch = selectedStatus === 'All' || emp.status === selectedStatus;
+    const statusMatch = selectedStatus === 'All' || (emp.status || '').toLowerCase() === selectedStatus.toLowerCase();
     return locMatch && statusMatch;
   });
 
@@ -193,7 +196,7 @@ const EmployeesPage = () => {
               <tbody>
                 {filteredEmployees.map(emp => (
                   <tr key={emp.id}>
-                    <td><strong style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{emp.employee_code}</strong></td>
+                    <td><strong style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{emp.employee_code || ('HL-' + String(emp.id).padStart(3, '0'))}</strong></td>
                     <td>
                       <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{emp.name}</strong>
                       <br /><small style={{ color: 'var(--text-muted)' }}>{emp.email}</small>
@@ -205,9 +208,11 @@ const EmployeesPage = () => {
                         {emp.work_location}
                       </span>
                     </td>
-                    <td>{emp.joining_date}</td>
+                    <td>{emp.date_of_joining || emp.joining_date || '2024-01-01'}</td>
                     <td>
-                      <span className={`badge badge-${emp.status === 'Active' ? 'approved' : 'draft'}`}>{emp.status}</span>
+                      <span className={`badge badge-${(emp.status || '').toLowerCase() === 'active' ? 'approved' : 'draft'}`}>
+                        {(emp.status || 'Active').charAt(0).toUpperCase() + (emp.status || 'Active').slice(1)}
+                      </span>
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button
@@ -221,14 +226,14 @@ const EmployeesPage = () => {
                         onClick={() => {
                           setSelectedEmp(emp);
                           setEmpForm({
-                            employee_code: emp.employee_code,
-                            name: emp.name,
-                            email: emp.email,
-                            designation: emp.designation,
-                            department: emp.department,
-                            work_location: emp.work_location,
-                            joining_date: emp.joining_date,
-                            status: emp.status,
+                            employee_code: emp.employee_code || '',
+                            name: emp.name || '',
+                            email: emp.email || '',
+                            designation: emp.designation || 'Staff',
+                            department: emp.department || 'Operations',
+                            work_location: emp.work_location || 'Hazaribagh',
+                            joining_date: emp.date_of_joining || emp.joining_date || new Date().toISOString().split('T')[0],
+                            status: emp.status || 'active',
                             bank_account: emp.bank_account || '',
                             ifsc_code: emp.ifsc_code || ''
                           });
@@ -302,6 +307,69 @@ const EmployeesPage = () => {
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
                 <button type="submit" className="btn btn-primary btn-sm">Save Employee</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT EMPLOYEE MODAL */}
+      {showEditModal && selectedEmp && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '550px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
+              <h2 className="card-title" style={{ margin: 0 }}>Edit Employee: {selectedEmp.name}</h2>
+              <button onClick={() => setShowEditModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
+            </div>
+            <form onSubmit={handleEditEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Employee Code</label>
+                  <input type="text" required value={empForm.employee_code} onChange={e => setEmpForm({...empForm, employee_code: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Full Name</label>
+                  <input type="text" required value={empForm.name} onChange={e => setEmpForm({...empForm, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Email Address</label>
+                <input type="email" value={empForm.email} onChange={e => setEmpForm({...empForm, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Designation</label>
+                  <input type="text" value={empForm.designation} onChange={e => setEmpForm({...empForm, designation: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Department</label>
+                  <input type="text" value={empForm.department} onChange={e => setEmpForm({...empForm, department: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Work Location</label>
+                  <select value={empForm.work_location} onChange={e => setEmpForm({...empForm, work_location: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                    {locations.map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Status</label>
+                  <select value={empForm.status} onChange={e => setEmpForm({...empForm, status: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                    <option value="active">Active</option>
+                    <option value="exited">Exited</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowEditModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm">Update Employee</button>
               </div>
             </form>
           </div>
