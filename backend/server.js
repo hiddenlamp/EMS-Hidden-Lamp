@@ -26,6 +26,7 @@ app.set('trust proxy', 1);
 // CORS Middleware
 const allowedOrigins = [
   'https://ems.hiddenlamp.in',
+  'http://localhost:5173',
   'http://localhost:3000',
   process.env.FRONTEND_URL
 ].filter(Boolean);
@@ -53,10 +54,7 @@ app.get('/api', (req, res) => {
   res.json({ status: 'ok', message: 'Hidden Lamp Payroll Backend API is active' });
 });
 
-// Serve Static Frontend Public Assets (CSS, JS, Logos, Signatures)
-app.use(express.static(path.join(__dirname, '../frontend/public')));
-
-// Set EJS View Engine Frontend Directory (Original Server Rendered Frontend)
+// Set EJS View Engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../frontend/views'));
 
@@ -75,10 +73,10 @@ app.use(session({
   }
 }));
 
-// Attach User Info to Views
+// Attach User Info
 app.use(attachUser);
 
-// Server-Rendered EJS Routes & Controller Routes
+// Mount Backend API Router
 app.use('/api', apiRouter);
 app.use('/', authRoutes);
 app.use('/employees', employeesRouter);
@@ -88,7 +86,24 @@ app.use('/analytics', analyticsRouter);
 app.use('/audit-logs', auditRouter);
 app.use('/expenses', expensesRouter);
 
-// 404 Handler for EJS Frontend
+// Serve React SPA Static Production Files & Assets
+const distPath = path.join(__dirname, '../frontend/dist-hostinger');
+app.use(express.static(distPath));
+app.use(express.static(path.join(__dirname, '../frontend/public')));
+
+// Fallback to React index.html for non-API client routes if SPA dist exists
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.includes('.')) {
+    return next();
+  }
+  const reactIndex = path.join(distPath, 'index.html');
+  if (require('fs').existsSync(reactIndex)) {
+    return res.sendFile(reactIndex);
+  }
+  next();
+});
+
+// 404 Handler
 app.use((req, res) => {
   res.status(404).render('error', {
     title: '404 Not Found',
@@ -108,7 +123,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => {
   console.log(`Hidden Lamp Payroll Management System running at http://localhost:${PORT}`);
   console.log(`  📂 Backend Application       : ./backend`);
-  console.log(`  🎨 EJS Frontend & Public Assets: ./frontend`);
+  console.log(`  🎨 React SPA & EJS Assets   : ./frontend`);
 });
 
 server.on('error', (err) => {

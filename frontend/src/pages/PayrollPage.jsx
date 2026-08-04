@@ -3,21 +3,15 @@ import api from '../api/client';
 
 const PayrollPage = () => {
   const [runs, setRuns] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(2026);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRunModal, setShowRunModal] = useState(false);
 
-  // Selected run state
+  // Selected run state for processing
   const [selectedRun, setSelectedRun] = useState(null);
   const [runPayslips, setRunPayslips] = useState([]);
   const [activeEmps, setActiveEmps] = useState([]);
   const [lopInputs, setLopInputs] = useState({});
-
-  // Create form state (No hardcoded demo values!)
-  const [newRun, setNewRun] = useState({
-    period: '',
-    pay_date: ''
-  });
 
   const fetchRuns = async () => {
     try {
@@ -34,15 +28,37 @@ const PayrollPage = () => {
     fetchRuns();
   }, []);
 
-  const handleCreateRun = async (e) => {
-    e.preventDefault();
+  const monthDetails = [
+    { num: '01', name: 'January', daysInMonth: 31, lastDay: `${selectedYear}-01-31` },
+    { num: '02', name: 'February', daysInMonth: (selectedYear % 4 === 0) ? 29 : 28, lastDay: `${selectedYear}-02-${(selectedYear % 4 === 0) ? 29 : 28}` },
+    { num: '03', name: 'March', daysInMonth: 31, lastDay: `${selectedYear}-03-31` },
+    { num: '04', name: 'April', daysInMonth: 30, lastDay: `${selectedYear}-04-30` },
+    { num: '05', name: 'May', daysInMonth: 31, lastDay: `${selectedYear}-05-31` },
+    { num: '06', name: 'June', daysInMonth: 30, lastDay: `${selectedYear}-06-30` },
+    { num: '07', name: 'July', daysInMonth: 31, lastDay: `${selectedYear}-07-31` },
+    { num: '08', name: 'August', daysInMonth: 31, lastDay: `${selectedYear}-08-31` },
+    { num: '09', name: 'September', daysInMonth: 30, lastDay: `${selectedYear}-09-30` },
+    { num: '10', name: 'October', daysInMonth: 31, lastDay: `${selectedYear}-10-31` },
+    { num: '11', name: 'November', daysInMonth: 30, lastDay: `${selectedYear}-11-30` },
+    { num: '12', name: 'December', daysInMonth: 31, lastDay: `${selectedYear}-12-31` }
+  ];
+
+  const calendarMonths = monthDetails.map(m => {
+    const periodStr = `${selectedYear}-${m.num}`;
+    const existingRun = runs.find(r => r.period === periodStr);
+    return { ...m, period: periodStr, existingRun };
+  });
+
+  const handleStartPayroll = async (periodStr, lastDay) => {
     try {
-      await api.post('/payroll', newRun);
-      setShowCreateModal(false);
-      setNewRun({ period: '', pay_date: '' });
-      fetchRuns();
+      await api.post('/payroll', { period: periodStr, pay_date: lastDay });
+      await fetchRuns();
+      // Open the newly created run modal
+      const updatedRuns = await api.get('/payroll');
+      const newlyCreated = updatedRuns.data.runs.find(r => r.period === periodStr);
+      if (newlyCreated) openRunModal(newlyCreated);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to create payroll run.');
+      alert(err.response?.data?.error || 'Failed to start payroll run.');
     }
   };
 
@@ -52,7 +68,7 @@ const PayrollPage = () => {
       setSelectedRun(res.data.run);
       setRunPayslips(res.data.payslips || []);
       setActiveEmps(res.data.activeEmployees || []);
-      
+
       const initialLop = {};
       (res.data.payslips || []).forEach(ps => {
         try {
@@ -72,7 +88,7 @@ const PayrollPage = () => {
   const handleCalculatePayroll = async () => {
     try {
       await api.post(`/payroll/${selectedRun.id}/calculate`, { lop: lopInputs });
-      alert('Payroll calculated successfully with Basic Salary LOP formula!');
+      alert('Payroll calculated successfully!');
       openRunModal(selectedRun);
       fetchRuns();
     } catch (err) {
@@ -97,17 +113,98 @@ const PayrollPage = () => {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Monthly Payroll Run Processing</h1>
-          <p className="page-description">Create payroll runs, calculate LOP deductions, and issue approved payslips.</p>
+          <h1 className="page-title">Monthly Payroll Calendar & Runs</h1>
+          <p className="page-description">Select any month from the interactive calendar to generate or process payroll based on the actual calendar days of that month.</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
-          + Create New Payroll Run
-        </button>
       </div>
 
+      {/* Year Switcher Bar Card */}
+      <div className="card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>📅 Calendar Year:</span>
+            <button onClick={() => setSelectedYear(selectedYear - 1)} className="btn btn-sm btn-secondary">
+              ← {selectedYear - 1}
+            </button>
+            <span style={{ background: 'var(--accent)', color: '#fff', padding: '0.35rem 0.85rem', borderRadius: '6px', fontWeight: 800, fontSize: '1rem' }}>
+              {selectedYear}
+            </span>
+            <button onClick={() => setSelectedYear(selectedYear + 1)} className="btn btn-sm btn-secondary">
+              {selectedYear + 1} →
+            </button>
+          </div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Click any month card below to launch or open its payroll cycle.
+          </div>
+        </div>
+      </div>
+
+      {/* 12-Month Interactive Calendar Grid (Screenshot 2 Match) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+        {calendarMonths.map(m => (
+          <div
+            key={m.num}
+            className="card"
+            style={{
+              marginBottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              borderTop: `4px solid ${m.existingRun ? (m.existingRun.status === 'approved' ? '#16a34a' : '#d97706') : '#cbd5e1'}`,
+              ...(m.existingRun && m.existingRun.status === 'approved' ? { background: '#f0fdf4' } : {})
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{m.name} {selectedYear}</h3>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{m.daysInMonth} Days in Month</span>
+                </div>
+                {m.existingRun ? (
+                  m.existingRun.status === 'approved' ? (
+                    <span className="badge" style={{ background: '#d1fae5', color: '#065f46', fontWeight: 800 }}>
+                      <i className="fa-solid fa-circle-check"></i> Completed
+                    </span>
+                  ) : (
+                    <span className="badge badge-draft">Draft</span>
+                  )
+                ) : (
+                  <span className="badge" style={{ background: '#f1f5f9', color: '#64748b' }}>Not Started</span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1.25rem' }}>
+              {m.existingRun ? (
+                <button
+                  onClick={() => openRunModal(m.existingRun)}
+                  className="btn btn-sm btn-secondary"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  {m.existingRun.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process Payroll'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleStartPayroll(m.period, m.lastDay)}
+                  className="btn btn-sm btn-primary"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  + Start {m.name} Payroll
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* All Payroll Runs History Table */}
       <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">All Payroll Runs History</h2>
+        </div>
+
         {runs.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No payroll runs created yet.</p>
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No payroll runs created yet. Select a month above to start.</p>
         ) : (
           <div className="table-responsive">
             <table className="table">
@@ -115,10 +212,8 @@ const PayrollPage = () => {
                 <tr>
                   <th>Period</th>
                   <th>Pay Date</th>
-                  <th>Total Payslips</th>
-                  <th style={{ textAlign: 'right' }}>Disbursed Net Pay</th>
-                  <th style={{ textAlign: 'center' }}>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,14 +221,12 @@ const PayrollPage = () => {
                   <tr key={run.id}>
                     <td><strong>{run.period}</strong></td>
                     <td>{run.pay_date}</td>
-                    <td>{run.total_payslips} Generated</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>₹{run.total_net_disbursed.toLocaleString('en-IN')}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={`badge badge-${run.status}`}>{run.status?.toUpperCase()}</span>
+                    <td>
+                      <span className={`badge badge-${run.status}`}>{run.status}</span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button onClick={() => openRunModal(run)} className="btn btn-sm btn-secondary">
-                        <i className="fa-regular fa-eye"></i> Manage Run
+                        {run.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process & Calculate'}
                       </button>
                     </td>
                   </tr>
@@ -144,33 +237,7 @@ const PayrollPage = () => {
         )}
       </div>
 
-      {/* CREATE RUN MODAL */}
-      {showCreateModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
-          <div className="card" style={{ maxWidth: '450px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
-              <h2 className="card-title" style={{ margin: 0 }}>Initiate New Payroll Run</h2>
-              <button onClick={() => setShowCreateModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
-            </div>
-            <form onSubmit={handleCreateRun} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem' }}>Payroll Period (YYYY-MM)</label>
-                <input type="text" required placeholder="YYYY-MM" value={newRun.period} onChange={e => setNewRun({...newRun, period: e.target.value})} style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700 }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem' }}>Pay Disbursal Date</label>
-                <input type="date" required value={newRun.pay_date} onChange={e => setNewRun({...newRun, pay_date: e.target.value})} style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm">Create Draft Run</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MANAGE RUN MODAL */}
+      {/* MANAGE PAYROLL RUN MODAL */}
       {showRunModal && selectedRun && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
           <div className="card" style={{ maxWidth: '850px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>

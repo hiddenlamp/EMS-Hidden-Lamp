@@ -4,38 +4,47 @@ import api from '../api/client';
 const EmployeesPage = () => {
   const [employees, setEmployees] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [search, setSearch] = useState('');
-  const [locationFilter, setLocationFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [selectedLocation, setSelectedLocation] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('Active');
   const [loading, setLoading] = useState(true);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showSalaryModal, setShowSalaryModal] = useState(false);
-  const [selectedEmp, setSelectedEmp] = useState(null);
-  const [salaryComponents, setSalaryComponents] = useState([]);
 
-  // Form states (No hardcoded demo values!)
-  const [newEmp, setNewEmp] = useState({
+  // Selected Employee State
+  const [selectedEmp, setSelectedEmp] = useState(null);
+
+  // Forms State
+  const [empForm, setEmpForm] = useState({
     employee_code: '',
     name: '',
-    designation: '',
-    department: '',
+    email: '',
+    designation: 'Staff',
+    department: 'Operations',
     work_location: 'Hazaribagh',
-    joining_date: '',
-    pan: '',
-    bank_name: '',
+    joining_date: new Date().toISOString().split('T')[0],
+    status: 'Active',
     bank_account: '',
-    base_salary: ''
+    ifsc_code: ''
+  });
+
+  const [salaryForm, setSalaryForm] = useState({
+    basic_salary: '',
+    hra: '',
+    conveyance: '',
+    special_allowance: '',
+    pf_employee: '',
+    esi_employee: '',
+    tds: ''
   });
 
   const fetchEmployees = async () => {
     try {
-      const locQuery = locationFilter === 'all' ? '' : locationFilter;
-      const statusQuery = statusFilter === 'all' ? '' : statusFilter;
-      const res = await api.get(`/employees?search=${search}&location=${encodeURIComponent(locQuery)}&status=${statusQuery}`);
+      const res = await api.get('/employees');
       setEmployees(res.data.employees || []);
-      setLocations(res.data.locations || []);
+      setLocations(res.data.locations || ['Dantewada', 'Deoghar', 'Gomia', 'Gumla', 'Hazaribagh', 'Khunti', 'Patna', 'Ranchi', 'Sahibganj']);
     } catch (err) {
       console.error('Failed to fetch employees:', err);
     } finally {
@@ -45,17 +54,28 @@ const EmployeesPage = () => {
 
   useEffect(() => {
     fetchEmployees();
-  }, [search, locationFilter, statusFilter]);
+  }, []);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/employees', newEmp);
+      await api.post('/employees', empForm);
       setShowAddModal(false);
-      setNewEmp({ employee_code: '', name: '', designation: '', department: '', work_location: 'Hazaribagh', joining_date: '', pan: '', bank_name: '', bank_account: '', base_salary: '' });
+      setEmpForm({ employee_code: '', name: '', email: '', designation: 'Staff', department: 'Operations', work_location: 'Hazaribagh', joining_date: new Date().toISOString().split('T')[0], status: 'Active', bank_account: '', ifsc_code: '' });
       fetchEmployees();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add employee.');
+    }
+  };
+
+  const handleEditEmployee = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post(`/employees/${selectedEmp.id}/edit`, empForm);
+      setShowEditModal(false);
+      fetchEmployees();
+    } catch (err) {
+      alert('Failed to update employee.');
     }
   };
 
@@ -63,26 +83,27 @@ const EmployeesPage = () => {
     setSelectedEmp(emp);
     try {
       const res = await api.get(`/employees/${emp.id}/salary`);
-      setSalaryComponents(res.data.components || []);
+      const s = res.data.salary || {};
+      setSalaryForm({
+        basic_salary: s.basic_salary || '',
+        hra: s.hra || '',
+        conveyance: s.conveyance || '',
+        special_allowance: s.special_allowance || '',
+        pf_employee: s.pf_employee || '',
+        esi_employee: s.esi_employee || '',
+        tds: s.tds || ''
+      });
       setShowSalaryModal(true);
     } catch (err) {
-      alert('Failed to fetch salary structure.');
+      alert('Failed to load salary structure.');
     }
   };
 
   const handleSaveSalary = async (e) => {
     e.preventDefault();
     try {
-      const names = salaryComponents.map(c => c.component_name);
-      const types = salaryComponents.map(c => c.type);
-      const amounts = salaryComponents.map(c => c.amount);
-
-      await api.post(`/employees/${selectedEmp.id}/salary`, {
-        component_name: names,
-        type: types,
-        amount: amounts,
-        empName: selectedEmp.name
-      });
+      await api.post(`/employees/${selectedEmp.id}/salary`, salaryForm);
+      alert('Salary structure updated successfully!');
       setShowSalaryModal(false);
       fetchEmployees();
     } catch (err) {
@@ -90,107 +111,134 @@ const EmployeesPage = () => {
     }
   };
 
-  const addComponentRow = () => {
-    setSalaryComponents([...salaryComponents, { component_name: 'Allowance', type: 'earning', amount: 1000 }]);
-  };
-
-  const removeComponentRow = (index) => {
-    setSalaryComponents(salaryComponents.filter((_, i) => i !== index));
-  };
+  // Filter employees by Location & Status
+  const filteredEmployees = employees.filter(emp => {
+    const locMatch = selectedLocation === 'all' || emp.work_location === selectedLocation;
+    const statusMatch = selectedStatus === 'All' || emp.status === selectedStatus;
+    return locMatch && statusMatch;
+  });
 
   return (
     <div>
       {/* Page Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="page-title">Employees Register</h1>
           <p className="page-description">Location-wise headcount and monthly salary register for Hidden Lamp.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
-          + Add New Employee
-        </button>
+        <div>
+          <button type="button" className="btn btn-primary" onClick={() => setShowAddModal(true)} style={{ fontWeight: 600, padding: '0.6rem 1.25rem' }}>
+            <i className="fa-solid fa-plus"></i> + Add New Employee
+          </button>
+        </div>
       </div>
 
-      <div className="card">
-        {/* Filter Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-          {/* Location Filter Links */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-muted)', marginRight: '0.25rem' }}>Location:</span>
+      {/* Location Filter Pills Bar (Screenshot 1 Match) */}
+      <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Location:</span>
+          <button
+            onClick={() => setSelectedLocation('all')}
+            className={`btn btn-sm ${selectedLocation === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ borderRadius: '20px', padding: '0.3rem 0.85rem', fontWeight: 600 }}
+          >
+            All Locations
+          </button>
+          {locations.map(loc => (
             <button
-              onClick={() => setLocationFilter('all')}
-              className={`btn btn-sm ${locationFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              key={loc}
+              onClick={() => setSelectedLocation(loc)}
+              className={`btn btn-sm ${selectedLocation === loc ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ borderRadius: '20px', padding: '0.3rem 0.85rem', fontWeight: 600 }}
             >
-              All Locations
+              {loc}
             </button>
-            {locations.map(loc => (
-              <button
-                key={loc}
-                onClick={() => setLocationFilter(loc)}
-                className={`btn btn-sm ${locationFilter === loc ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                {loc}
-              </button>
-            ))}
-          </div>
-
-          {/* Status Filter Links */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => setStatusFilter('active')} className={`btn btn-sm ${statusFilter === 'active' ? 'btn-primary' : 'btn-secondary'}`}>
-              Active
-            </button>
-            <button onClick={() => setStatusFilter('exited')} className={`btn btn-sm ${statusFilter === 'exited' ? 'btn-primary' : 'btn-secondary'}`}>
-              Exited
-            </button>
-            <button onClick={() => setStatusFilter('all')} className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}>
-              All
-            </button>
-          </div>
+          ))}
         </div>
 
-        {employees.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No employees found in this view.</p>
+        {/* Status Filter Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {['Active', 'Exited', 'All'].map(st => (
+            <button
+              key={st}
+              onClick={() => setSelectedStatus(st)}
+              className={`btn btn-sm ${selectedStatus === st ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ borderRadius: '20px', padding: '0.25rem 0.75rem', fontSize: '0.82rem' }}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Employees Register Table (Screenshot 1 Match) */}
+      <div className="card">
+        {filteredEmployees.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No employees found for the selected location or status.</p>
         ) : (
           <div className="table-responsive">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Emp Code</th>
-                  <th>Name</th>
-                  <th>Designation</th>
-                  <th>Department</th>
-                  <th>Location</th>
-                  <th>Gross Salary</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>EMP CODE</th>
+                  <th>NAME</th>
+                  <th>DESIGNATION</th>
+                  <th>DEPARTMENT</th>
+                  <th>LOCATION</th>
+                  <th>JOINING DATE</th>
+                  <th>STATUS</th>
+                  <th style={{ textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {employees.map(emp => (
+                {filteredEmployees.map(emp => (
                   <tr key={emp.id}>
-                    <td><strong>{emp.employee_code || (`HL${String(emp.id).padStart(4, '0')}`)}</strong></td>
+                    <td><strong style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{emp.employee_code}</strong></td>
                     <td>
-                      <strong>{emp.name}</strong>
+                      <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{emp.name}</strong>
+                      <br /><small style={{ color: 'var(--text-muted)' }}>{emp.email}</small>
                     </td>
                     <td>{emp.designation || 'Staff'}</td>
-                    <td>{emp.department || 'General'}</td>
+                    <td>{emp.department || 'Operations'}</td>
                     <td>
-                      <span style={{ background: '#f1f5f9', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 600, fontSize: '0.8rem', color: '#334155' }}>
+                      <span style={{ background: '#f1f5f9', padding: '0.15rem 0.45rem', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 600, color: '#334155' }}>
                         {emp.work_location}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700, color: '#059669' }}>
-                      ₹{(emp.gross_salary || 0).toLocaleString('en-IN')}
-                    </td>
+                    <td>{emp.joining_date}</td>
                     <td>
-                      <span className={`badge badge-${emp.status}`}>{emp.status}</span>
+                      <span className={`badge badge-${emp.status === 'Active' ? 'approved' : 'draft'}`}>{emp.status}</span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
-                        <button onClick={() => openSalaryModal(emp)} className="btn btn-sm btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>
-                          ⚙️ Salary
-                        </button>
-                      </div>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        onClick={() => openSalaryModal(emp)}
+                        className="btn btn-sm btn-secondary"
+                        style={{ marginRight: '0.4rem', fontSize: '0.78rem' }}
+                      >
+                        <i className="fa-solid fa-gear"></i> Salary
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedEmp(emp);
+                          setEmpForm({
+                            employee_code: emp.employee_code,
+                            name: emp.name,
+                            email: emp.email,
+                            designation: emp.designation,
+                            department: emp.department,
+                            work_location: emp.work_location,
+                            joining_date: emp.joining_date,
+                            status: emp.status,
+                            bank_account: emp.bank_account || '',
+                            ifsc_code: emp.ifsc_code || ''
+                          });
+                          setShowEditModal(true);
+                        }}
+                        className="btn btn-sm btn-secondary"
+                        style={{ fontSize: '0.78rem' }}
+                      >
+                        <i className="fa-solid fa-pencil"></i> Edit
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -203,46 +251,55 @@ const EmployeesPage = () => {
       {/* ADD EMPLOYEE MODAL */}
       {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
-          <div className="card" style={{ maxWidth: '500px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
+          <div className="card" style={{ maxWidth: '550px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
-              <h2 className="card-title" style={{ margin: 0 }}>Add New Employee Profile</h2>
+              <h2 className="card-title" style={{ margin: 0 }}>Add New Employee</h2>
               <button onClick={() => setShowAddModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
             </div>
             <form onSubmit={handleAddEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Employee Code</label>
-                  <input type="text" required placeholder="HL0010" value={newEmp.employee_code} onChange={e => setNewEmp({...newEmp, employee_code: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                  <input type="text" required placeholder="e.g. HL-045" value={empForm.employee_code} onChange={e => setEmpForm({...empForm, employee_code: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Full Name</label>
-                  <input type="text" required placeholder="Rahul Sharma" value={newEmp.name} onChange={e => setNewEmp({...newEmp, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                  <input type="text" required placeholder="John Doe" value={empForm.name} onChange={e => setEmpForm({...empForm, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Email Address</label>
+                <input type="email" required placeholder="john@hiddenlamp.com" value={empForm.email} onChange={e => setEmpForm({...empForm, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Designation</label>
-                  <input type="text" placeholder="Software Engineer" value={newEmp.designation} onChange={e => setNewEmp({...newEmp, designation: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                  <input type="text" value={empForm.designation} onChange={e => setEmpForm({...empForm, designation: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Department</label>
-                  <input type="text" placeholder="IT / Engineering" value={newEmp.department} onChange={e => setNewEmp({...newEmp, department: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                  <input type="text" value={empForm.department} onChange={e => setEmpForm({...empForm, department: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Work Location</label>
-                  <input type="text" required placeholder="Hazaribagh" value={newEmp.work_location} onChange={e => setNewEmp({...newEmp, work_location: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                  <select value={empForm.work_location} onChange={e => setEmpForm({...empForm, work_location: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                    {locations.map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Base Basic Salary (₹)</label>
-                  <input type="number" required placeholder="18000" value={newEmp.base_salary} onChange={e => setNewEmp({...newEmp, base_salary: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, color: '#2563eb' }} />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Joining Date</label>
+                  <input type="date" value={empForm.joining_date} onChange={e => setEmpForm({...empForm, joining_date: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyRight: 'flex-end', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
                 <button type="submit" className="btn btn-primary btn-sm">Save Employee</button>
               </div>
@@ -252,68 +309,50 @@ const EmployeesPage = () => {
       )}
 
       {/* SALARY STRUCTURE MODAL */}
-      {showSalaryModal && (
+      {showSalaryModal && selectedEmp && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
-          <div className="card" style={{ maxWidth: '600px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
+          <div className="card" style={{ maxWidth: '500px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
-              <div>
-                <h2 className="card-title" style={{ margin: 0 }}>Configure Salary Structure</h2>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Employee: {selectedEmp?.name} ({selectedEmp?.employee_code})</p>
-              </div>
+              <h2 className="card-title" style={{ margin: 0 }}>Salary Structure: {selectedEmp.name}</h2>
               <button onClick={() => setShowSalaryModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
             </div>
-
             <form onSubmit={handleSaveSalary} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.25rem' }}>
-                {salaryComponents.map((comp, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      value={comp.component_name}
-                      onChange={e => {
-                        const updated = [...salaryComponents];
-                        updated[idx].component_name = e.target.value;
-                        setSalaryComponents(updated);
-                      }}
-                      style={{ flex: 1, padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.85rem' }}
-                      placeholder="Component Name"
-                    />
-                    <select
-                      value={comp.type}
-                      onChange={e => {
-                        const updated = [...salaryComponents];
-                        updated[idx].type = e.target.value;
-                        setSalaryComponents(updated);
-                      }}
-                      style={{ padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.85rem' }}
-                    >
-                      <option value="earning">➕ Earning</option>
-                      <option value="deduction">➖ Deduction</option>
-                    </select>
-                    <input
-                      type="number"
-                      value={comp.amount}
-                      onChange={e => {
-                        const updated = [...salaryComponents];
-                        updated[idx].amount = parseFloat(e.target.value) || 0;
-                        setSalaryComponents(updated);
-                      }}
-                      style={{ width: '110px', padding: '0.4rem 0.6rem', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 700 }}
-                    />
-                    <button type="button" onClick={() => removeComponentRow(idx)} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.4rem' }}>
-                      <i className="fa-solid fa-trash-can"></i>
-                    </button>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Basic Salary (₹)</label>
+                  <input type="number" required placeholder="0.00" value={salaryForm.basic_salary} onChange={e => setSalaryForm({...salaryForm, basic_salary: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, color: '#059669' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>HRA (₹)</label>
+                  <input type="number" placeholder="0.00" value={salaryForm.hra} onChange={e => setSalaryForm({...salaryForm, hra: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
               </div>
 
-              <button type="button" onClick={addComponentRow} style={{ border: 'none', background: 'none', color: '#2563eb', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', textAlign: 'left', marginTop: '0.25rem' }}>
-                + Add Component Line
-              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Conveyance (₹)</label>
+                  <input type="number" placeholder="0.00" value={salaryForm.conveyance} onChange={e => setSalaryForm({...salaryForm, conveyance: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Special Allowance (₹)</label>
+                  <input type="number" placeholder="0.00" value={salaryForm.special_allowance} onChange={e => setSalaryForm({...salaryForm, special_allowance: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>PF Deduction (₹)</label>
+                  <input type="number" placeholder="0.00" value={salaryForm.pf_employee} onChange={e => setSalaryForm({...salaryForm, pf_employee: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', color: '#dc2626' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>TDS (₹)</label>
+                  <input type="number" placeholder="0.00" value={salaryForm.tds} onChange={e => setSalaryForm({...salaryForm, tds: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', color: '#dc2626' }} />
+                </div>
+              </div>
 
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setShowSalaryModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm">Save Structure</button>
+                <button type="submit" className="btn btn-primary btn-sm">Save Salary Structure</button>
               </div>
             </form>
           </div>
