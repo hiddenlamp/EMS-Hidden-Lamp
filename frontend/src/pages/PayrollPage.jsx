@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
-import { Calendar, Plus, Calculator, CheckCircle2, Send, Eye, X } from 'lucide-react';
 
 const PayrollPage = () => {
   const [runs, setRuns] = useState([]);
@@ -14,16 +13,16 @@ const PayrollPage = () => {
   const [activeEmps, setActiveEmps] = useState([]);
   const [lopInputs, setLopInputs] = useState({});
 
-  // Create form state
+  // Create form state (No hardcoded demo values!)
   const [newRun, setNewRun] = useState({
-    period: '2026-08',
-    pay_date: '2026-08-31'
+    period: '',
+    pay_date: ''
   });
 
   const fetchRuns = async () => {
     try {
       const res = await api.get('/payroll');
-      setRuns(res.data.runs);
+      setRuns(res.data.runs || []);
     } catch (err) {
       console.error('Failed to fetch payroll runs:', err);
     } finally {
@@ -40,6 +39,7 @@ const PayrollPage = () => {
     try {
       await api.post('/payroll', newRun);
       setShowCreateModal(false);
+      setNewRun({ period: '', pay_date: '' });
       fetchRuns();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to create payroll run.');
@@ -54,7 +54,7 @@ const PayrollPage = () => {
       setActiveEmps(res.data.activeEmployees || []);
       
       const initialLop = {};
-      res.data.payslips.forEach(ps => {
+      (res.data.payslips || []).forEach(ps => {
         try {
           const breakdown = JSON.parse(ps.breakdown_json);
           initialLop[ps.employee_id] = breakdown.days_lop || 0;
@@ -93,142 +93,131 @@ const PayrollPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Monthly Payroll Run Processing</h1>
-          <p className="text-sm text-slate-500">Create payroll runs, calculate LOP deductions, and issue approved payslips.</p>
+          <h1 className="page-title">Monthly Payroll Run Processing</h1>
+          <p className="page-description">Create payroll runs, calculate LOP deductions, and issue approved payslips.</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 text-sm transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create New Payroll Run</span>
+        <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
+          + Create New Payroll Run
         </button>
       </div>
 
-      {/* Runs Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wider">
-              <tr>
-                <th className="p-4">Period</th>
-                <th className="p-4">Pay Date</th>
-                <th className="p-4">Total Payslips</th>
-                <th className="p-4 text-right">Disbursed Net Pay</th>
-                <th className="p-4 text-center">Status</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {runs.map((run) => (
-                <tr key={run.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="p-4 font-bold text-slate-900">{run.period}</td>
-                  <td className="p-4 text-slate-600">{run.pay_date}</td>
-                  <td className="p-4 font-semibold text-slate-800">{run.total_payslips} Generated</td>
-                  <td className="p-4 text-right font-extrabold text-blue-600">₹{run.total_net_disbursed.toLocaleString('en-IN')}</td>
-                  <td className="p-4 text-center">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                      run.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {run.status?.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => openRunModal(run)}
-                      className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold inline-flex items-center space-x-1 transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Manage Run</span>
-                    </button>
-                  </td>
+      <div className="card">
+        {runs.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No payroll runs created yet.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Pay Date</th>
+                  <th>Total Payslips</th>
+                  <th style={{ textAlign: 'right' }}>Disbursed Net Pay</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {runs.map(run => (
+                  <tr key={run.id}>
+                    <td><strong>{run.period}</strong></td>
+                    <td>{run.pay_date}</td>
+                    <td>{run.total_payslips} Generated</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>₹{run.total_net_disbursed.toLocaleString('en-IN')}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className={`badge badge-${run.status}`}>{run.status?.toUpperCase()}</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button onClick={() => openRunModal(run)} className="btn btn-sm btn-secondary">
+                        <i className="fa-regular fa-eye"></i> Manage Run
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* CREATE RUN MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-lg font-bold text-slate-900">Initiate New Payroll Run</h2>
-              <button onClick={() => setShowCreateModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '450px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
+              <h2 className="card-title" style={{ margin: 0 }}>Initiate New Payroll Run</h2>
+              <button onClick={() => setShowCreateModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
             </div>
-            <form onSubmit={handleCreateRun} className="space-y-4">
+            <form onSubmit={handleCreateRun} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div>
-                <label className="text-xs font-bold text-slate-600">Payroll Period (YYYY-MM)</label>
-                <input type="text" required placeholder="2026-08" value={newRun.period} onChange={e => setNewRun({...newRun, period: e.target.value})} className="w-full p-2.5 text-sm border rounded-lg font-bold" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem' }}>Payroll Period (YYYY-MM)</label>
+                <input type="text" required placeholder="YYYY-MM" value={newRun.period} onChange={e => setNewRun({...newRun, period: e.target.value})} style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700 }} />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-600">Pay Disbursal Date</label>
-                <input type="date" required value={newRun.pay_date} onChange={e => setNewRun({...newRun, pay_date: e.target.value})} className="w-full p-2.5 text-sm border rounded-lg font-medium" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem' }}>Pay Disbursal Date</label>
+                <input type="date" required value={newRun.pay_date} onChange={e => setNewRun({...newRun, pay_date: e.target.value})} style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
-              <div className="flex justify-end space-x-2 pt-3 border-t">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-md shadow-blue-600/30">Create Draft Run</button>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm">Create Draft Run</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* MANAGE PAYROLL RUN MODAL */}
+      {/* MANAGE RUN MODAL */}
       {showRunModal && selectedRun && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-4xl w-full max-h-[90vh] rounded-2xl p-6 shadow-2xl flex flex-col">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '850px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Payroll Run Details: {selectedRun.period}</h2>
-                <p className="text-xs text-slate-500">Pay Date: {selectedRun.pay_date} | Status: <span className="font-bold text-blue-600 uppercase">{selectedRun.status}</span></p>
+                <h2 className="card-title" style={{ margin: 0 }}>Payroll Run Details: {selectedRun.period}</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Pay Date: {selectedRun.pay_date} | Status: <strong style={{ color: '#2563eb' }}>{selectedRun.status?.toUpperCase()}</strong></p>
               </div>
-              <button onClick={() => setShowRunModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+              <button onClick={() => setShowRunModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
             </div>
 
-            {/* Run Actions */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
               {selectedRun.status === 'draft' && (
                 <>
-                  <button onClick={handleCalculatePayroll} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5">
-                    <Calculator className="w-4 h-4" />
-                    <span>Calculate Payroll LOP</span>
+                  <button onClick={handleCalculatePayroll} className="btn btn-primary btn-sm">
+                    <i className="fa-solid fa-calculator"></i> Calculate Payroll LOP
                   </button>
-                  <button onClick={handleApproveRun} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Approve & Lock Run</span>
+                  <button onClick={handleApproveRun} className="btn btn-success btn-sm">
+                    <i className="fa-solid fa-circle-check"></i> Approve & Lock Run
                   </button>
                 </>
               )}
             </div>
 
-            {/* LOP Table & Generated Payslips */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar border rounded-xl">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-bold border-b text-[11px] uppercase">
+            {/* Attendance & Payslip Table */}
+            <div className="table-responsive" style={{ flex: 1, overflowY: 'auto' }}>
+              <table className="table">
+                <thead>
                   <tr>
-                    <th className="p-3">Employee</th>
-                    <th className="p-3">LOP Days Input</th>
-                    <th className="p-3 text-right">Gross Pay</th>
-                    <th className="p-3 text-right">Deductions</th>
-                    <th className="p-3 text-right">Net Payable</th>
+                    <th>Employee</th>
+                    <th>LOP Days Input</th>
+                    <th style={{ textAlign: 'right' }}>Gross Pay</th>
+                    <th style={{ textAlign: 'right' }}>Deductions</th>
+                    <th style={{ textAlign: 'right' }}>Net Payable</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody>
                   {activeEmps.map(emp => {
                     const ps = runPayslips.find(p => p.employee_id === emp.id);
                     return (
-                      <tr key={emp.id} className="hover:bg-slate-50">
-                        <td className="p-3">
-                          <p className="font-bold text-slate-800">{emp.name}</p>
-                          <p className="text-xs text-slate-400">{emp.work_location}</p>
+                      <tr key={emp.id}>
+                        <td>
+                          <strong>{emp.name}</strong>
+                          <br /><small style={{ color: 'var(--text-muted)' }}>{emp.work_location}</small>
                         </td>
-                        <td className="p-3">
+                        <td>
                           <input
                             type="number"
                             step="0.5"
@@ -236,12 +225,12 @@ const PayrollPage = () => {
                             disabled={selectedRun.status === 'approved'}
                             value={lopInputs[emp.id] !== undefined ? lopInputs[emp.id] : 0}
                             onChange={e => setLopInputs({...lopInputs, [emp.id]: parseFloat(e.target.value) || 0})}
-                            className="w-20 p-1.5 border rounded-md text-xs font-bold text-center"
+                            style={{ width: '80px', padding: '0.3rem', textAlign: 'center', border: '1px solid var(--border)', borderRadius: '4px', fontWeight: 700 }}
                           />
                         </td>
-                        <td className="p-3 text-right text-emerald-600 font-semibold">₹{ps ? ps.gross_pay.toLocaleString('en-IN') : '-'}</td>
-                        <td className="p-3 text-right text-red-600 font-semibold">₹{ps ? ps.total_deductions.toLocaleString('en-IN') : '-'}</td>
-                        <td className="p-3 text-right font-extrabold text-blue-600">₹{ps ? ps.net_pay.toLocaleString('en-IN') : '-'}</td>
+                        <td style={{ textAlign: 'right', color: '#059669', fontWeight: 600 }}>₹{ps ? ps.gross_pay.toLocaleString('en-IN') : '-'}</td>
+                        <td style={{ textAlign: 'right', color: '#dc2626', fontWeight: 600 }}>₹{ps ? ps.total_deductions.toLocaleString('en-IN') : '-'}</td>
+                        <td style={{ textAlign: 'right', color: '#2563eb', fontWeight: 700 }}>₹{ps ? ps.net_pay.toLocaleString('en-IN') : '-'}</td>
                       </tr>
                     );
                   })}
@@ -249,8 +238,8 @@ const PayrollPage = () => {
               </table>
             </div>
 
-            <div className="flex justify-end pt-4 border-t mt-4">
-              <button onClick={() => setShowRunModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg">Close</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid var(--border)', marginTop: '1rem' }}>
+              <button onClick={() => setShowRunModal(false)} className="btn btn-secondary btn-sm">Close</button>
             </div>
           </div>
         </div>

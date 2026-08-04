@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
-import { Users, UserX, Calendar, MapPin, IndianRupee, TrendingUp, Building } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const DashboardPage = () => {
   const [data, setData] = useState(null);
@@ -22,112 +22,150 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+      <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
+        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#2563eb' }}></i>
+        <p>Loading Dashboard statistics...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Executive Payroll Dashboard</h1>
-        <p className="text-sm text-slate-500">Real-time overview of active staff, monthly budget allocation, and location spend.</p>
-      </div>
-
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-slate-900">{data?.activeCount || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Active Staff</p>
-          </div>
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Payroll Dashboard (July 2026 Register)</h1>
+          <p className="page-description">Welcome back! Manage location-wise employee heads, salary budgets, and monthly payroll processing.</p>
         </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-            <UserX className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-slate-900">{data?.exitedCount || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Exited Staff</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <IndianRupee className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-slate-900">₹{(data?.totalBudget || 0).toLocaleString('en-IN')}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Monthly Payroll Base</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <MapPin className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-slate-900">{data?.locationCount || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Active Work Locations</p>
-          </div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <Link to="/employees" className="btn btn-secondary">+ Add Employee</Link>
+          <Link to="/payroll" className="btn btn-primary">Process Payroll Run</Link>
         </div>
       </div>
 
-      {/* Grid: Location Budget vs Recent Payroll Runs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Location Wise Budget Distribution */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center space-x-2">
-            <Building className="w-5 h-5 text-blue-600" />
-            <span>Location Wise Monthly Payroll Budget</span>
-          </h2>
-          <div className="space-y-4">
-            {data?.locationSummary?.map((loc) => {
-              const pct = data.totalBudget > 0 ? ((loc.location_budget / data.totalBudget) * 100).toFixed(1) : 0;
-              return (
-                <div key={loc.work_location} className="space-y-1.5">
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-slate-800">{loc.work_location} ({loc.heads} Staff)</span>
-                    <span className="text-blue-600">₹{(loc.location_budget || 0).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600 rounded-full" style={{ width: `${pct}%` }}></div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Metrics Grid */}
+      <div className="metrics-grid">
+        <div className="metric-card bg-pastel-green">
+          <div className="metric-icon"><i className="fa-solid fa-users"></i></div>
+          <div>
+            <div className="metric-value">{data?.activeCount || 0}</div>
+            <div className="metric-label">Total Employee Heads</div>
+          </div>
+        </div>
+
+        <div className="metric-card bg-pastel-purple">
+          <div className="metric-icon"><i className="fa-solid fa-map-location-dot"></i></div>
+          <div>
+            <div className="metric-value">{data?.locationCount || 0}</div>
+            <div className="metric-label">Locations Covered</div>
+          </div>
+        </div>
+
+        <div className="metric-card bg-pastel-orange">
+          <div className="metric-icon"><i className="fa-solid fa-indian-rupee-sign"></i></div>
+          <div>
+            <div className="metric-value">₹{(data?.totalBudget || 0).toLocaleString('en-IN')}</div>
+            <div className="metric-label">Monthly Salary Budget</div>
+          </div>
+        </div>
+
+        <div className="metric-card bg-pastel-blue">
+          <div className="metric-icon"><i className="fa-solid fa-file-invoice-dollar"></i></div>
+          <div>
+            <div className="metric-value">{data?.runCount || 0}</div>
+            <div className="metric-label">Total Payroll Runs</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid: Location Summary & Recent Runs */}
+      <div className="form-grid" style={{ gridTemplateColumns: '3fr 2fr', gap: '1.5rem', alignItems: 'start' }}>
+        {/* Place-Wise Summary */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Place-Wise Summary (Hidden Lamp)</h2>
+            <Link to="/employees" className="btn btn-sm btn-secondary">View Register</Link>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Sl.</th>
+                  <th>Location</th>
+                  <th style={{ textAlign: 'center' }}>Heads</th>
+                  <th style={{ textAlign: 'right' }}>Monthly Budget</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.locationSummary?.map((loc, idx) => (
+                  <tr key={loc.work_location}>
+                    <td>{idx + 1}</td>
+                    <td><strong>{loc.work_location}</strong></td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className="badge" style={{ background: '#e2e8f0', color: '#1e293b' }}>{loc.heads}</span>
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                      ₹{(loc.location_budget || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Link to={`/employees?location=${encodeURIComponent(loc.work_location)}`} className="btn btn-sm btn-secondary">Details</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
+                  <td colSpan="2">GRAND TOTAL</td>
+                  <td style={{ textAlign: 'center', color: '#2563eb' }}>{data?.activeCount || 0}</td>
+                  <td style={{ textAlign: 'right', color: '#059669' }}>₹{(data?.totalBudget || 0).toLocaleString('en-IN')}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
 
         {/* Recent Payroll Runs */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center space-x-2">
-            <Calendar className="w-5 h-5 text-blue-600" />
-            <span>Recent Monthly Payroll Runs</span>
-          </h2>
-          <div className="divide-y divide-slate-100">
-            {data?.recentRuns?.map((run) => (
-              <div key={run.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-slate-800 text-sm">Period: {run.period}</p>
-                  <p className="text-xs text-slate-500">Pay Date: {run.pay_date}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  run.status === 'approved' 
-                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                    : 'bg-amber-100 text-amber-700 border border-amber-200'
-                }`}>
-                  {run.status?.toUpperCase()}
-                </span>
-              </div>
-            ))}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Recent Payroll Runs</h2>
+            <Link to="/payroll" className="btn btn-sm btn-secondary">View All</Link>
           </div>
+
+          {data?.recentRuns?.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
+              No payroll runs created yet. Click <strong>Process Payroll Run</strong> to process the July 2026 cycle.
+            </p>
+          ) : (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Pay Date</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.recentRuns?.map(run => (
+                    <tr key={run.id}>
+                      <td><strong>{run.period}</strong></td>
+                      <td>{run.pay_date}</td>
+                      <td>
+                        <span className={`badge badge-${run.status}`}>{run.status}</span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <Link to={`/payroll/${run.id}`} className="btn btn-sm btn-secondary">View</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

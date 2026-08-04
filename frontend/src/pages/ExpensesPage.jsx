@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
-import { Receipt, Building, Plus, MapPin, X } from 'lucide-react';
 
 const ExpensesPage = () => {
   const [activeTab, setActiveTab] = useState('travel');
@@ -13,22 +12,22 @@ const ExpensesPage = () => {
   const [showTravelModal, setShowTravelModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
 
-  // Forms
+  // Forms (No hardcoded demo values!)
   const [newTravel, setNewTravel] = useState({
     employee_id: '',
     claim_type: 'Travel',
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
     purpose: '',
-    total_amount: 0,
-    advance_paid: 0,
+    total_amount: '',
+    advance_paid: '',
     receipt_ref: ''
   });
 
   const [newCompany, setNewCompany] = useState({
     title: '',
     category: 'Office Operations',
-    amount: 0,
+    amount: '',
     date: new Date().toISOString().split('T')[0],
     work_location: 'Hazaribagh',
     vendor_name: '',
@@ -41,7 +40,7 @@ const ExpensesPage = () => {
       setTravelExpenses(res.data.travelExpenses || []);
       setCompanyExpenses(res.data.companyExpenses || []);
       setEmployees(res.data.employees || []);
-      if (res.data.employees?.length > 0) {
+      if (res.data.employees?.length > 0 && !newTravel.employee_id) {
         setNewTravel(prev => ({ ...prev, employee_id: res.data.employees[0].id }));
       }
     } catch (err) {
@@ -60,6 +59,7 @@ const ExpensesPage = () => {
     try {
       await api.post('/expenses/travel', newTravel);
       setShowTravelModal(false);
+      setNewTravel({ employee_id: employees[0]?.id || '', claim_type: 'Travel', start_date: new Date().toISOString().split('T')[0], end_date: new Date().toISOString().split('T')[0], purpose: '', total_amount: '', advance_paid: '', receipt_ref: '' });
       fetchExpenses();
     } catch (err) {
       alert('Failed to submit travel expense.');
@@ -71,209 +71,251 @@ const ExpensesPage = () => {
     try {
       await api.post('/expenses/company', newCompany);
       setShowCompanyModal(false);
+      setNewCompany({ title: '', category: 'Office Operations', amount: '', date: new Date().toISOString().split('T')[0], work_location: 'Hazaribagh', vendor_name: '', payment_mode: 'Bank Transfer' });
       fetchExpenses();
     } catch (err) {
       alert('Failed to record company overhead.');
     }
   };
 
+  // Metrics
+  const totalTravelClaims = travelExpenses.reduce((sum, t) => sum + (t.total_amount || 0), 0);
+  const totalAdvancePaid = travelExpenses.reduce((sum, t) => sum + (t.advance_paid || 0), 0);
+  const totalPendingDues = travelExpenses.reduce((sum, t) => sum + (t.dues_amount || 0), 0);
+  const totalCompanyExpenses = companyExpenses.reduce((sum, c) => sum + (c.amount || 0), 0);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Receipts & Expense Management</h1>
-          <p className="text-sm text-slate-500">Track employee travel reimbursements and company operational overhead bills.</p>
+          <h1 className="page-title">Expenses & Travel Reimbursements</h1>
+          <p className="page-description">Track employee travel claims, out-of-pocket purchases, advance paid, accumulated dues, and company overhead.</p>
         </div>
-        <div className="flex space-x-2">
-          {activeTab === 'travel' ? (
-            <button
-              onClick={() => setShowTravelModal(true)}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 text-sm transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Employee Claim</span>
-            </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => setShowCompanyModal(true)}>
+            <i className="fa-solid fa-building-circle-check"></i> + Company Expense
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => setShowTravelModal(true)}>
+            <i className="fa-solid fa-plus"></i> + Add Expense Claim
+          </button>
+        </div>
+      </div>
+
+      {/* Metrics Grid */}
+      <div className="metrics-grid">
+        <div className="metric-card bg-pastel-blue">
+          <div className="metric-icon"><i className="fa-solid fa-plane-up"></i></div>
+          <div>
+            <div className="metric-value">₹{totalTravelClaims.toLocaleString('en-IN')}</div>
+            <div className="metric-label">Total Employee Claims</div>
+          </div>
+        </div>
+
+        <div className="metric-card bg-pastel-green">
+          <div className="metric-icon"><i className="fa-solid fa-hand-holding-dollar"></i></div>
+          <div>
+            <div className="metric-value">₹{totalAdvancePaid.toLocaleString('en-IN')}</div>
+            <div className="metric-label">Total Advance / Paid</div>
+          </div>
+        </div>
+
+        <div className="metric-card bg-pastel-red" style={{ background: '#fff1f2', borderColor: '#fecdd3' }}>
+          <div className="metric-icon" style={{ background: '#ffe4e6', color: '#e11d48' }}><i className="fa-solid fa-scale-unbalanced"></i></div>
+          <div>
+            <div className="metric-value" style={{ color: '#be123c' }}>₹{totalPendingDues.toLocaleString('en-IN')}</div>
+            <div className="metric-label" style={{ color: '#9f1239' }}>Total Accrued Balance Dues</div>
+          </div>
+        </div>
+
+        <div className="metric-card bg-pastel-orange">
+          <div className="metric-icon"><i className="fa-solid fa-building"></i></div>
+          <div>
+            <div className="metric-value">₹{totalCompanyExpenses.toLocaleString('en-IN')}</div>
+            <div className="metric-label">Company Operational Overhead</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs Header */}
+      <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.25rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setActiveTab('travel')}
+            className={`btn ${activeTab === 'travel' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontWeight: 600 }}
+          >
+            <i className="fa-solid fa-users-gear"></i> Employee Expense Summaries ({travelExpenses.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('company')}
+            className={`btn ${activeTab === 'company' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontWeight: 600 }}
+          >
+            <i className="fa-solid fa-landmark"></i> Company Expenses ({companyExpenses.length})
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: EMPLOYEE TRAVEL CLAIMS */}
+      {activeTab === 'travel' && (
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title"><i className="fa-solid fa-address-book" style={{ color: 'var(--accent)' }}></i> Employee Expense & Reimbursement Summaries</h2>
+          </div>
+
+          {travelExpenses.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No employee expense records found.</p>
           ) : (
-            <button
-              onClick={() => setShowCompanyModal(true)}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center space-x-2 text-sm transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Record Company Bill</span>
-            </button>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Employee Info</th>
+                    <th>Claim Type</th>
+                    <th>Purpose / Reason</th>
+                    <th style={{ textAlign: 'right' }}>Total Claim (₹)</th>
+                    <th style={{ textAlign: 'right' }}>Paid / Advance (₹)</th>
+                    <th style={{ textAlign: 'right' }}>Balance Dues (₹)</th>
+                    <th style={{ textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {travelExpenses.map(t => (
+                    <tr key={t.id}>
+                      <td>
+                        <strong>{t.employee_name}</strong>
+                        <br /><small style={{ color: 'var(--text-muted)' }}>{t.work_location}</small>
+                      </td>
+                      <td><strong>{t.claim_type}</strong></td>
+                      <td>{t.purpose}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>₹{(t.total_amount || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#047857' }}>₹{(t.advance_paid || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: (t.dues_amount || 0) > 0 ? '#b91c1c' : '#059669' }}>₹{(t.dues_amount || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`badge badge-${t.status === 'Approved' ? 'approved' : 'draft'}`}>{t.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Tabs Bar */}
-      <div className="flex space-x-2 border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('travel')}
-          className={`pb-3 px-4 text-sm font-bold flex items-center space-x-2 border-b-2 transition-all ${
-            activeTab === 'travel' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Receipt className="w-4 h-4" />
-          <span>Employee Claims ({travelExpenses.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('company')}
-          className={`pb-3 px-4 text-sm font-bold flex items-center space-x-2 border-b-2 transition-all ${
-            activeTab === 'company' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Building className="w-4 h-4" />
-          <span>Company Operational Overhead ({companyExpenses.length})</span>
-        </button>
-      </div>
-
-      {/* Tab 1: Employee Travel Expenses */}
-      {activeTab === 'travel' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wider">
-                <tr>
-                  <th className="p-4">Employee</th>
-                  <th className="p-4">Claim Type</th>
-                  <th className="p-4">Purpose / Description</th>
-                  <th className="p-4 text-right">Claim Amount</th>
-                  <th className="p-4 text-right">Paid Advance</th>
-                  <th className="p-4 text-right">Balance Dues</th>
-                  <th className="p-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {travelExpenses.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="p-4">
-                      <p className="font-bold text-slate-900">{t.employee_name}</p>
-                      <p className="text-xs text-slate-400">{t.work_location}</p>
-                    </td>
-                    <td className="p-4 font-semibold text-slate-800">{t.claim_type}</td>
-                    <td className="p-4 text-xs text-slate-600 max-w-xs truncate">{t.purpose}</td>
-                    <td className="p-4 text-right font-bold text-slate-900">₹{t.total_amount.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-right text-emerald-600 font-semibold">₹{t.advance_paid.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-right font-extrabold text-red-600">₹{t.dues_amount.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        t.status === 'Approved' || t.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {t.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       )}
 
-      {/* Tab 2: Company Overhead Expenses */}
+      {/* TAB 2: COMPANY EXPENSES */}
       {activeTab === 'company' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wider">
-                <tr>
-                  <th className="p-4">Bill Title</th>
-                  <th className="p-4">Category</th>
-                  <th className="p-4">Location</th>
-                  <th className="p-4">Date</th>
-                  <th className="p-4 text-right">Amount</th>
-                  <th className="p-4 text-center">Payment Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {companyExpenses.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="p-4 font-bold text-slate-900">{c.title}</td>
-                    <td className="p-4 font-semibold text-slate-800">{c.category}</td>
-                    <td className="p-4 text-xs text-slate-600">{c.work_location}</td>
-                    <td className="p-4 text-xs text-slate-500">{c.date}</td>
-                    <td className="p-4 text-right font-extrabold text-blue-600">₹{c.amount.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-center">
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
-                        {c.payment_status || 'Paid'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title"><i className="fa-solid fa-building-user" style={{ color: 'var(--accent)' }}></i> Company Operational Overhead ({companyExpenses.length} Bills)</h2>
           </div>
+
+          {companyExpenses.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No company operational expenses recorded.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Title & Category</th>
+                    <th>Vendor</th>
+                    <th>Date & Location</th>
+                    <th style={{ textAlign: 'right' }}>Amount (₹)</th>
+                    <th style={{ textAlign: 'center' }}>Payment Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {companyExpenses.map(c => (
+                    <tr key={c.id}>
+                      <td>
+                        <strong>{c.title}</strong>
+                        <br /><small style={{ color: 'var(--text-muted)' }}>{c.category}</small>
+                      </td>
+                      <td>{c.vendor_name || 'N/A'}</td>
+                      <td>
+                        <div>{c.date}</div>
+                        <small style={{ color: 'var(--text-muted)' }}>{c.work_location}</small>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>₹{(c.amount || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="badge badge-approved">{c.payment_status || 'Paid'}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ADD TRAVEL CLAIM MODAL */}
+      {/* MODAL 1: ADD EMPLOYEE CLAIM */}
       {showTravelModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-lg w-full rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-lg font-bold text-slate-900">Add Employee Reimbursement Claim</h2>
-              <button onClick={() => setShowTravelModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '500px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
+              <h2 className="card-title" style={{ margin: 0 }}>Add Employee Expense Claim</h2>
+              <button onClick={() => setShowTravelModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
             </div>
-            <form onSubmit={handleAddTravel} className="space-y-3">
+            <form onSubmit={handleAddTravel} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div>
-                <label className="text-xs font-bold text-slate-600">Select Employee</label>
-                <select value={newTravel.employee_id} onChange={e => setNewTravel({...newTravel, employee_id: e.target.value})} className="w-full p-2 text-sm border rounded-lg">
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Select Employee</label>
+                <select value={newTravel.employee_id} onChange={e => setNewTravel({...newTravel, employee_id: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name} ({emp.work_location})</option>
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Claim Category</label>
-                  <input type="text" value={newTravel.claim_type} onChange={e => setNewTravel({...newTravel, claim_type: e.target.value})} className="w-full p-2 text-sm border rounded-lg" />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Claim Category</label>
+                  <input type="text" value={newTravel.claim_type} onChange={e => setNewTravel({...newTravel, claim_type: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Total Claim Amount (₹)</label>
-                  <input type="number" required value={newTravel.total_amount} onChange={e => setNewTravel({...newTravel, total_amount: e.target.value})} className="w-full p-2 text-sm border rounded-lg font-bold text-blue-600" />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Total Claim Amount (₹)</label>
+                  <input type="number" required placeholder="0.00" value={newTravel.total_amount} onChange={e => setNewTravel({...newTravel, total_amount: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, color: '#2563eb' }} />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-600">Purpose / Description</label>
-                <textarea rows="2" value={newTravel.purpose} onChange={e => setNewTravel({...newTravel, purpose: e.target.value})} className="w-full p-2 text-sm border rounded-lg" placeholder="Client visit, travel tickets..." />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Purpose / Reason</label>
+                <textarea rows="2" value={newTravel.purpose} onChange={e => setNewTravel({...newTravel, purpose: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} placeholder="Client visit, travel tickets..." />
               </div>
-              <div className="flex justify-end space-x-2 pt-3 border-t">
-                <button type="button" onClick={() => setShowTravelModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-md shadow-blue-600/30">Submit Claim</button>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowTravelModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm">Submit Claim</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ADD COMPANY OVERHEAD MODAL */}
+      {/* MODAL 2: ADD COMPANY EXPENSE */}
       {showCompanyModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-lg w-full rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-lg font-bold text-slate-900">Record Company Overhead Bill</h2>
-              <button onClick={() => setShowCompanyModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '500px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
+              <h2 className="card-title" style={{ margin: 0 }}>Record Company Overhead Bill</h2>
+              <button onClick={() => setShowCompanyModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
             </div>
-            <form onSubmit={handleAddCompany} className="space-y-3">
+            <form onSubmit={handleAddCompany} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div>
-                <label className="text-xs font-bold text-slate-600">Bill Title</label>
-                <input type="text" required placeholder="Office Rent July 2026" value={newCompany.title} onChange={e => setNewCompany({...newCompany, title: e.target.value})} className="w-full p-2 text-sm border rounded-lg font-semibold" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Bill Title</label>
+                <input type="text" required placeholder="Office Rent" value={newCompany.title} onChange={e => setNewCompany({...newCompany, title: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 600 }} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Category</label>
-                  <input type="text" value={newCompany.category} onChange={e => setNewCompany({...newCompany, category: e.target.value})} className="w-full p-2 text-sm border rounded-lg" />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Category</label>
+                  <input type="text" value={newCompany.category} onChange={e => setNewCompany({...newCompany, category: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px' }} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Amount (₹)</label>
-                  <input type="number" required value={newCompany.amount} onChange={e => setNewCompany({...newCompany, amount: e.target.value})} className="w-full p-2 text-sm border rounded-lg font-bold text-blue-600" />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.2rem' }}>Amount (₹)</label>
+                  <input type="number" required placeholder="0.00" value={newCompany.amount} onChange={e => setNewCompany({...newCompany, amount: e.target.value})} style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, color: '#2563eb' }} />
                 </div>
               </div>
-              <div className="flex justify-end space-x-2 pt-3 border-t">
-                <button type="button" onClick={() => setShowCompanyModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-lg shadow-md shadow-indigo-600/30">Save Bill</button>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowCompanyModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm">Save Expense</button>
               </div>
             </form>
           </div>

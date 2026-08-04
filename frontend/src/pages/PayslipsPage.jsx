@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
-import { Search, FileText, Download, Mail, Eye, X, Printer } from 'lucide-react';
 
 const PayslipsPage = () => {
   const [payslips, setPayslips] = useState([]);
@@ -23,9 +22,9 @@ const PayslipsPage = () => {
   const fetchPayslips = async () => {
     try {
       const res = await api.get(`/payslips?month=${selectedMonth}&year=${selectedYear}&search=${search}`);
-      setPayslips(res.data.payslips);
-      setTotalGenerated(res.data.totalGenerated);
-      setTotalAmount(res.data.totalAmount);
+      setPayslips(res.data.payslips || []);
+      setTotalGenerated(res.data.totalGenerated || 0);
+      setTotalAmount(res.data.totalAmount || 0);
       setYears(res.data.years || []);
       setMonthNames(res.data.monthNames || []);
     } catch (err) {
@@ -53,210 +52,223 @@ const PayslipsPage = () => {
   const handleSendEmail = async (ps) => {
     try {
       await api.post(`/payroll/${ps.payroll_run_id}/send-email/${ps.employee_id}`);
-      alert(`Payslip email dispatched to registered email!`);
+      alert(`Payslip email dispatched successfully!`);
     } catch (err) {
       alert('Failed to send email.');
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Global Payslip Directory</h1>
-        <p className="text-sm text-slate-500">Filter payslips by Month and Year, search staff, view A4 payslips, download PDF, or send email notifications.</p>
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Global Payslip Directory</h1>
+          <p className="page-description">Filter payslips by Month and Year, search employees, view details, download PDF, or send email notifications.</p>
+        </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-3 items-center flex-1">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700"
-          >
-            <option value="">⚡ All Months</option>
-            {monthNames.map(m => (
-              <option key={m.num} value={m.num}>{m.name}</option>
-            ))}
-          </select>
+      {/* MONTH & YEAR FILTER BAR */}
+      <div className="card" style={{ marginBottom: '1.5rem', background: '#ffffff', padding: '1.25rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '150px' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem', display: 'block' }}>
+              <i className="fa-solid fa-calendar-days" style={{ color: 'var(--accent)' }}></i> Select Month
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="form-control"
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.9rem' }}
+            >
+              <option value="">⚡ All Months</option>
+              {monthNames.map(m => (
+                <option key={m.num} value={m.num}>{m.name}</option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700"
-          >
-            <option value="">⚡ All Years</option>
-            {years.map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
+          <div style={{ flex: 1, minWidth: '130px' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem', display: 'block' }}>
+              <i className="fa-solid fa-calendar" style={{ color: 'var(--accent)' }}></i> Select Year
+            </label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="form-control"
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.9rem' }}
+            >
+              <option value="">⚡ All Years</option>
+              {years.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
 
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div style={{ flex: 1.5, minWidth: '220px' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem', display: 'block' }}>
+              <i className="fa-solid fa-magnifying-glass" style={{ color: 'var(--accent)' }}></i> Search Employee
+            </label>
             <input
               type="text"
-              placeholder="Search employee name, code..."
+              placeholder="Search by Employee Name, Code..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.9rem' }}
             />
           </div>
+
+          {(selectedMonth || selectedYear || search) && (
+            <button
+              onClick={() => { setSelectedMonth(''); setSelectedYear(''); setSearch(''); }}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.88rem', fontWeight: 600 }}
+            >
+              ✖ Clear Filter
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <FileText className="w-6 h-6" />
-          </div>
+      {/* Metrics Grid */}
+      <div className="metrics-grid">
+        <div className="metric-card bg-pastel-purple">
+          <div className="metric-icon"><i className="fa-solid fa-file-invoice"></i></div>
           <div>
-            <p className="text-2xl font-extrabold text-slate-900">{totalGenerated}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Filtered Generated Payslips</p>
+            <div className="metric-value">{totalGenerated}</div>
+            <div className="metric-label">Filtered Generated Payslips</div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Download className="w-6 h-6" />
-          </div>
+        <div className="metric-card bg-pastel-green">
+          <div className="metric-icon"><i className="fa-solid fa-money-bill-wave"></i></div>
           <div>
-            <p className="text-2xl font-extrabold text-slate-900">₹{totalAmount.toLocaleString('en-IN')}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Total Disbursed Net Salary</p>
+            <div className="metric-value">₹{totalAmount.toLocaleString('en-IN')}</div>
+            <div className="metric-label">Filtered Disbursed Net Salary</div>
           </div>
         </div>
       </div>
 
-      {/* Payslips Directory Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wider">
-              <tr>
-                <th className="p-4">Payslip Ref No</th>
-                <th className="p-4">Period</th>
-                <th className="p-4">Employee Name</th>
-                <th className="p-4 text-right">Gross Pay</th>
-                <th className="p-4 text-right">Deductions</th>
-                <th className="p-4 text-right">Net Payable</th>
-                <th className="p-4 text-center">Status</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {payslips.map((ps) => {
-                const parts = (ps.period || '2026-07').split('-');
-                const mNum = parts.length >= 2 ? String(parts[1]).padStart(2, '0') : '07';
-                const yNum = parts[0] || '2026';
-                const refNo = `HL/PS/${mNum}-${yNum}/${String(ps.employee_id || 1).padStart(3, '0')}`;
-                return (
-                  <tr key={ps.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="p-4">
-                      <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
-                        {refNo}
-                      </span>
-                    </td>
-                    <td className="p-4 font-bold text-slate-800">{ps.period}</td>
-                    <td className="p-4">
-                      <p className="font-bold text-slate-900">{ps.employee_name}</p>
-                      <p className="text-xs text-blue-600 font-semibold">{ps.user_email}</p>
-                    </td>
-                    <td className="p-4 text-right text-emerald-600 font-semibold">₹{ps.gross_pay.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-right text-red-600 font-semibold">₹{ps.total_deductions.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-right font-extrabold text-blue-600">₹{ps.net_pay.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        ps.run_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {ps.run_status === 'approved' ? 'Issued' : 'Pending'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right space-x-1.5">
-                      <button
-                        onClick={() => openPayslipModal(ps)}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold inline-flex items-center space-x-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View</span>
-                      </button>
-                      <a
-                        href={`/payroll/${ps.payroll_run_id}/payslip/${ps.employee_id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>PDF</span>
-                      </a>
-                      <button
-                        onClick={() => handleSendEmail(ps)}
-                        className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1"
-                        title="Dispatch email"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>Email</span>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Directory Table */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Employee Payslip Directory</h2>
         </div>
+
+        {payslips.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+            <i className="fa-solid fa-folder-open" style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.5 }}></i>
+            <p style={{ fontSize: '1rem', fontWeight: 600, color: '#475569' }}>No payslips match your selected criteria.</p>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Payslip Ref No</th>
+                  <th>Period</th>
+                  <th>Employee Name & Email</th>
+                  <th style={{ textAlign: 'right' }}>Monthly Gross</th>
+                  <th style={{ textAlign: 'right' }}>Deductions</th>
+                  <th style={{ textAlign: 'right' }}>Net Salary</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payslips.map(ps => {
+                  const registeredEmail = ps.user_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com');
+                  const periodParts = (ps.period || '2026-07').split('-');
+                  const mNum = periodParts.length >= 2 ? String(periodParts[1]).padStart(2, '0') : '07';
+                  const yNameShort = periodParts[0] || '2026';
+                  const payslipRefNo = `HL/PS/${mNum}-${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
+                  return (
+                    <tr key={ps.id}>
+                      <td>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, background: '#eff6ff', color: '#1e40af', padding: '0.2rem 0.55rem', borderRadius: '6px', fontSize: '0.82rem', border: '1px solid #bfdbfe' }}>
+                          {payslipRefNo}
+                        </span>
+                      </td>
+                      <td><strong>{ps.period}</strong></td>
+                      <td>
+                        <strong>{ps.employee_name}</strong>
+                        <br /><small style={{ color: 'var(--accent)', fontWeight: 500 }}><i className="fa-regular fa-envelope"></i> {registeredEmail}</small>
+                      </td>
+                      <td style={{ textAlign: 'right', color: '#059669' }}>₹{ps.gross_pay.toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'right', color: '#dc2626' }}>₹{ps.total_deductions.toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>₹{ps.net_pay.toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {ps.run_status === 'approved' ? (
+                          <span className="badge" style={{ background: '#d1fae5', color: '#065f46' }}>Issued</span>
+                        ) : (
+                          <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>Pending</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button onClick={() => openPayslipModal(ps)} className="btn btn-sm btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>
+                            👁️ View
+                          </button>
+                          <a href={`/payroll/${ps.payroll_run_id}/payslip/${ps.employee_id}/pdf`} target="_blank" rel="noreferrer" className="btn btn-sm btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>
+                            📥 PDF
+                          </a>
+                          <button onClick={() => handleSendEmail(ps)} className="btn btn-sm" style={{ padding: '0.25rem 0.55rem', fontSize: '0.8rem', background: '#2563eb', color: '#fff', border: '1px solid #2563eb', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+                            ✉️ Email
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* PAYSLIP A4 PREVIEW MODAL */}
+      {/* A4 PREVIEW MODAL */}
       {showModal && breakdown && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-3xl w-full max-h-[90vh] rounded-2xl p-6 shadow-2xl flex flex-col">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '750px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Payslip A4 Document Preview</h2>
-                <p className="text-xs text-slate-500">{breakdown.employee?.name} | Period: {breakdown.period}</p>
+                <h2 className="card-title" style={{ margin: 0 }}>Payslip A4 Document Preview</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{breakdown.employee?.name} | Period: {breakdown.period}</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <button onClick={() => window.print()} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center space-x-1">
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print A4</span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button onClick={() => window.print()} className="btn btn-primary btn-sm">
+                  <i className="fa-solid fa-print"></i> Print A4
                 </button>
-                <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+                <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
               </div>
             </div>
 
-            {/* A4 Payslip Card Content */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 border rounded-xl space-y-5">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
-                <div className="flex justify-between items-center border-b pb-4">
-                  <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">Hidden Lamp Private Limited</h3>
-                    <p className="text-xs text-slate-500">26, UIT Pratap Nagar, Jodhpur Rajasthan, 342001 India</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
-                      HL/PS/{(breakdown.period || '2026-07').split('-')[1] || '07'}-{(breakdown.period || '2026-07').split('-')[0] || '2026'}/{String(breakdown.employee?.id || 1).padStart(3, '0')}
-                    </span>
-                    <p className="text-xs text-slate-400 mt-1 font-semibold">Pay Period: {breakdown.period}</p>
-                  </div>
+            <div style={{ background: '#f8fafc', padding: '1.5rem', border: '1px solid var(--border)', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Hidden Lamp Private Limited</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>26, UIT Pratap Nagar, Jodhpur Rajasthan, 342001 India</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 text-xs font-medium text-slate-700">
-                  <div>
-                    <p className="text-slate-400 font-bold uppercase text-[10px]">Employee Details</p>
-                    <p className="font-bold text-slate-900 text-sm">{breakdown.employee?.name}</p>
-                    <p>Designation: {breakdown.employee?.designation}</p>
-                    <p>Department: {breakdown.employee?.department}</p>
-                    <p>Work Location: {breakdown.employee?.work_location}</p>
-                  </div>
-                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-right">
-                    <p className="text-xs text-emerald-700 font-bold uppercase">Total Net Payable</p>
-                    <p className="text-2xl font-extrabold text-slate-900">₹{(breakdown.net_pay || 0).toLocaleString('en-IN')}</p>
-                    <p className="text-xs text-emerald-800 font-semibold mt-1">Paid Days: {breakdown.days_present} | LOP Days: {breakdown.days_lop}</p>
-                  </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, background: '#eff6ff', color: '#1e40af', padding: '0.2rem 0.55rem', borderRadius: '6px', fontSize: '0.82rem', border: '1px solid #bfdbfe' }}>
+                    HL/PS/{(breakdown.period || '2026-07').split('-')[1] || '07'}-{(breakdown.period || '2026-07').split('-')[0] || '2026'}/{String(breakdown.employee?.id || 1).padStart(3, '0')}
+                  </span>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Pay Period: {breakdown.period}</p>
                 </div>
+              </div>
 
-                <div className="border-t pt-4 text-xs text-right text-slate-600 font-semibold">
-                  Amount in Words: <span className="font-bold text-slate-900">{breakdown.net_pay_in_words || 'Rupees Only'}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
+                <div>
+                  <p style={{ fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.75rem', margin: '0 0 0.25rem 0' }}>Employee Details</p>
+                  <p style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>{breakdown.employee?.name}</p>
+                  <p style={{ margin: 0 }}>Designation: {breakdown.employee?.designation}</p>
+                  <p style={{ margin: 0 }}>Department: {breakdown.employee?.department}</p>
+                  <p style={{ margin: 0 }}>Work Location: {breakdown.employee?.work_location}</p>
+                </div>
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1rem', borderRadius: '8px', textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: '#047857', textTransform: 'uppercase' }}>Total Net Payable</p>
+                  <p style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#064e3b' }}>₹{(breakdown.net_pay || 0).toLocaleString('en-IN')}</p>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', fontWeight: 600, color: '#065f46' }}>Paid Days: {breakdown.days_present} | LOP Days: {breakdown.days_lop}</p>
                 </div>
               </div>
             </div>
