@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db/database');
 
-// GET / -> Redirect to Login if unauthenticated, else to Dashboard
+// GET / -> Redirect to Login Page
 router.get('/', (req, res) => {
   if (req.session && req.session.user) {
     return res.redirect('/dashboard');
@@ -11,9 +11,21 @@ router.get('/', (req, res) => {
   res.redirect('/login');
 });
 
-// GET /login -> Always show Login Page
+// GET /login -> Always Render Login Page
 router.get('/login', (req, res) => {
   res.render('login', { error: null });
+});
+
+// GET /logout -> Log out and Redirect to Login Page
+router.get('/logout', (req, res) => {
+  if (req.session) {
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid');
+      res.redirect('/login');
+    });
+  } else {
+    res.redirect('/login');
+  }
 });
 
 // POST /login
@@ -50,6 +62,7 @@ router.post('/login', (req, res) => {
 router.post('/logout', (req, res) => {
   if (req.session) {
     req.session.destroy(() => {
+      res.clearCookie('connect.sid');
       res.redirect('/login');
     });
   } else {
