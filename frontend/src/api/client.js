@@ -20,4 +20,17 @@ const api = axios.create({
   },
 });
 
+// Attach Authorization Token to bypass cross-site 3rd party cookie restrictions
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 export default api;

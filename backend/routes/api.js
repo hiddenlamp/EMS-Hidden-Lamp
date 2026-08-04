@@ -47,8 +47,10 @@ router.post('/auth/login', (req, res) => {
     employee_id: user.employee_id
   };
 
+  const token = Buffer.from(`${user.id}:${user.email}:${Date.now()}`).toString('base64');
+
   logAction(user.email, 'LOGIN', 'User Session', user.id, { role: user.role });
-  res.json({ success: true, user: req.session.user });
+  res.json({ success: true, user: req.session.user, token });
 });
 
 // POST /api/auth/logout
