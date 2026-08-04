@@ -14,6 +14,7 @@ const payslipsRouter = require('./routes/payslips');
 const analyticsRouter = require('./routes/analytics');
 const auditRouter = require('./routes/audit');
 const expensesRouter = require('./routes/expenses');
+const apiRouter = require('./routes/api');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,10 +23,9 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'hidden_lamp_payroll_secret
 // Trust proxy on Render / HTTPS reverse proxies
 app.set('trust proxy', 1);
 
-// CORS Middleware (Enables Cross-Origin API requests from Hostinger Frontend)
+// CORS Middleware
 const allowedOrigins = [
   'https://ems.hiddenlamp.in',
-  'http://localhost:5173',
   'http://localhost:3000',
   process.env.FRONTEND_URL
 ].filter(Boolean);
@@ -35,7 +35,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
       return callback(null, true);
     }
-    callback(null, true); // Allow all valid web clients
+    callback(null, true);
   },
   credentials: true
 }));
@@ -44,7 +44,7 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Health Check Endpoints for Render / Monitoring
+// Health Check Endpoints
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', app: 'Hidden Lamp Payroll Management System', timestamp: new Date().toISOString() });
 });
@@ -53,14 +53,14 @@ app.get('/api', (req, res) => {
   res.json({ status: 'ok', message: 'Hidden Lamp Payroll Backend API is active' });
 });
 
-// Serve Static Frontend Assets (CSS, Client JS, Logos, Signatures)
+// Serve Static Frontend Public Assets (CSS, JS, Logos, Signatures)
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 
-// Set EJS View Engine Frontend Directory
+// Set EJS View Engine Frontend Directory (Original Server Rendered Frontend)
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../frontend/views'));
 
-// Session Configuration (Production HTTPS & Cross-site support)
+// Session Configuration
 const isProd = process.env.NODE_ENV === 'production';
 app.use(session({
   store: new SqliteSessionStore(),
@@ -78,35 +78,22 @@ app.use(session({
 // Attach User Info to Views
 app.use(attachUser);
 
-const apiRouter = require('./routes/api');
-
-// Backend Modular API & Controller Routes
+// Server-Rendered EJS Routes & Controller Routes
 app.use('/api', apiRouter);
 app.use('/', authRoutes);
 app.use('/employees', employeesRouter);
 app.use('/payroll', payrollRouter);
 app.use('/payslips', payslipsRouter);
 app.use('/analytics', analyticsRouter);
-// Serve Static Frontend Assets & Built React App
-const distPath = path.join(__dirname, '../frontend/dist-hostinger');
-app.use(express.static(distPath));
-app.use(express.static(path.join(__dirname, '../frontend/public')));
+app.use('/audit-logs', auditRouter);
+app.use('/expenses', expensesRouter);
 
-// SPA Wildcard Route Fallback for React Router (Non-API requests)
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.includes('.')) {
-    return next();
-  }
-  const reactIndex = path.join(distPath, 'index.html');
-  if (require('fs').existsSync(reactIndex)) {
-    return res.sendFile(reactIndex);
-  }
-  next();
-});
-
-// 404 Handler
+// 404 Handler for EJS Frontend
 app.use((req, res) => {
-  res.status(404).json({ error: '404 Not Found', message: 'The requested resource could not be found.' });
+  res.status(404).render('error', {
+    title: '404 Not Found',
+    message: 'The requested page could not be found.'
+  });
 });
 
 // 500 Global Error Handler
@@ -120,8 +107,8 @@ app.use((err, req, res, next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Hidden Lamp Payroll Management System running at http://localhost:${PORT}`);
-  console.log(`  📂 Backend Core Application  : ./backend`);
-  console.log(`  🎨 Frontend UI & Public Assets: ./frontend`);
+  console.log(`  📂 Backend Application       : ./backend`);
+  console.log(`  🎨 EJS Frontend & Public Assets: ./frontend`);
 });
 
 server.on('error', (err) => {
