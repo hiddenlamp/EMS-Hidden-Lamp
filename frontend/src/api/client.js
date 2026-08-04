@@ -6,8 +6,11 @@ let baseURL = '/api';
 if (typeof window !== 'undefined') {
   if (window.ENV?.API_BASE_URL) {
     baseURL = `${window.ENV.API_BASE_URL.replace(/\/$/, '')}/api`;
+  } else if (window.location.port === '5173') {
+    // When running Vite dev server in frontend/ folder on port 5173, target local backend on 3000
+    baseURL = 'http://localhost:3000/api';
   } else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    // Exact Live Production Render API URL
+    // Live Production Render API URL
     baseURL = 'https://ems-hidden-lamp-1.onrender.com/api';
   }
 }
