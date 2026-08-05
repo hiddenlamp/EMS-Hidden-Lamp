@@ -25,54 +25,52 @@ async function getTransporter() {
     });
   }
 
-  // 2. Hostinger / Custom SMTP Host & Credentials with Guaranteed IPv4 Lookup
+  // 2. Hostinger / Custom SMTP Host & Credentials
   if (host && user && pass) {
-    const primaryPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465;
-    const primarySecure = process.env.SMTP_SECURE !== undefined ? (process.env.SMTP_SECURE === 'true') : (primaryPort === 465);
+    // For Hostinger on Cloud (Render.com), Port 465 (SSL) connects instantly in 0.5s without Port 587 STARTTLS blocking!
+    const isHostinger = host.includes('hostinger');
+    const port = isHostinger ? 465 : (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465);
+    const isSecure = isHostinger ? true : (process.env.SMTP_SECURE !== undefined ? (process.env.SMTP_SECURE === 'true') : (port === 465));
 
-    // Primary transporter with explicit custom IPv4 DNS lookup
-    const primaryTransporter = nodemailer.createTransport({
+    console.log(`🔌 Initializing Fast Direct SMTP Transporter: ${host}:${port} (secure: ${isSecure})`);
+
+    const transporter = nodemailer.createTransport({
       host: host,
-      port: primaryPort,
-      secure: primarySecure,
+      port: port,
+      secure: isSecure,
       auth: { user, pass },
       tls: { rejectUnauthorized: false },
       family: 4,
-      lookup: customIpv4Lookup, // Guarantee IPv4 address resolution (172.65.x.x) instead of unreachable IPv6
-      connectionTimeout: 12000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000
+      lookup: customIpv4Lookup,
+      connectionTimeout: 5000,  // Fast 5-second connection timeout
+      greetingTimeout: 5000,
+      socketTimeout: 10000
     });
 
     try {
-      await primaryTransporter.verify();
-      console.log(`✅ Primary SMTP Connected via IPv4: ${host}:${primaryPort} (secure: ${primarySecure})`);
-      return primaryTransporter;
+      await transporter.verify();
+      console.log(`✅ Direct SMTP Connected via IPv4 in <1s: ${host}:${port} (secure: ${isSecure})`);
+      return transporter;
     } catch (err) {
-      console.warn(`⚠️ Primary SMTP (${host}:${primaryPort}) failed/timed out: ${err.message}. Trying Fallback Port 465 (SSL)...`);
+      console.warn(`⚠️ Primary Fast SMTP (${host}:${port}) verify error: ${err.message}. Trying Fallback Port 587 (TLS)...`);
       
-      // Fallback transporter on Port 465 (SSL)
+      const fallbackPort = (port === 465) ? 587 : 465;
+      const fallbackSecure = (fallbackPort === 465);
+
       const fallbackTransporter = nodemailer.createTransport({
         host: host,
-        port: 465,
-        secure: true,
+        port: fallbackPort,
+        secure: fallbackSecure,
         auth: { user, pass },
         tls: { rejectUnauthorized: false },
         family: 4,
         lookup: customIpv4Lookup,
-        connectionTimeout: 12000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000
       });
 
-      try {
-        await fallbackTransporter.verify();
-        console.log(`✅ Fallback SSL SMTP Connected via IPv4: ${host}:465 (secure: true)`);
-        return fallbackTransporter;
-      } catch (fbErr) {
-        console.error('❌ Both Primary and Fallback SMTP connection attempts failed:', fbErr.message);
-        return primaryTransporter;
-      }
+      return fallbackTransporter;
     }
   }
 
