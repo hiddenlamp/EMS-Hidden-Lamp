@@ -543,7 +543,16 @@ body {
   border-radius: var(--radius-pill);
 }
 
-/* ==================== TABLES ==================== */
+/* ==================== TABLES & DUAL VIEW ==================== */
+.desktop-table-container {
+  display: block;
+  width: 100%;
+}
+
+.mobile-cards-container {
+  display: none;
+}
+
 .table-responsive {
   width: 100%;
   overflow-x: auto;
@@ -788,8 +797,18 @@ body {
   }
 }
 
-/* HIDE SECONDARY COLUMNS ON MOBILE SCREENS (< 768px) */
+/* SWITCH FROM DESKTOP TABLE TO MOBILE STACKED CARDS ON MOBILE SCREENS (< 768px) */
 @media (max-width: 768px) {
+  .desktop-table-container {
+    display: none !important;
+  }
+
+  .mobile-cards-container {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+  }
+
   .hide-mobile {
     display: none !important;
   }
