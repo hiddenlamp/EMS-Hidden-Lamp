@@ -1,13 +1,13 @@
-<%- include('partials/header', { title: 'Dashboard' }) %>
+<%- include('partials/header', { title: 'Executive Overview', path: '/dashboard' }) %>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">Payroll Dashboard (July 2026 Register)</h1>
-    <p class="page-description">Welcome back! Manage location-wise employee heads, salary budgets, and monthly payroll processing.</p>
+    <h1 class="page-title">Executive Overview & Payroll Hub</h1>
+    <p class="page-description">Real-time headcount tracking, location-wise salary budget distribution, and active processing cycles.</p>
   </div>
-  <div style="display: flex; gap: 0.75rem;">
-    <a href="/employees/new" class="btn btn-secondary">+ Add Employee</a>
-    <a href="/payroll" class="btn btn-primary">Process Payroll Run</a>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="/employees/new" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+    <a href="/payroll" class="btn btn-primary"><i class="fa-solid fa-play"></i> Process Payroll Run</a>
   </div>
 </div>
 
@@ -16,15 +16,15 @@
     <div class="metric-icon"><i class="fa-solid fa-users"></i></div>
     <div>
       <div class="metric-value"><%= activeCount %></div>
-      <div class="metric-label">Total Employee Heads</div>
+      <div class="metric-label">Active Headcount</div>
     </div>
   </div>
 
   <div class="metric-card bg-pastel-purple">
-    <div class="metric-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+    <div class="metric-icon"><i class="fa-solid fa-location-dot"></i></div>
     <div>
       <div class="metric-value"><%= locationCount %></div>
-      <div class="metric-label">Locations Covered</div>
+      <div class="metric-label">Operating Locations</div>
     </div>
   </div>
 
@@ -32,7 +32,7 @@
     <div class="metric-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
     <div>
       <div class="metric-value">₹<%= totalBudget.toLocaleString('en-IN') %></div>
-      <div class="metric-label">Monthly Salary Budget</div>
+      <div class="metric-label">Monthly Comp Budget</div>
     </div>
   </div>
 
@@ -40,7 +40,7 @@
     <div class="metric-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
     <div>
       <div class="metric-value"><%= runCount %></div>
-      <div class="metric-label">Total Payroll Runs</div>
+      <div class="metric-label">Processed Cycles</div>
     </div>
   </div>
 </div>
@@ -49,17 +49,17 @@
   <!-- Location-Wise Summary Card -->
   <div class="card">
     <div class="card-header">
-      <h2 class="card-title">Place-Wise Summary (Hidden Lamp)</h2>
-      <a href="/employees" class="btn btn-sm btn-secondary">View Register</a>
+      <h2 class="card-title"><i class="fa-solid fa-building-user" style="color: var(--accent);"></i> Location-Wise Headcount & Budget</h2>
+      <a href="/employees" class="btn btn-sm btn-secondary">View Directory</a>
     </div>
 
     <div class="table-responsive">
       <table class="table">
         <thead>
           <tr>
-            <th>Sl.</th>
-            <th>Location</th>
-            <th style="text-align: center;">Heads</th>
+            <th>#</th>
+            <th>Work Location</th>
+            <th style="text-align: center;">Headcount</th>
             <th style="text-align: right;">Monthly Budget</th>
             <th style="text-align: right;">Action</th>
           </tr>
@@ -70,20 +70,20 @@
               <td><%= idx + 1 %></td>
               <td><strong><%= loc.work_location %></strong></td>
               <td style="text-align: center;">
-                <span class="badge" style="background: #e2e8f0; color: #1e293b;"><%= loc.heads %></span>
+                <span class="badge" style="background: #e2e8f0; color: #1e293b; font-weight: 700;"><%= loc.heads %> Employees</span>
               </td>
-              <td style="text-align: right; font-weight: 600; color: #059669;">₹<%= (loc.location_budget || 0).toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 700; color: #059669;">₹<%= (loc.location_budget || 0).toLocaleString('en-IN') %></td>
               <td style="text-align: right;">
-                <a href="/employees?location=<%= encodeURIComponent(loc.work_location) %>" class="btn btn-sm btn-secondary">Details</a>
+                <a href="/employees?location=<%= encodeURIComponent(loc.work_location) %>" class="btn btn-sm btn-secondary">View Register</a>
               </td>
             </tr>
           <% }); %>
         </tbody>
         <tfoot>
-          <tr style="background: #f8fafc; font-weight: 700;">
-            <td colspan="2">GRAND TOTAL</td>
-            <td style="text-align: center; color: #2563eb;"><%= activeCount %></td>
-            <td style="text-align: right; color: #059669;">₹<%= totalBudget.toLocaleString('en-IN') %></td>
+          <tr style="background: #f8fafc; font-weight: 800;">
+            <td colspan="2">TOTAL WORKFORCE</td>
+            <td style="text-align: center; color: #2563eb;"><%= activeCount %> Active</td>
+            <td style="text-align: right; color: #059669; font-size: 1.05rem;">₹<%= totalBudget.toLocaleString('en-IN') %></td>
             <td></td>
           </tr>
         </tfoot>
@@ -94,12 +94,16 @@
   <!-- Recent Payroll Runs Card -->
   <div class="card">
     <div class="card-header">
-      <h2 class="card-title">Recent Payroll Runs</h2>
+      <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent);"></i> Recent Payroll Cycles</h2>
       <a href="/payroll" class="btn btn-sm btn-secondary">View All</a>
     </div>
 
     <% if (recentRuns.length === 0) { %>
-      <p style="color: var(--text-muted); text-align: center; padding: 2rem;">No payroll runs created yet. Click <strong>Process Payroll Run</strong> to process the July 2026 cycle.</p>
+      <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+        <i class="fa-solid fa-calendar-plus" style="font-size: 2.2rem; margin-bottom: 0.75rem; opacity: 0.5;"></i>
+        <p style="font-size: 0.9rem; font-weight: 600;">No payroll cycles created yet.</p>
+        <a href="/payroll" class="btn btn-sm btn-primary" style="margin-top: 0.75rem;">Process Payroll Run</a>
+      </div>
     <% } else { %>
       <div class="table-responsive">
         <table class="table">
@@ -120,7 +124,7 @@
                   <span class="badge badge-<%= run.status %>"><%= run.status %></span>
                 </td>
                 <td style="text-align: right;">
-                  <a href="/payroll/<%= run.id %>" class="btn btn-sm btn-secondary">View</a>
+                  <a href="/payroll/<%= run.id %>" class="btn btn-sm btn-secondary">Inspect</a>
                 </td>
               </tr>
             <% }); %>

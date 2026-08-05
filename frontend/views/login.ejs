@@ -3,37 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | Hidden Lamp Payroll</title>
+  <title>Administrator Authentication | Hidden Lamp Enterprise Payroll</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="login-wrapper">
   <div class="login-card">
     <div class="login-header">
-      <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 60px; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: var(--shadow);">
+      <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 64px; border-radius: 12px; margin-bottom: 0.85rem; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.4);">
       <h1 class="login-title">HIDDEN LAMP</h1>
-      <p class="login-subtitle">Employee Payroll Management System</p>
+      <p class="login-subtitle">Enterprise Payroll & Executive Portal</p>
     </div>
 
     <% if (error) { %>
-      <div class="alert alert-danger"><%= error %></div>
+      <div class="alert alert-danger">
+        <i class="fa-solid fa-triangle-exclamation"></i> <%= error %>
+      </div>
     <% } %>
 
     <form action="/login" method="POST">
       <div class="form-group">
-        <label for="email" class="form-label">Email Address</label>
-        <input type="email" id="email" name="email" class="form-control" placeholder="name@hiddenlamp.com" required autofocus>
+        <label for="email" class="form-label"><i class="fa-regular fa-envelope" style="color: var(--accent);"></i> Corporate Email</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="admin@hiddenlamp.com" required autofocus>
       </div>
 
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label for="password" class="form-label">Password</label>
+      <div class="form-group" style="margin-bottom: 1.75rem;">
+        <label for="password" class="form-label"><i class="fa-solid fa-lock" style="color: var(--accent);"></i> Secure Password</label>
         <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
       </div>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem;">Sign In</button>
+      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem;">
+        <i class="fa-solid fa-shield-halved"></i> Sign In to Executive Portal
+      </button>
     </form>
+
+    <div style="margin-top: 1.75rem; text-align: center; border-top: 1px solid var(--border); pt: 1rem; color: var(--text-muted); font-size: 0.78rem; font-weight: 500;">
+      <i class="fa-solid fa-lock" style="color: #059669;"></i> 256-Bit SSL Encrypted Enterprise Session
+    </div>
   </div>
 </body>
 </html>

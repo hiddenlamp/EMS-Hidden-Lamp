@@ -3,73 +3,103 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= typeof title !== 'undefined' ? title + ' | ' : '' %>Hidden Lamp Payroll</title>
+  <title><%= typeof title !== 'undefined' ? title + ' | ' : '' %>Hidden Lamp Enterprise Payroll</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <div class="app-wrapper">
     <% if (typeof user !== 'undefined' && user) { %>
-      <aside class="sidebar">
+      <!-- Mobile Backdrop Mask -->
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <!-- Navigation Sidebar Drawer -->
+      <aside class="sidebar" id="sidebar">
         <a href="/dashboard" class="brand">
-          <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 38px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);">
+          <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 38px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
           <div>
             <span class="brand-title">HIDDEN LAMP</span>
-            <span class="brand-subtitle">Payroll Management</span>
+            <span class="brand-subtitle">Enterprise Payroll</span>
           </div>
         </a>
 
         <nav class="sidebar-nav">
           <a href="/dashboard" class="sidebar-nav-link <%= typeof path !== 'undefined' && path === '/dashboard' ? 'active' : '' %>">
-            <i class="fa-solid fa-house"></i> Dashboard
+            <i class="fa-solid fa-chart-pie"></i> Executive Overview
           </a>
           <a href="/employees" class="sidebar-nav-link <%= typeof path !== 'undefined' && path.startsWith('/employees') ? 'active' : '' %>">
-            <i class="fa-solid fa-users"></i> Employees
+            <i class="fa-solid fa-users-gear"></i> Master Directory
           </a>
           <a href="/payroll" class="sidebar-nav-link <%= typeof path !== 'undefined' && path === '/payroll' ? 'active' : '' %>">
-            <i class="fa-solid fa-money-check-dollar"></i> Payroll
+            <i class="fa-solid fa-calendar-check"></i> Payroll Processing
           </a>
           <a href="/payslips" class="sidebar-nav-link <%= typeof path !== 'undefined' && path.startsWith('/payslips') ? 'active' : '' %>">
-            <i class="fa-solid fa-file-invoice"></i> Payslip
+            <i class="fa-solid fa-file-invoice-dollar"></i> Global Repository
           </a>
           <a href="/expenses" class="sidebar-nav-link <%= typeof path !== 'undefined' && path.startsWith('/expenses') ? 'active' : '' %>">
-            <i class="fa-solid fa-receipt"></i> Receipts & Expenses
+            <i class="fa-solid fa-receipt"></i> Corporate Receipts
           </a>
           <a href="/analytics" class="sidebar-nav-link <%= typeof path !== 'undefined' && path.startsWith('/analytics') ? 'active' : '' %>">
-            <i class="fa-solid fa-chart-line"></i> Report and Analytics
-          </a>
-          <a href="/audit-logs" class="sidebar-nav-link <%= typeof path !== 'undefined' && path.startsWith('/audit-logs') ? 'active' : '' %>">
-            <i class="fa-solid fa-shield-halved"></i> Audit & Security Logs
+            <i class="fa-solid fa-chart-line"></i> Fiscal Analytics
           </a>
         </nav>
 
         <div class="sidebar-footer">
           <div class="upgrade-card">
-            <h4><i class="fa-solid fa-rocket" style="margin-bottom: 8px; font-size: 1.5rem; display: block;"></i>System Info</h4>
-            <p>Self-Hosted Edition. Secure & encrypted.</p>
+            <h4><i class="fa-solid fa-shield-halved"></i> Enterprise Edition</h4>
+            <p>Secure & Encrypted Payroll Engine</p>
           </div>
         </div>
       </aside>
 
+      <!-- Main Container Content -->
       <main class="main-content">
-        <div class="topbar">
-          <div class="topbar-search">
-            <i class="fa-solid fa-search"></i>
-            <input type="text" placeholder="Search now...">
+        <header class="topbar">
+          <div style="display: flex; align-items: center;">
+            <button type="button" class="mobile-toggle" id="mobileToggle" aria-label="Toggle Mobile Menu">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="topbar-search">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" placeholder="Search employee code, name or record...">
+            </div>
           </div>
+          
           <div class="topbar-profile">
-            <div class="user-email">Welcome back, <%= user.email.split('@')[0] %> 👋</div>
-            <div class="avatar"><i class="fa-regular fa-user"></i></div>
+            <div class="user-email">Welcome, <%= user.email.split('@')[0] %> 👋</div>
+            <div class="avatar" title="<%= user.email %>"><i class="fa-solid fa-user-tie"></i></div>
             <form action="/logout" method="POST" style="margin:0; display:flex;">
-              <button type="submit" class="logout-icon"><i class="fa-solid fa-right-from-bracket"></i></button>
+              <button type="submit" class="logout-icon" title="Sign Out">
+                <i class="fa-solid fa-right-from-bracket"></i>
+              </button>
             </form>
           </div>
-        </div>
+        </header>
         <div class="container">
     <% } else { %>
       <main class="main-content" style="margin-left: 0;">
         <div class="container" style="display:flex; justify-content:center; align-items:center;">
     <% } %>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const toggleBtn = document.getElementById('mobileToggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        if (toggleBtn && sidebar && overlay) {
+          toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+          });
+
+          overlay.addEventListener('click', () => {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+          });
+        }
+      });
+    </script>
