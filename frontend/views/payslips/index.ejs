@@ -18,11 +18,11 @@
 <!-- MONTH & YEAR FILTER BAR -->
 <div class="card" style="background: #ffffff; padding: 1.25rem;">
   <form action="/payslips" method="GET" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin: 0;">
-    <div style="flex: 1; min-width: 150px;">
+    <div style="flex: 1; min-width: 140px;">
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
         <i class="fa-solid fa-calendar-days" style="color: var(--accent);"></i> Select Month
       </label>
-      <select name="month" class="form-control" style="font-size: 0.9rem;">
+      <select name="month" class="form-control" style="font-size: 0.88rem;">
         <option value="">⚡ All Months</option>
         <% monthNames.forEach(m => { %>
           <option value="<%= m.num %>" <%= selectedMonth === m.num ? 'selected' : '' %>><%= m.name %></option>
@@ -30,11 +30,11 @@
       </select>
     </div>
 
-    <div style="flex: 1; min-width: 130px;">
+    <div style="flex: 1; min-width: 120px;">
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
         <i class="fa-solid fa-calendar" style="color: var(--accent);"></i> Select Year
       </label>
-      <select name="year" class="form-control" style="font-size: 0.9rem;">
+      <select name="year" class="form-control" style="font-size: 0.88rem;">
         <option value="">⚡ All Years</option>
         <% years.forEach(y => { %>
           <option value="<%= y %>" <%= selectedYear === y ? 'selected' : '' %>><%= y %></option>
@@ -42,19 +42,19 @@
       </select>
     </div>
 
-    <div style="flex: 1.5; min-width: 220px;">
+    <div style="flex: 1.5; min-width: 200px;">
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
         <i class="fa-solid fa-magnifying-glass" style="color: var(--accent);"></i> Search Employee
       </label>
-      <input type="text" name="search" class="form-control" placeholder="Search employee name, code or location..." value="<%= searchQuery %>" style="font-size: 0.9rem;">
+      <input type="text" name="search" class="form-control" placeholder="Search employee name or code..." value="<%= searchQuery %>" style="font-size: 0.88rem;">
     </div>
 
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <button type="submit" class="btn btn-primary" style="font-size: 0.88rem; font-weight: 600;">
+      <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; font-weight: 600;">
         <i class="fa-solid fa-filter"></i> Apply Filter
       </button>
       <% if (selectedMonth || selectedYear || searchQuery) { %>
-        <a href="/payslips" class="btn btn-secondary" style="font-size: 0.88rem; font-weight: 600;">
+        <a href="/payslips" class="btn btn-secondary" style="font-size: 0.85rem; font-weight: 600;">
           ✖ Clear
         </a>
       <% } %>
@@ -80,13 +80,13 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+<div class="card" style="padding: 1.25rem;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
     <h2 class="card-title">
-      <i class="fa-solid fa-folder-tree" style="color: var(--accent);"></i> Employee Payslip Repository
+      <i class="fa-solid fa-folder-tree" style="color: var(--accent);"></i> Employee Payslip Directory
       <% if (selectedMonth || selectedYear) { %>
-        <span style="font-size: 0.82rem; font-weight: 600; color: var(--accent); background: #eff6ff; padding: 0.2rem 0.6rem; border-radius: 6px; margin-left: 0.5rem;">
-          Filtered: <%= selectedMonth ? monthNames.find(m=>m.num===selectedMonth)?.name : '' %> <%= selectedYear %>
+        <span style="font-size: 0.8rem; font-weight: 600; color: var(--accent); background: #eff6ff; padding: 0.2rem 0.6rem; border-radius: 6px; margin-left: 0.4rem;">
+          <%= selectedMonth ? monthNames.find(m=>m.num===selectedMonth)?.name : '' %> <%= selectedYear %>
         </span>
       <% } %>
     </h2>
@@ -95,24 +95,21 @@
   <% if (payslips.length === 0) { %>
     <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
       <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-      <p style="font-size: 1rem; font-weight: 600; color: #475569;">No payslips match your selected Month/Year or Search criteria.</p>
+      <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No payslips match your selected criteria.</p>
       <% if (selectedMonth || selectedYear || searchQuery) { %>
         <a href="/payslips" class="btn btn-secondary" style="margin-top: 0.75rem; font-size: 0.85rem;">View All Payslips</a>
       <% } %>
     </div>
   <% } else { %>
-    <div class="table-responsive">
-      <table class="table">
+    <div class="table-responsive" style="overflow-x: auto;">
+      <table class="table" style="width: 100%;">
         <thead>
           <tr>
-            <th style="white-space: nowrap;">Payslip Ref No</th>
-            <th style="white-space: nowrap;">Period</th>
-            <th>Employee Name & Email</th>
-            <th style="text-align: right; white-space: nowrap;">Monthly Gross</th>
-            <th style="text-align: right; white-space: nowrap;">Deductions</th>
-            <th style="text-align: right; white-space: nowrap;">Net Salary</th>
-            <th style="text-align: center; white-space: nowrap;">Status</th>
-            <th style="text-align: right; white-space: nowrap;">Actions</th>
+            <th>Payslip Ref & Period</th>
+            <th>Employee & Location</th>
+            <th style="text-align: right;">Net Salary</th>
+            <th style="text-align: center;">Status</th>
+            <th style="text-align: right;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -125,37 +122,39 @@
               const payslipRefNo = `HL/PS/${mNum}-${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
             %>
             <tr>
-              <td style="white-space: nowrap;">
-                <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1e40af; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid #bfdbfe; display: inline-block;">
+              <td style="vertical-align: middle;">
+                <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1e40af; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.78rem; border: 1px solid #bfdbfe; display: inline-block;">
                   <%= payslipRefNo %>
                 </span>
+                <div style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-top: 0.2rem;"><%= ps.period %></div>
               </td>
-              <td style="white-space: nowrap;"><strong><%= ps.period %></strong></td>
-              <td>
-                <strong style="font-size: 0.95rem; color: #0f172a;"><%= ps.employee_name %></strong>
-                <br><small style="color: var(--accent); font-weight: 500;"><i class="fa-regular fa-envelope"></i> <%= registeredEmail %></small>
+              <td style="vertical-align: middle;">
+                <strong style="font-size: 0.92rem; color: #0f172a;"><%= ps.employee_name %></strong>
+                <span style="background: #f1f5f9; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; color: #334155; margin-left: 0.3rem;"><%= ps.work_location %></span>
+                <br><small style="color: var(--text-muted); font-size: 0.78rem;"><%= registeredEmail %></small>
               </td>
-              <td style="text-align: right; color: #059669; font-weight: 600; white-space: nowrap;">₹<%= ps.gross_pay.toLocaleString('en-IN') %></td>
-              <td style="text-align: right; color: #dc2626; font-weight: 600; white-space: nowrap;">₹<%= ps.total_deductions.toLocaleString('en-IN') %></td>
-              <td style="text-align: right; font-weight: 800; color: #2563eb; font-size: 0.98rem; white-space: nowrap;">₹<%= ps.net_pay.toLocaleString('en-IN') %></td>
-              <td style="text-align: center; white-space: nowrap;">
+              <td style="text-align: right; vertical-align: middle;">
+                <strong style="font-size: 1.05rem; font-weight: 800; color: #2563eb;">₹<%= ps.net_pay.toLocaleString('en-IN') %></strong>
+                <br><small style="color: #059669; font-size: 0.78rem; font-weight: 600;">Gross: ₹<%= ps.gross_pay.toLocaleString('en-IN') %></small>
+              </td>
+              <td style="text-align: center; vertical-align: middle;">
                 <% if (ps.run_status === 'approved') { %>
-                  <span class="badge badge-approved">Issued</span>
+                  <span class="badge badge-approved" style="font-size: 0.72rem;">Issued</span>
                 <% } else { %>
-                  <span class="badge badge-draft">Pending</span>
+                  <span class="badge badge-draft" style="font-size: 0.72rem;">Pending</span>
                 <% } %>
               </td>
-              <td style="text-align: right; white-space: nowrap;">
-                <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap;">
-                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" title="View printable payslip">
+              <td style="text-align: right; vertical-align: middle;">
+                <div style="display: flex; gap: 0.3rem; justify-content: flex-end; align-items: center;">
+                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.25rem 0.45rem; font-size: 0.78rem;" title="View Printable Payslip">
                     <i class="fa-regular fa-eye"></i> View
                   </a>
-                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" title="Download PDF">
+                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.45rem; font-size: 0.78rem;" title="Download PDF">
                     <i class="fa-solid fa-file-pdf"></i> PDF
                   </a>
                   <form action="/payroll/<%= ps.payroll_run_id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline; margin: 0;">
                     <input type="hidden" name="redirect" value="/payslips">
-                    <button type="submit" class="btn btn-sm btn-primary" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); border-color: #047857;" title="Send email notification">
+                    <button type="submit" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.45rem; font-size: 0.78rem; background: linear-gradient(135deg, #059669 0%, #047857 100%); border-color: #047857;" title="Send Email Notification">
                       <i class="fa-regular fa-paper-plane"></i> Email
                     </button>
                   </form>

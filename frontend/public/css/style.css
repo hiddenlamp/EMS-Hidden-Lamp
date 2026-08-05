@@ -42,6 +42,11 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -66,6 +71,8 @@ body {
   display: flex;
   min-height: 100vh;
   position: relative;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* ==================== SIDEBAR NAVIGATION ==================== */
@@ -207,6 +214,8 @@ body {
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left 0.3s ease;
+  max-width: calc(100vw - 270px);
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -320,6 +329,7 @@ body {
   padding: 1.75rem 2rem 2.5rem 2rem;
   flex: 1;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -357,6 +367,7 @@ body {
   padding: 1.5rem;
   margin-bottom: 1.75rem;
   transition: var(--transition);
+  max-width: 100%;
 }
 
 .card-header {
@@ -466,9 +477,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.25rem;
-  font-size: 0.9rem;
+  gap: 0.4rem;
+  padding: 0.55rem 1.15rem;
+  font-size: 0.88rem;
   font-weight: 700;
   border-radius: var(--radius-pill);
   border: 1px solid transparent;
@@ -480,7 +491,7 @@ body {
 }
 
 .btn i {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .btn:hover {
@@ -526,8 +537,8 @@ body {
 }
 
 .btn-sm {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.82rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
   border-radius: var(--radius-pill);
 }
 
@@ -544,23 +555,22 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   text-align: left;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
 .table th {
   background: #f8fafc;
   color: var(--text-sub);
   font-weight: 700;
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 0.85rem;
   border-bottom: 2px solid var(--border);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
+  letter-spacing: 0.04em;
 }
 
 .table td {
-  padding: 0.95rem 1rem;
+  padding: 0.75rem 0.85rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
   transition: background 0.15s ease;
@@ -578,8 +588,8 @@ body {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.76rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
   border-radius: var(--radius-pill);
   text-transform: uppercase;
@@ -612,8 +622,8 @@ body {
 }
 
 .form-control {
-  padding: 0.65rem 0.95rem;
-  font-size: 0.92rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
   font-family: inherit;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -631,10 +641,10 @@ body {
 
 /* ==================== ALERT BANNERS ==================== */
 .alert {
-  padding: 0.9rem 1.25rem;
+  padding: 0.85rem 1.15rem;
   border-radius: var(--radius-sm);
   margin-bottom: 1.5rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -741,6 +751,7 @@ body {
 
   .main-content {
     margin-left: 0;
+    max-width: 100vw;
   }
 
   .mobile-toggle {
@@ -757,7 +768,7 @@ body {
   }
 
   .topbar-search {
-    width: 200px;
+    width: 180px;
   }
 
   .page-title {
