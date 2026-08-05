@@ -18,13 +18,19 @@
 
       <!-- Navigation Sidebar Drawer -->
       <aside class="sidebar" id="sidebar">
-        <a href="/dashboard" class="brand">
-          <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 38px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-          <div>
-            <span class="brand-title">HIDDEN LAMP</span>
-            <span class="brand-subtitle">Enterprise Payroll</span>
-          </div>
-        </a>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-right: 1rem;">
+          <a href="/dashboard" class="brand" style="border: none;">
+            <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 38px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+            <div>
+              <span class="brand-title">HIDDEN LAMP</span>
+              <span class="brand-subtitle">Enterprise Payroll</span>
+            </div>
+          </a>
+          <!-- Close button inside mobile drawer -->
+          <button type="button" id="closeSidebar" class="close-sidebar-btn" style="background: none; border: none; color: #94a3b8; font-size: 1.3rem; cursor: pointer;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
 
         <nav class="sidebar-nav">
           <a href="/dashboard" class="sidebar-nav-link <%= typeof path !== 'undefined' && path === '/dashboard' ? 'active' : '' %>">
@@ -58,10 +64,20 @@
       <!-- Main Container Content -->
       <main class="main-content">
         <header class="topbar">
-          <div style="display: flex; align-items: center;">
-            <button type="button" class="mobile-toggle" id="mobileToggle" aria-label="Toggle Mobile Menu">
+          <div class="topbar-left" style="display: flex; align-items: center; gap: 0.6rem;">
+            <!-- Mobile Menu Toggle Button (Visible on Mobile & Tablet) -->
+            <button type="button" class="mobile-nav-btn" id="mobileToggle" title="Open Navigation Menu">
               <i class="fa-solid fa-bars"></i>
+              <span>Menu</span>
             </button>
+
+            <!-- Back Button for Navigation -->
+            <a href="javascript:history.back()" class="mobile-back-btn" title="Go Back">
+              <i class="fa-solid fa-arrow-left"></i>
+              <span>Back</span>
+            </a>
+
+            <!-- Search Bar (Desktop View) -->
             <div class="topbar-search">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" placeholder="Search employee code, name or record...">
@@ -87,14 +103,22 @@
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         const toggleBtn = document.getElementById('mobileToggle');
+        const closeBtn = document.getElementById('closeSidebar');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
 
         if (toggleBtn && sidebar && overlay) {
           toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('show');
-            overlay.classList.toggle('show');
+            sidebar.classList.add('show');
+            overlay.classList.add('show');
           });
+
+          if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+              sidebar.classList.remove('show');
+              overlay.classList.remove('show');
+            });
+          }
 
           overlay.addEventListener('click', () => {
             sidebar.classList.remove('show');
