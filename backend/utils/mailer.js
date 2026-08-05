@@ -14,14 +14,18 @@ async function getTransporter() {
     });
   }
 
-  // 2. Hostinger or Custom SMTP Host & Credentials
+  // 2. Hostinger or Custom SMTP Host & Credentials (with family: 4 to force IPv4 on Cloud/Render)
   if (host && user && pass) {
+    const port = parseInt(process.env.SMTP_PORT) || 465;
+    const isSecure = process.env.SMTP_SECURE !== undefined ? (process.env.SMTP_SECURE === 'true') : (port === 465);
+
     return nodemailer.createTransport({
       host: host,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true',
+      port: port,
+      secure: isSecure,
       auth: { user, pass },
-      tls: { rejectUnauthorized: false }
+      tls: { rejectUnauthorized: false },
+      family: 4 // Force IPv4 to prevent Render.com ENETUNREACH IPv6 error!
     });
   }
 
@@ -36,7 +40,8 @@ async function getTransporter() {
       auth: {
         user: testAccount.user,
         pass: testAccount.pass
-      }
+      },
+      family: 4
     });
   } catch (err) {
     console.error('Failed to create Ethereal SMTP account:', err);
