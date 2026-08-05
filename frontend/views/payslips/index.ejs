@@ -1,22 +1,22 @@
-<%- include('../partials/header', { title: 'All Payslips', path: '/payslips' }) %>
+<%- include('../partials/header', { title: 'Global Repository', path: '/payslips' }) %>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">Global Payslip Directory</h1>
-    <p class="page-description">Filter payslips by Month and Year, search employees, view details, download PDF, or send email notifications.</p>
+    <h1 class="page-title">Global Payslip Repository & Audit Trail</h1>
+    <p class="page-description">Filter payslips by Month/Year, search employee records, inspect breakdown, generate PDF, or send email notifications.</p>
   </div>
 </div>
 
 <% if (locals.success) { %>
-  <div class="alert alert-success" style="margin-bottom: 1.5rem;"><%= success %></div>
+  <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <%= success %></div>
 <% } %>
 
 <% if (locals.error) { %>
-  <div class="alert alert-danger" style="margin-bottom: 1.5rem;"><%= error %></div>
+  <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> <%= error %></div>
 <% } %>
 
 <!-- MONTH & YEAR FILTER BAR -->
-<div class="card" style="margin-bottom: 1.5rem; background: #ffffff; padding: 1.25rem;">
+<div class="card" style="background: #ffffff; padding: 1.25rem;">
   <form action="/payslips" method="GET" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin: 0;">
     <div style="flex: 1; min-width: 150px;">
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
@@ -46,10 +46,10 @@
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
         <i class="fa-solid fa-magnifying-glass" style="color: var(--accent);"></i> Search Employee
       </label>
-      <input type="text" name="search" class="form-control" placeholder="Search by Employee Name, Code or Location..." value="<%= searchQuery %>" style="font-size: 0.9rem;">
+      <input type="text" name="search" class="form-control" placeholder="Search employee name, code or location..." value="<%= searchQuery %>" style="font-size: 0.9rem;">
     </div>
 
-    <div style="display: flex; gap: 0.5rem;">
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
       <button type="submit" class="btn btn-primary" style="font-size: 0.88rem; font-weight: 600;">
         <i class="fa-solid fa-filter"></i> Apply Filter
       </button>
@@ -83,9 +83,9 @@
 <div class="card">
   <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <h2 class="card-title">
-      Employee Payslip Directory
+      <i class="fa-solid fa-folder-tree" style="color: var(--accent);"></i> Employee Payslip Repository
       <% if (selectedMonth || selectedYear) { %>
-        <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent); background: #eff6ff; padding: 0.2rem 0.6rem; border-radius: 6px; margin-left: 0.5rem;">
+        <span style="font-size: 0.82rem; font-weight: 600; color: var(--accent); background: #eff6ff; padding: 0.2rem 0.6rem; border-radius: 6px; margin-left: 0.5rem;">
           Filtered: <%= selectedMonth ? monthNames.find(m=>m.num===selectedMonth)?.name : '' %> <%= selectedYear %>
         </span>
       <% } %>
@@ -105,14 +105,14 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Payslip Ref No</th>
-            <th>Period</th>
+            <th style="white-space: nowrap;">Payslip Ref No</th>
+            <th style="white-space: nowrap;">Period</th>
             <th>Employee Name & Email</th>
-            <th style="text-align: right;">Monthly Gross</th>
-            <th style="text-align: right;">Deductions</th>
-            <th style="text-align: right;">Net Salary</th>
-            <th style="text-align: center;">Status</th>
-            <th style="text-align: right;">Actions</th>
+            <th style="text-align: right; white-space: nowrap;">Monthly Gross</th>
+            <th style="text-align: right; white-space: nowrap;">Deductions</th>
+            <th style="text-align: right; white-space: nowrap;">Net Salary</th>
+            <th style="text-align: center; white-space: nowrap;">Status</th>
+            <th style="text-align: right; white-space: nowrap;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -125,34 +125,38 @@
               const payslipRefNo = `HL/PS/${mNum}-${yNameShort}/${String(ps.employee_id || 1).padStart(3, '0')}`;
             %>
             <tr>
-              <td>
-                <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1e40af; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid #bfdbfe;">
+              <td style="white-space: nowrap;">
+                <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1e40af; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid #bfdbfe; display: inline-block;">
                   <%= payslipRefNo %>
                 </span>
               </td>
-              <td><strong><%= ps.period %></strong></td>
+              <td style="white-space: nowrap;"><strong><%= ps.period %></strong></td>
               <td>
-                <strong><%= ps.employee_name %></strong>
+                <strong style="font-size: 0.95rem; color: #0f172a;"><%= ps.employee_name %></strong>
                 <br><small style="color: var(--accent); font-weight: 500;"><i class="fa-regular fa-envelope"></i> <%= registeredEmail %></small>
               </td>
-              <td style="text-align: right; color: #059669;">₹<%= ps.gross_pay.toLocaleString('en-IN') %></td>
-              <td style="text-align: right; color: #dc2626;">₹<%= ps.total_deductions.toLocaleString('en-IN') %></td>
-              <td style="text-align: right; font-weight: 700; color: #2563eb;">₹<%= ps.net_pay.toLocaleString('en-IN') %></td>
-              <td style="text-align: center;">
+              <td style="text-align: right; color: #059669; font-weight: 600; white-space: nowrap;">₹<%= ps.gross_pay.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; color: #dc2626; font-weight: 600; white-space: nowrap;">₹<%= ps.total_deductions.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 800; color: #2563eb; font-size: 0.98rem; white-space: nowrap;">₹<%= ps.net_pay.toLocaleString('en-IN') %></td>
+              <td style="text-align: center; white-space: nowrap;">
                 <% if (ps.run_status === 'approved') { %>
-                  <span class="badge" style="background: #d1fae5; color: #065f46;">Issued</span>
+                  <span class="badge badge-approved">Issued</span>
                 <% } else { %>
-                  <span class="badge" style="background: #fef3c7; color: #92400e;">Pending</span>
+                  <span class="badge badge-draft">Pending</span>
                 <% } %>
               </td>
-              <td style="text-align: right;">
+              <td style="text-align: right; white-space: nowrap;">
                 <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap;">
-                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">👁️ View</a>
-                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">📥 PDF</a>
+                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" title="View printable payslip">
+                    <i class="fa-regular fa-eye"></i> View
+                  </a>
+                  <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" title="Download PDF">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
+                  </a>
                   <form action="/payroll/<%= ps.payroll_run_id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline; margin: 0;">
                     <input type="hidden" name="redirect" value="/payslips">
-                    <button type="submit" class="btn btn-sm" style="padding: 0.25rem 0.55rem; font-size: 0.8rem; background: #2563eb; color: #fff; border: 1px solid #2563eb; border-radius: 6px; font-weight: 600; cursor: pointer;" title="Send payslip to <%= registeredEmail %>">
-                      ✉️ Email
+                    <button type="submit" class="btn btn-sm btn-primary" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); border-color: #047857;" title="Send email notification">
+                      <i class="fa-regular fa-paper-plane"></i> Email
                     </button>
                   </form>
                 </div>
