@@ -23,7 +23,7 @@ router.get('/login', (req, res) => {
 router.get('/logout', (req, res) => {
   if (req.session) {
     req.session.destroy(() => {
-      res.clearCookie('connect.sid');
+      res.clearCookie('ems_sid');
       res.redirect('/login');
     });
   } else {
@@ -73,20 +73,14 @@ router.post('/login', (req, res) => {
     employee_id: user.employee_id
   };
 
-  // Guarantee session is written to store BEFORE sending 302 redirect to /dashboard
-  req.session.save((err) => {
-    if (err) {
-      console.error('Session save error:', err);
-    }
-    res.redirect('/dashboard');
-  });
+  return res.redirect('/dashboard');
 });
 
 // POST /logout
 router.post('/logout', (req, res) => {
   if (req.session) {
     req.session.destroy(() => {
-      res.clearCookie('connect.sid');
+      res.clearCookie('ems_sid');
       res.redirect('/login');
     });
   } else {

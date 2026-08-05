@@ -4,7 +4,6 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
-const SqliteSessionStore = require('./utils/session-store');
 const { attachUser } = require('./middleware/auth');
 
 const authRoutes = require('./routes/auth');
@@ -60,18 +59,17 @@ app.use(express.static(path.join(__dirname, '../frontend/public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../frontend/views'));
 
-// Session Configuration
-const isProd = process.env.NODE_ENV === 'production';
+// Session Configuration (Guaranteed Session Cookies on Localhost & HTTPS)
 app.use(session({
-  store: new SqliteSessionStore(),
+  name: 'ems_sid',
   secret: SESSION_SECRET,
   resave: true,
   saveUninitialized: true,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     httpOnly: true,
-    secure: isProd, // false on localhost, true on production HTTPS
-    sameSite: isProd ? 'none' : 'lax'
+    secure: false, // Ensure cookies work on HTTP localhost
+    sameSite: 'lax'
   }
 }));
 

@@ -158,6 +158,7 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN item_title TEXT;"); } catc
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN submission_source TEXT DEFAULT 'Offline Form';"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE employees ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch (e) {}
 
 // Seed / Reset Default Admin User
 function seedAdmin() {

@@ -129,7 +129,7 @@ router.get('/employees', (req, res) => {
     params.push(status);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY id DESC';
   const employees = db.prepare(query).all(...params);
 
   // Attach Gross Salary for each employee
