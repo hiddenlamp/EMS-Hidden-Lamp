@@ -25,30 +25,26 @@
     <% } %>
 
     <form action="/login" method="POST" autocomplete="off" id="loginForm">
-      <!-- Hidden trap fields to stop Chrome/Edge browser autofill -->
-      <input type="text" style="display:none;" name="fakeusernameremembered"/>
-      <input type="password" style="display:none;" name="fakepasswordremembered"/>
-
       <div class="form-group">
         <label for="email" class="form-label"><i class="fa-regular fa-envelope" style="color: var(--accent);"></i> Corporate Email</label>
-        <input type="email" id="email" name="email" class="form-control" placeholder="admin@hiddenlamp.com" value="admin@hiddenlamp.com" autocomplete="off" required autofocus>
+        <input type="email" id="email" name="email" class="form-control" placeholder="admin@hiddenlamp.com" value="admin@hiddenlamp.com" required autofocus>
       </div>
 
       <div class="form-group" style="margin-bottom: 1.5rem;">
         <label for="password" class="form-label"><i class="fa-solid fa-lock" style="color: var(--accent);"></i> Secure Password</label>
-        <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" value="admin123" autocomplete="new-password" required>
+        <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" value="admin123" required>
       </div>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; margin-bottom: 1rem;">
+      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; margin-bottom: 0.85rem;">
         <i class="fa-solid fa-shield-halved"></i> Sign In to Executive Portal
-      </button>
-
-      <button type="button" id="fillAdminBtn" class="btn btn-secondary" style="width: 100%; justify-content: center; font-size: 0.82rem; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">
-        ⚡ Click to Auto-Fill Admin Credentials
       </button>
     </form>
 
-    <div class="demo-credentials" style="margin-top: 1.25rem; padding: 0.85rem; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; font-size: 0.82rem; color: var(--text-muted); text-align: center;">
+    <button type="button" id="fillAdminBtn" class="btn btn-secondary" style="width: 100%; justify-content: center; font-size: 0.82rem; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; margin-bottom: 1.25rem;">
+      ⚡ Click to Auto-Fill Admin Credentials
+    </button>
+
+    <div class="demo-credentials" style="padding: 0.85rem; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; font-size: 0.82rem; color: var(--text-muted); text-align: center;">
       🔑 <strong>Default Admin Credentials:</strong><br>
       Email: <span style="color: var(--accent); font-weight: 700;">admin@hiddenlamp.com</span><br>
       Password: <span style="color: var(--accent); font-weight: 700;">admin123</span>
@@ -70,14 +66,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Force set on load
       setAdminCredentials();
-
-      // Delay set to override browser autofill after 300ms
       setTimeout(setAdminCredentials, 300);
-      setTimeout(setAdminCredentials, 800);
 
-      // Button click auto-fill
       const fillBtn = document.getElementById('fillAdminBtn');
       if (fillBtn) {
         fillBtn.addEventListener('click', (e) => {
