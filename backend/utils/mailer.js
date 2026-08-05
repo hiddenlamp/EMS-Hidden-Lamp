@@ -1,23 +1,20 @@
 const nodemailer = require('nodemailer');
 
 async function getTransporter() {
-  const host = (process.env.SMTP_HOST || '').trim();
-  const user = (process.env.SMTP_USER || '').trim();
-  const pass = (process.env.SMTP_PASS || '').trim();
+  const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
+  const user = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
+  const pass = (process.env.SMTP_PASS || 'Hiddenlamp@734006').trim();
   const service = (process.env.SMTP_SERVICE || '').trim();
 
   // 1. Gmail or custom SMTP service configured
   if (service.toLowerCase() === 'gmail' || host.includes('gmail')) {
     return nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: user,
-        pass: pass
-      }
+      auth: { user, pass }
     });
   }
 
-  // 2. Custom SMTP Host & Credentials
+  // 2. Hostinger or Custom SMTP Host & Credentials
   if (host && user && pass) {
     return nodemailer.createTransport({
       host: host,
@@ -28,7 +25,7 @@ async function getTransporter() {
     });
   }
 
-  // 3. Fallback: Auto Real Ethereal Email Test Account (Sends real email & returns preview link)
+  // 3. Fallback: Auto Real Ethereal Email Test Account
   try {
     const testAccount = await nodemailer.createTestAccount();
     console.log(`💡 Initialized Ethereal SMTP Test Transporter: ${testAccount.user}`);
@@ -55,7 +52,9 @@ async function sendPayslipEmail(data) {
     throw new Error('Could not initialize email transporter.');
   }
 
-  const from = process.env.EMAIL_FROM || (process.env.SMTP_USER ? `Hidden Lamp Payroll <${process.env.SMTP_USER}>` : 'Hidden Lamp Payroll <payroll@hiddenlamp.com>');
+  // Always use authenticated Hostinger sender address
+  const senderEmail = process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in';
+  const from = `"Hidden Lamp Payroll" <${senderEmail}>`;
   const subject = `Salary Payslip for Period ${period} - Hidden Lamp Pvt. Ltd.`;
 
   const earningsRows = (breakdown.earnings || []).map(e => `
