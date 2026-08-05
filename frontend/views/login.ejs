@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="login-wrapper">
   <div class="login-card">
     <div class="login-header">
-      <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 64px; border-radius: 12px; margin-bottom: 0.85rem; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.4);">
+      <img src="/images/logo.png" alt="Hidden Lamp Logo" style="height: 64px; border-radius: 12px; margin-bottom: 0.85rem; box-shadow: 0 8px 24px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.4);">
       <h1 class="login-title">HIDDEN LAMP</h1>
       <p class="login-subtitle">Enterprise Payroll & Executive Portal</p>
     </div>
@@ -24,56 +24,60 @@
       </div>
     <% } %>
 
-    <form action="/login" method="POST" autocomplete="off" id="loginForm">
+    <form action="/login" method="POST" id="loginForm">
       <div class="form-group">
-        <label for="email" class="form-label"><i class="fa-regular fa-envelope" style="color: var(--accent);"></i> Corporate Email</label>
-        <input type="email" id="email" name="email" class="form-control" placeholder="admin@hiddenlamp.com" value="admin@hiddenlamp.com" required autofocus>
+        <label for="email" class="form-label"><i class="fa-regular fa-envelope" style="color: var(--accent);"></i> Corporate Email Address</label>
+        <div style="position: relative;">
+          <i class="fa-solid fa-user-shield" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem;"></i>
+          <input type="email" id="email" name="email" class="form-control" placeholder="name@company.com" style="padding-left: 2.6rem;" required autofocus>
+        </div>
       </div>
 
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label for="password" class="form-label"><i class="fa-solid fa-lock" style="color: var(--accent);"></i> Secure Password</label>
-        <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" value="admin123" required>
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label for="password" class="form-label"><i class="fa-solid fa-lock" style="color: var(--accent);"></i> Password</label>
+        <div style="position: relative;">
+          <i class="fa-solid fa-key" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem;"></i>
+          <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" style="padding-left: 2.6rem; padding-right: 2.6rem;" required>
+          <button type="button" id="togglePassword" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;" title="Show/Hide Password">
+            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+          </button>
+        </div>
       </div>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; margin-bottom: 0.85rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; font-size: 0.82rem;">
+        <label style="display: flex; align-items: center; gap: 0.4rem; color: var(--text-sub); cursor: pointer; font-weight: 500;">
+          <input type="checkbox" name="remember" style="accent-color: var(--accent); border-radius: 4px;"> Remember session
+        </label>
+        <a href="javascript:void(0)" onclick="alert('Please contact your IT Systems Administrator to reset your enterprise password.')" style="color: var(--accent); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 0.95rem;">
         <i class="fa-solid fa-shield-halved"></i> Sign In to Executive Portal
       </button>
     </form>
 
-    <button type="button" id="fillAdminBtn" class="btn btn-secondary" style="width: 100%; justify-content: center; font-size: 0.82rem; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; margin-bottom: 1.25rem;">
-      ⚡ Click to Auto-Fill Admin Credentials
-    </button>
-
-    <div class="demo-credentials" style="padding: 0.85rem; background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px; font-size: 0.82rem; color: var(--text-muted); text-align: center;">
-      🔑 <strong>Default Admin Credentials:</strong><br>
-      Email: <span style="color: var(--accent); font-weight: 700;">admin@hiddenlamp.com</span><br>
-      Password: <span style="color: var(--accent); font-weight: 700;">admin123</span>
-    </div>
-
-    <div style="margin-top: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.76rem; font-weight: 500;">
+    <div style="margin-top: 1.75rem; text-align: center; color: var(--text-muted); font-size: 0.76rem; font-weight: 500; border-top: 1px solid var(--border); padding-top: 1.1rem;">
       <i class="fa-solid fa-lock" style="color: #059669;"></i> 256-Bit SSL Encrypted Enterprise Session
     </div>
   </div>
 
   <script>
-    function setAdminCredentials() {
-      const emailInput = document.getElementById('email');
-      const passInput = document.getElementById('password');
-      if (emailInput && passInput) {
-        emailInput.value = 'admin@hiddenlamp.com';
-        passInput.value = 'admin123';
-      }
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
-      setAdminCredentials();
-      setTimeout(setAdminCredentials, 300);
+      const togglePasswordBtn = document.getElementById('togglePassword');
+      const passwordInput = document.getElementById('password');
+      const eyeIcon = document.getElementById('eyeIcon');
 
-      const fillBtn = document.getElementById('fillAdminBtn');
-      if (fillBtn) {
-        fillBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          setAdminCredentials();
+      if (togglePasswordBtn && passwordInput && eyeIcon) {
+        togglePasswordBtn.addEventListener('click', () => {
+          const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+          passwordInput.setAttribute('type', type);
+          if (type === 'text') {
+            eyeIcon.classList.remove('fa-eye');
+            eyeIcon.classList.add('fa-eye-slash');
+          } else {
+            eyeIcon.classList.remove('fa-eye-slash');
+            eyeIcon.classList.add('fa-eye');
+          }
         });
       }
     });
