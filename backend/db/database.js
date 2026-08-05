@@ -159,13 +159,16 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN submission_source TEXT DEF
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;"); } catch (e) {}
 
-// Seed Default Admin User if missing
+// Seed / Reset Default Admin User
 function seedAdmin() {
   const existingAdmin = db.prepare('SELECT * FROM users WHERE email = ?').get('admin@hiddenlamp.com');
+  const hash = bcrypt.hashSync('admin123', 10);
   if (!existingAdmin) {
-    const hash = bcrypt.hashSync('admin123', 10);
     db.prepare('INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)').run('admin@hiddenlamp.com', hash, 'admin');
     console.log('✅ Default Admin User created: admin@hiddenlamp.com / admin123');
+  } else {
+    db.prepare('UPDATE users SET password_hash = ? WHERE email = ?').run(hash, 'admin@hiddenlamp.com');
+    console.log('✅ Default Admin User password reset: admin@hiddenlamp.com / admin123');
   }
 }
 
