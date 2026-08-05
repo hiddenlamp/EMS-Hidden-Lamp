@@ -1,4 +1,15 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+// Custom DNS lookup function that strictly forces IPv4 resolution on Render.com containers
+const customIpv4Lookup = (hostname, options, callback) => {
+  dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+    if (err) {
+      return callback(err);
+    }
+    callback(null, address, 4);
+  });
+};
 
 async function getTransporter() {
   const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
@@ -14,19 +25,20 @@ async function getTransporter() {
     });
   }
 
-  // 2. Hostinger / Custom SMTP Host & Credentials with Multi-Port Fallback for Render.com
+  // 2. Hostinger / Custom SMTP Host & Credentials with Guaranteed IPv4 Lookup
   if (host && user && pass) {
     const primaryPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465;
     const primarySecure = process.env.SMTP_SECURE !== undefined ? (process.env.SMTP_SECURE === 'true') : (primaryPort === 465);
 
-    // Primary transporter
+    // Primary transporter with explicit custom IPv4 DNS lookup
     const primaryTransporter = nodemailer.createTransport({
       host: host,
       port: primaryPort,
       secure: primarySecure,
       auth: { user, pass },
       tls: { rejectUnauthorized: false },
-      family: 4, // Force IPv4 to prevent Render.com ENETUNREACH IPv6 error
+      family: 4,
+      lookup: customIpv4Lookup, // Guarantee IPv4 address resolution (172.65.x.x) instead of unreachable IPv6
       connectionTimeout: 12000,
       greetingTimeout: 10000,
       socketTimeout: 15000
@@ -34,12 +46,12 @@ async function getTransporter() {
 
     try {
       await primaryTransporter.verify();
-      console.log(`✅ Primary SMTP Connected: ${host}:${primaryPort} (secure: ${primarySecure})`);
+      console.log(`✅ Primary SMTP Connected via IPv4: ${host}:${primaryPort} (secure: ${primarySecure})`);
       return primaryTransporter;
     } catch (err) {
       console.warn(`⚠️ Primary SMTP (${host}:${primaryPort}) failed/timed out: ${err.message}. Trying Fallback Port 465 (SSL)...`);
       
-      // Fallback transporter on Port 465 (SSL) if Port 587 timed out on Cloud/Render
+      // Fallback transporter on Port 465 (SSL)
       const fallbackTransporter = nodemailer.createTransport({
         host: host,
         port: 465,
@@ -47,6 +59,7 @@ async function getTransporter() {
         auth: { user, pass },
         tls: { rejectUnauthorized: false },
         family: 4,
+        lookup: customIpv4Lookup,
         connectionTimeout: 12000,
         greetingTimeout: 10000,
         socketTimeout: 15000
@@ -54,11 +67,10 @@ async function getTransporter() {
 
       try {
         await fallbackTransporter.verify();
-        console.log(`✅ Fallback SSL SMTP Connected: ${host}:465 (secure: true)`);
+        console.log(`✅ Fallback SSL SMTP Connected via IPv4: ${host}:465 (secure: true)`);
         return fallbackTransporter;
       } catch (fbErr) {
         console.error('❌ Both Primary and Fallback SMTP connection attempts failed:', fbErr.message);
-        // Return primary transporter anyway so Nodemailer can attempt send with detailed error
         return primaryTransporter;
       }
     }
@@ -76,7 +88,8 @@ async function getTransporter() {
         user: testAccount.user,
         pass: testAccount.pass
       },
-      family: 4
+      family: 4,
+      lookup: customIpv4Lookup
     });
   } catch (err) {
     console.error('Failed to create Ethereal SMTP account:', err);
