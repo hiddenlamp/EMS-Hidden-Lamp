@@ -26,6 +26,7 @@
     "express-session": "^1.18.1",
     "groq-sdk": "^1.4.1",
     "html-pdf-node": "^1.0.8",
-    "nodemailer": "^9.0.3"
+    "nodemailer": "^9.0.3",
+    "pdfkit": "^0.19.1"
   }
 }

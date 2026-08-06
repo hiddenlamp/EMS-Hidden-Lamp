@@ -4,6 +4,7 @@ const db = require('../db/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { numberToIndianWords } = require('../utils/numberToWords');
 const { sendPayslipEmail } = require('../utils/mailer');
+const { generatePayslipPDFBuffer } = require('../utils/pdfGenerator');
 const { logAction } = require('../middleware/audit');
 const htmlPdf = require('html-pdf-node');
 
@@ -14,10 +15,47 @@ function getDaysInMonth(periodStr) {
   return new Date(year, month, 0).getDate();
 }
 
+// ----------------------------------------------------
+// PUBLIC DIRECT PDF DOWNLOAD (No Login Required For Email Links)
+// ----------------------------------------------------
+router.get('/download/payslip/:id/:employeeId', async (req, res) => {
+  const payslip = db.prepare(`
+    SELECT p.*, r.period, r.pay_date, r.status as run_status
+    FROM payslips p
+    JOIN payroll_runs r ON p.payroll_run_id = r.id
+    WHERE p.payroll_run_id = ? AND p.employee_id = ?
+  `).get(req.params.id, req.params.employeeId);
+
+  if (!payslip) {
+    return res.status(404).send('Payslip record not found.');
+  }
+
+  const breakdown = JSON.parse(payslip.breakdown_json);
+
+  try {
+    const pdfBuffer = await generatePayslipPDFBuffer({
+      breakdown,
+      period: payslip.period,
+      payDate: payslip.pay_date,
+      grossPay: payslip.gross_pay,
+      totalDeductions: payslip.total_deductions,
+      netPay: payslip.net_pay,
+      netPayInWords: breakdown.net_pay_in_words
+    });
+
+    const safeEmpName = (breakdown.employee?.name || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Payslip_${safeEmpName}_${payslip.period}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) {
+    res.status(500).send('Error generating PDF: ' + err.message);
+  }
+});
+
 // GET /payroll (List all runs & Calendar Month Picker)
 router.get('/', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
   const runs = db.prepare('SELECT * FROM payroll_runs ORDER BY period DESC').all();
-
   const selectedYear = parseInt(req.query.year) || 2026;
 
   const monthNames = [
@@ -54,7 +92,6 @@ router.get('/', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
 // POST /payroll (Create new run)
 router.post('/', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
   const { period, pay_date } = req.body;
-
   if (!period || !pay_date) {
     return res.redirect('/payroll');
   }
@@ -85,7 +122,6 @@ router.get('/:id', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
   }
 
   const daysInMonth = getDaysInMonth(run.period);
-
   const employees = db.prepare("SELECT * FROM employees WHERE status = 'active' ORDER BY work_location ASC, name ASC").all();
 
   const attendanceRows = db.prepare('SELECT * FROM attendance WHERE period = ?').all(run.period);
@@ -168,12 +204,10 @@ router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, r
 
       const earnings = [];
       const deductions = [];
-
       let grossPay = 0;
       let basicSalary = 0;
       let totalDeductions = 0;
 
-      // 1. Calculate Full Base Earnings & Fixed Deductions
       components.forEach(comp => {
         if (comp.type === 'earning') {
           const compAmount = Math.round(comp.amount * 100) / 100;
@@ -200,7 +234,6 @@ router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, r
         basicSalary = grossPay;
       }
 
-      // 2. Calculate LOP / Attendance Deduction based on BASIC SALARY
       if (lopDays > 0 && basicSalary > 0) {
         const lopDeductionAmount = Math.round((basicSalary * lopDays / daysInMonth) * 100) / 100;
         deductions.unshift({
@@ -269,7 +302,6 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (re
 
   logAction((req.user || req.session?.user || {}).email || 'system', 'APPROVE_PAYROLL', 'Payroll Run', run.id, { period: run.period });
 
-  // If send_emails checkbox is checked
   if (req.body.send_emails === 'true') {
     const payslips = db.prepare(`
       SELECT p.*, e.name as employee_name, e.email as user_email
@@ -284,7 +316,7 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (re
     for (const ps of payslips) {
       const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
       const breakdown = JSON.parse(ps.breakdown_json);
-      const payslipUrl = `${protocol}://${host}/payroll/${run.id}/payslip/${ps.employee_id}`;
+      const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${ps.employee_id}`;
 
       try {
         await sendPayslipEmail({
@@ -297,7 +329,7 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (re
           netPay: ps.net_pay,
           netPayInWords: breakdown.net_pay_in_words,
           breakdown,
-          payslipUrl
+          payslipDownloadUrl
         });
       } catch (e) {
         console.error(`Failed to send email to ${targetEmail}:`, e.message);
@@ -327,7 +359,7 @@ router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'h
   const breakdown = JSON.parse(payslip.breakdown_json);
   const protocol = req.protocol;
   const host = req.get('host');
-  const payslipUrl = `${protocol}://${host}/payroll/${run.id}/payslip/${payslip.employee_id}`;
+  const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${payslip.employee_id}`;
 
   try {
     const mailResult = await sendPayslipEmail({
@@ -340,11 +372,11 @@ router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'h
       netPay: payslip.net_pay,
       netPayInWords: breakdown.net_pay_in_words,
       breakdown,
-      payslipUrl
+      payslipDownloadUrl
     });
 
     const redirectPath = req.body.redirect || `/payroll/${run.id}`;
-    let successMsg = `Real Email dispatched successfully to ${targetEmail}!`;
+    let successMsg = `Email dispatched with PDF Attachment & Direct Download Link to ${targetEmail}!`;
     if (mailResult && mailResult.previewUrl) {
       successMsg += ` (Live Preview: ${mailResult.previewUrl})`;
     }
@@ -376,7 +408,7 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), a
   for (const ps of payslips) {
     const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
     const breakdown = JSON.parse(ps.breakdown_json);
-    const payslipUrl = `${protocol}://${host}/payroll/${run.id}/payslip/${ps.employee_id}`;
+    const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${ps.employee_id}`;
 
     try {
       await sendPayslipEmail({
@@ -389,7 +421,7 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), a
         netPay: ps.net_pay,
         netPayInWords: breakdown.net_pay_in_words,
         breakdown,
-        payslipUrl
+        payslipDownloadUrl
       });
       sentCount++;
     } catch (e) {
@@ -397,7 +429,7 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), a
     }
   }
 
-  res.redirect(`/payroll/${run.id}?success=Successfully+emailed+${sentCount}+payslips+to+employees.`);
+  res.redirect(`/payroll/${run.id}?success=Successfully+emailed+${sentCount}+payslips+with+PDFs+to+employees.`);
 });
 
 // GET /payroll/:id/payslip/:employeeId (Single printable payslip)
@@ -414,14 +446,10 @@ router.get('/:id/payslip/:employeeId', requireAuth, requireRole(['admin', 'hr'])
   }
 
   const breakdown = JSON.parse(payslip.breakdown_json);
-
-  res.render('payslips/single', {
-    payslip,
-    breakdown
-  });
+  res.render('payslips/single', { payslip, breakdown });
 });
 
-// GET /payroll/:id/payslip/:employeeId/pdf (Download PDF payslip)
+// GET /payroll/:id/payslip/:employeeId/pdf (Admin Download PDF payslip via PDFKit)
 router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
   const payslip = db.prepare(`
     SELECT p.*, r.period, r.pay_date, r.status as run_status
@@ -435,34 +463,25 @@ router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'h
   }
 
   const breakdown = JSON.parse(payslip.breakdown_json);
-  
-  // Render HTML first with isPdf: true
-  res.render('payslips/single', { payslip, breakdown, isPdf: true }, (err, html) => {
-    if (err) return res.status(500).send('Error rendering HTML: ' + err.message);
-
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const baseUrl = `${protocol}://${host}`;
-
-    // Inject base URL so relative paths for CSS and images work in Puppeteer
-    const styledHtml = html.replace('<head>', `<head><base href="${baseUrl}">`);
-
-    const file = { content: styledHtml };
-    const options = { 
-      format: 'A4', 
-      printBackground: true, 
-      margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' },
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    };
-    
-    htmlPdf.generatePdf(file, options).then(pdfBuffer => {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Payslip_${breakdown.employee.name.replace(/\\s+/g, '_')}_${breakdown.period}.pdf"`);
-      res.send(pdfBuffer);
-    }).catch(pdfErr => {
-      res.status(500).send('Error generating PDF: ' + pdfErr.message);
+  try {
+    const pdfBuffer = await generatePayslipPDFBuffer({
+      breakdown,
+      period: payslip.period,
+      payDate: payslip.pay_date,
+      grossPay: payslip.gross_pay,
+      totalDeductions: payslip.total_deductions,
+      netPay: payslip.net_pay,
+      netPayInWords: breakdown.net_pay_in_words
     });
-  });
+
+    const safeEmpName = (breakdown.employee?.name || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Payslip_${safeEmpName}_${payslip.period}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) {
+    res.status(500).send('Error generating PDF: ' + err.message);
+  }
 });
 
 // GET /payroll/:id/print-all (2-up per A4 sheet print view)

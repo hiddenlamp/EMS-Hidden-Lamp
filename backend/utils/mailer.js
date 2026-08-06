@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const { generatePayslipPDFBuffer } = require('./pdfGenerator');
 
 // Custom DNS lookup function forcing IPv4 resolution on cloud container environments (Render/Hostinger)
 const customIpv4Lookup = (hostname, options, callback) => {
@@ -80,16 +81,32 @@ async function createTransporterWithFailover() {
 }
 
 async function sendPayslipEmail(data) {
-  const { to, employeeName, period, payDate, grossPay, totalDeductions, netPay, netPayInWords, breakdown, payslipUrl } = data;
+  const { to, employeeName, period, payDate, grossPay, totalDeductions, netPay, netPayInWords, breakdown, payslipUrl, payslipDownloadUrl } = data;
 
   const senderEmail = process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in';
   const from = `"Hidden Lamp Payroll" <${senderEmail}>`;
   const subject = `Salary Payslip for Period ${period} - Hidden Lamp Pvt. Ltd.`;
 
+  // Generate crisp PDF buffer for direct email attachment
+  let pdfBuffer = null;
+  try {
+    pdfBuffer = await generatePayslipPDFBuffer({
+      breakdown,
+      period,
+      payDate,
+      grossPay,
+      totalDeductions,
+      netPay,
+      netPayInWords
+    });
+  } catch (pdfErr) {
+    console.warn('⚠️ Could not generate PDF attachment for email:', pdfErr.message);
+  }
+
   const earningsRows = (breakdown.earnings || []).map(e => `
     <tr>
       <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">${e.name}</td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #0f172a;">₹${(e.prorated_amount || e.amount || 0).toFixed(2)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #0f172a;">₹${(e.prorated_amount !== undefined ? e.prorated_amount : e.amount || 0).toFixed(2)}</td>
     </tr>
   `).join('');
 
@@ -99,6 +116,8 @@ async function sendPayslipEmail(data) {
       <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #dc2626;">₹${(d.amount || 0).toFixed(2)}</td>
     </tr>
   `).join('');
+
+  const downloadTargetUrl = payslipDownloadUrl || payslipUrl;
 
   const html = `
     <!DOCTYPE html>
@@ -120,7 +139,7 @@ async function sendPayslipEmail(data) {
         .net-box { background: #ecfdf5; border: 1px solid #d1fae5; padding: 18px; border-radius: 10px; text-align: center; margin-bottom: 18px; }
         .net-amount { font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px; }
         .words { font-size: 13px; color: #475569; text-align: center; margin-bottom: 24px; }
-        .btn { display: inline-block; background: #2563eb; color: #ffffff !important; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
+        .btn-download { display: inline-block; background: #059669; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 800; font-size: 15px; box-shadow: 0 4px 12px rgba(5,150,105,0.3); }
         .footer { text-align: center; padding: 18px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
       </style>
     </head>
@@ -132,7 +151,7 @@ async function sendPayslipEmail(data) {
         </div>
         <div class="content">
           <p style="font-size: 15px;">Dear <strong>${employeeName}</strong>,</p>
-          <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your salary payslip for <strong>${period}</strong> has been generated and processed. Below is the summary of your earnings and deductions:</p>
+          <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your salary payslip for <strong>${period}</strong> has been generated and processed. Your official PDF payslip is attached directly to this email, or you can click below to download it directly to your device:</p>
 
           <div class="meta-grid">
             <div class="meta-row"><strong>Employee Name:</strong> <span>${employeeName}</span></div>
@@ -183,8 +202,10 @@ async function sendPayslipEmail(data) {
             Amount In Words: <strong>${netPayInWords}</strong>
           </div>
 
-          <div style="text-align: center; margin: 24px 0 10px 0;">
-            <a href="${payslipUrl}" class="btn" target="_blank">📄 View / Download Printable Payslip</a>
+          <!-- DIRECT PDF DOWNLOAD BUTTON -->
+          <div style="text-align: center; margin: 26px 0 14px 0;">
+            <a href="${downloadTargetUrl}" class="btn-download" target="_blank">📥 Direct Download Payslip PDF</a>
+            <div style="font-size: 12px; color: #64748b; margin-top: 8px;">Click to download official PDF file directly to your phone/device.</div>
           </div>
         </div>
         <div class="footer">
@@ -195,6 +216,17 @@ async function sendPayslipEmail(data) {
     </body>
     </html>
   `;
+
+  // Attach PDF directly to the email
+  const attachments = [];
+  if (pdfBuffer) {
+    const safeEmpName = employeeName.replace(/[^a-zA-Z0-9]/g, '_');
+    attachments.push({
+      filename: `Payslip_${safeEmpName}_${period}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    });
+  }
 
   let transporter;
   try {
@@ -213,12 +245,12 @@ async function sendPayslipEmail(data) {
   }
 
   try {
-    const info = await transporter.sendMail({ from, to, subject, html });
+    const info = await transporter.sendMail({ from, to, subject, html, attachments });
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
       console.log(`✉️ Email Dispatched to Ethereal Sandbox: ${to} (Preview: ${previewUrl})`);
     } else {
-      console.log(`✅ Hostinger SMTP Email sent successfully to ${to} (MessageID: ${info.messageId})`);
+      console.log(`✅ Hostinger SMTP Email sent successfully with PDF attachment to ${to} (MessageID: ${info.messageId})`);
     }
     return { messageId: info.messageId, previewUrl: previewUrl || null };
   } catch (sendErr) {
@@ -232,7 +264,7 @@ async function sendPayslipEmail(data) {
       family: 4,
       lookup: customIpv4Lookup
     });
-    const fallbackInfo = await backupTransporter.sendMail({ from, to, subject, html });
+    const fallbackInfo = await backupTransporter.sendMail({ from, to, subject, html, attachments });
     const fallbackPreviewUrl = nodemailer.getTestMessageUrl(fallbackInfo);
     console.log(`✅ Backup Email sent successfully! Preview: ${fallbackPreviewUrl}`);
     return { messageId: fallbackInfo.messageId, previewUrl: fallbackPreviewUrl || null };
