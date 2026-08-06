@@ -1,0 +1,117 @@
+<%- include('../partials/header', { title: employee.name + ' - Expense Ledger', path: '/expenses' }) %>
+
+<div style="max-width: 950px; margin: 0 auto;">
+  <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <h1 class="page-title"><i class="fa-solid fa-address-book" style="color: var(--accent);"></i> Employee Expense Ledger</h1>
+      <p class="page-description">Complete historical ledger and claim breakdown for <strong><%= employee.name %></strong>.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="/expenses/travel/new?employee_id=<%= employee.id %>" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> + Add Expense Claim
+      </a>
+      <a href="/expenses?tab=travel" class="btn btn-secondary">
+        <i class="fa-solid fa-arrow-left"></i> ← Back to Expenses
+      </a>
+    </div>
+  </div>
+
+  <% if (success) { %>
+    <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <%= success %></div>
+  <% } %>
+
+  <% if (error) { %>
+    <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <%= error %></div>
+  <% } %>
+
+  <!-- Employee Summary Banner -->
+  <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="margin: 0; font-size: 1.35rem; color: #ffffff;"><%= employee.name %></h2>
+        <div style="font-size: 0.9rem; color: #94a3b8; margin-top: 0.3rem;">
+          Employee Code: <strong style="color: #38bdf8;"><%= employee.employee_code %></strong> | 
+          Branch Location: <span style="background: rgba(255,255,255,0.15); padding: 0.15rem 0.45rem; border-radius: 4px; color: #fff;"><%= employee.work_location %></span>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 0.82rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Net Accrued Balance Dues</div>
+        <div style="font-size: 1.75rem; font-weight: 800; color: <%= summary.net_dues > 0 ? '#f87171' : '#34d399' %>;">
+          ₹<%= summary.net_dues.toLocaleString('en-IN') %>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 2rem; margin-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 0.85rem; font-size: 0.9rem; color: #cbd5e1; flex-wrap: wrap;">
+      <div>Claims Filed: <strong style="color: #fff;"><%= summary.claim_count %> Claims</strong></div>
+      <div>Total Claimed: <strong style="color: #fff;">₹<%= summary.total_claimed.toLocaleString('en-IN') %></strong></div>
+      <div>Total Paid / Advanced: <strong style="color: #34d399;">₹<%= summary.total_advance_paid.toLocaleString('en-IN') %></strong></div>
+    </div>
+  </div>
+
+  <!-- Detailed Timeline -->
+  <div class="card" style="padding: 1.5rem;">
+    <h3 style="font-size: 1.1rem; font-weight: 800; margin-top: 0; margin-bottom: 1.25rem; color: #0f172a;">
+      <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent);"></i> Detailed Itemized Claims Timeline (<%= claims.length %>)
+    </h3>
+
+    <% if (claims.length === 0) { %>
+      <div style="text-align: center; padding: 3rem 1rem;">
+        <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <p style="color: var(--text-muted); font-size: 1rem;">No expense claims filed yet for <%= employee.name %>.</p>
+      </div>
+    <% } else { %>
+      <% claims.forEach(c => { %>
+        <% const title = c.item_title || (c.from_location ? `${c.from_location} ➔ ${c.to_location}` : c.purpose); %>
+        <% const isTravel = !c.claim_type || c.claim_type === 'Travel'; %>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.4rem;">
+                <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">
+                  🏗️ <%= c.project_name || 'General Corporate' %>
+                </span>
+                <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 0.75rem;">
+                  <%= c.claim_type || 'Travel' %>
+                </span>
+              </div>
+              <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;"><%= title %></div>
+              <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.2rem;"><%= c.purpose %> | Date: <%= c.start_date %> <%= c.end_date && c.end_date !== c.start_date ? 'to ' + c.end_date : '' %></div>
+            </div>
+
+            <div style="text-align: right;">
+              <% if (c.dues_amount > 0) { %>
+                <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Dues Pending</span>
+              <% } else { %>
+                <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Fully Settled</span>
+              <% } %>
+              <div style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.35rem;">Total: ₹<%= c.total_amount.toLocaleString('en-IN') %></div>
+              <div style="font-size: 0.85rem; color: #047857; font-weight: 600;">Paid: ₹<%= c.advance_paid.toLocaleString('en-IN') %></div>
+              <div style="font-size: 0.95rem; font-weight: 800; color: <%= c.dues_amount > 0 ? '#b91c1c' : '#059669' %>;">Dues: ₹<%= c.dues_amount.toLocaleString('en-IN') %></div>
+            </div>
+          </div>
+
+          <% if (isTravel) { %>
+            <div style="margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px dashed #e2e8f0; display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 0.85rem; color: #334155;">
+              <span>✈️ Travel: <strong>₹<%= c.travel_cost.toLocaleString('en-IN') %></strong></span>
+              <span>🍔 Food: <strong>₹<%= c.food_cost.toLocaleString('en-IN') %></strong></span>
+              <span>🏨 Stay: <strong>₹<%= c.stay_cost.toLocaleString('en-IN') %></strong></span>
+              <span>📦 Misc: <strong>₹<%= c.misc_cost.toLocaleString('en-IN') %></strong></span>
+            </div>
+          <% } %>
+
+          <% if (c.dues_amount > 0) { %>
+            <div style="margin-top: 1rem; text-align: right;">
+              <a href="/expenses/travel/<%= c.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669;">
+                <i class="fa-solid fa-money-bill-transfer"></i> Pay / Settle Dues (₹<%= c.dues_amount.toLocaleString('en-IN') %>)
+              </a>
+            </div>
+          <% } %>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

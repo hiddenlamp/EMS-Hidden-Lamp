@@ -1,0 +1,58 @@
+<%- include('../partials/header', { title: 'Settle Company Bill', path: '/expenses' }) %>
+
+<div style="max-width: 600px; margin: 0 auto;">
+  <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent);"></i> Settle Company Expense Bill</h1>
+      <p class="page-description">Record payment mode and mark this company bill as <strong>Paid</strong>.</p>
+    </div>
+    <a href="/expenses?tab=company" class="btn btn-secondary">
+      <i class="fa-solid fa-arrow-left"></i> ← Back
+    </a>
+  </div>
+
+  <% if (error) { %>
+    <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <%= error %></div>
+  <% } %>
+
+  <div class="card" style="padding: 1.75rem;">
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem;">
+      <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
+        🏗️ <%= expense.project_name || 'General Corporate' %>
+      </span>
+      <h2 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.4rem; margin-bottom: 0.2rem;"><%= expense.title %></h2>
+      <div style="font-size: 0.85rem; color: #64748b;">Category: <%= expense.category %> | Location: <%= expense.work_location %></div>
+
+      <div style="margin-top: 1rem; font-size: 1.6rem; font-weight: 800; color: #059669;">
+        Bill Amount: ₹<%= expense.amount.toLocaleString('en-IN') %>
+      </div>
+    </div>
+
+    <form action="/expenses/company/<%= expense.id %>/pay" method="POST">
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-weight: 700;">Payment Mode</label>
+        <select name="payment_mode" class="form-control" required>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="UPI">UPI</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="Cash">Cash</option>
+          <option value="Cheque">Cheque</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" style="font-weight: 700;">Invoice / Transaction Reference No.</label>
+        <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. UPI-TXN-9081 / INV-2026-9041" value="<%= expense.invoice_ref || '' %>">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+        <a href="/expenses?tab=company" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; padding: 0.65rem 1.5rem; font-weight: 700;">
+          <i class="fa-solid fa-circle-check"></i> Confirm Settlement (Paid)
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

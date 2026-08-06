@@ -9,12 +9,12 @@
     <a href="/expenses/report" class="btn btn-secondary">
       <i class="fa-solid fa-file-csv"></i> Download CSV Report
     </a>
-    <button type="button" class="btn btn-secondary" onclick="openModal('companyExpenseModal')">
+    <a href="/expenses/company/new" class="btn btn-secondary">
       <i class="fa-solid fa-building-circle-check"></i> + Project / Company Expense
-    </button>
-    <button type="button" class="btn btn-primary" onclick="openModal('travelExpenseModal')">
+    </a>
+    <a href="/expenses/travel/new" class="btn btn-primary">
       <i class="fa-solid fa-plus"></i> + Add Field Expense Claim
-    </button>
+    </a>
   </div>
 </div>
 
@@ -132,12 +132,12 @@
       </div>
 
       <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <button type="button" class="btn btn-primary" style="background: #2563eb; border: none; font-weight: 600;" onclick="openClaimModalForEmployee('<%= selectedEmployeeInfo.id %>')">
+        <a href="/expenses/travel/new?employee_id=<%= selectedEmployeeInfo.id %>" class="btn btn-primary" style="background: #2563eb; border: none; font-weight: 600;">
           <i class="fa-solid fa-plus"></i> + Add Expense Claim
-        </button>
-        <button type="button" class="btn btn-secondary" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.2);" onclick="viewEmployeeLedger('<%= selectedEmployeeInfo.id %>')">
+        </a>
+        <a href="/expenses/employee-ledger/<%= selectedEmployeeInfo.id %>" class="btn btn-secondary" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.2);">
           <i class="fa-solid fa-address-book"></i> View Full Ledger
-        </button>
+        </a>
         <a href="/expenses?tab=travel" class="btn btn-secondary" style="background: rgba(255,255,255,0.1); color: #94a3b8; border: 1px solid rgba(255,255,255,0.15);">
           <i class="fa-solid fa-xmark"></i> Clear Filter
         </a>
@@ -151,9 +151,9 @@
   <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
       <h2 class="card-title"><i class="fa-solid fa-building-user" style="color: var(--accent);"></i> Project Site & Corporate Overhead (<%= companyExpenses.length %> Receipts)</h2>
-      <button type="button" class="btn btn-sm btn-primary" onclick="openModal('companyExpenseModal')">
+      <a href="/expenses/company/new" class="btn btn-sm btn-primary">
         <i class="fa-solid fa-plus"></i> + Add Expense Receipt
-      </button>
+      </a>
     </div>
 
     <% if (companyExpenses.length === 0) { %>
@@ -214,9 +214,9 @@
                   </td>
                   <td style="text-align: right; white-space: nowrap;">
                     <% if (exp.payment_status !== 'Paid') { %>
-                      <button type="button" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; padding: 0.25rem 0.55rem; font-size: 0.75rem; margin-right: 0.3rem;" onclick="openSettleCompanyBillModal('<%= exp.id %>', '<%= exp.title.replace(/'/g, "\\'") %>', <%= exp.amount %>)" title="Mark Paid / Settle Bill">
+                      <a href="/expenses/company/<%= exp.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; padding: 0.25rem 0.55rem; font-size: 0.75rem; margin-right: 0.3rem;">
                         <i class="fa-solid fa-circle-check"></i> Mark Paid
-                      </button>
+                      </a>
                     <% } %>
 
                     <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this expense record?');">
@@ -275,9 +275,9 @@
 
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
               <% if (exp.payment_status !== 'Paid') { %>
-                <button type="button" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; flex: 1; justify-content: center;" onclick="openSettleCompanyBillModal('<%= exp.id %>', '<%= exp.title.replace(/'/g, "\\'") %>', <%= exp.amount %>)">
+                <a href="/expenses/company/<%= exp.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; flex: 1; justify-content: center;">
                   <i class="fa-solid fa-circle-check"></i> Mark Paid
-                </button>
+                </a>
               <% } %>
               <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="margin: 0;" onsubmit="return confirm('Delete this expense record?');">
                 <button type="submit" class="btn btn-sm btn-secondary" style="color: #dc2626;" title="Delete Record">
@@ -296,9 +296,9 @@
   <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
       <h2 class="card-title"><i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i> Project-Wise Expense & City Breakdown (<%= projectSummary.length %> Active Projects)</h2>
-      <button type="button" class="btn btn-sm btn-primary" onclick="openModal('companyExpenseModal')">
+      <a href="/expenses/company/new" class="btn btn-sm btn-primary">
         <i class="fa-solid fa-plus"></i> + Add Project Expense
-      </button>
+      </a>
     </div>
 
     <% if (projectSummary.length === 0) { %>
@@ -350,6 +350,9 @@
           Employee Field & Travel Claims (<%= travelExpenses.length %> Employees)
         <% } %>
       </h2>
+      <a href="/expenses/travel/new" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-plus"></i> + Add Field Claim
+      </a>
     </div>
 
     <% if (travelExpenses.length === 0) { %>
@@ -404,12 +407,12 @@
                     <% } %>
                   </td>
                   <td style="text-align: right; white-space: nowrap;">
-                    <button type="button" class="btn btn-sm btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="viewEmployeeLedger('<%= empRecord.employee_id %>')">
+                    <a href="/expenses/employee-ledger/<%= empRecord.employee_id %>" class="btn btn-sm btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;">
                       <i class="fa-solid fa-eye"></i> View Full Ledger
-                    </button>
-                    <button type="button" class="btn btn-sm btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.78rem;" onclick="openClaimModalForEmployee('<%= empRecord.employee_id %>')" title="Add New Expense Claim">
+                    </a>
+                    <a href="/expenses/travel/new?employee_id=<%= empRecord.employee_id %>" class="btn btn-sm btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.78rem;">
                       <i class="fa-solid fa-plus"></i> + Add Claim
-                    </button>
+                    </a>
                   </td>
                 </tr>
               <% }); %>
@@ -444,12 +447,12 @@
             </div>
 
             <div style="display: flex; gap: 0.5rem;">
-              <button type="button" class="btn btn-sm btn-primary" style="flex: 1; justify-content: center;" onclick="viewEmployeeLedger('<%= empRecord.employee_id %>')">
+              <a href="/expenses/employee-ledger/<%= empRecord.employee_id %>" class="btn btn-sm btn-primary" style="flex: 1; justify-content: center;">
                 <i class="fa-solid fa-eye"></i> View Ledger
-              </button>
-              <button type="button" class="btn btn-sm btn-secondary" style="flex: 1; justify-content: center;" onclick="openClaimModalForEmployee('<%= empRecord.employee_id %>')">
+              </a>
+              <a href="/expenses/travel/new?employee_id=<%= empRecord.employee_id %>" class="btn btn-sm btn-secondary" style="flex: 1; justify-content: center;">
                 <i class="fa-solid fa-plus"></i> + Add Claim
-              </button>
+              </a>
             </div>
           </div>
         <% }); %>
@@ -457,418 +460,5 @@
     <% } %>
   </div>
 <% } %>
-
-<!-- MODAL 1: Claim Employee Expense (Travel or Purchase) -->
-<div id="travelExpenseModal" class="modal-backdrop">
-  <div class="modal-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;"><i class="fa-solid fa-user-shield" style="color: var(--accent);"></i> Add Employee Field Expense Claim</h2>
-      <button type="button" onclick="closeModal('travelExpenseModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);">&times;</button>
-    </div>
-
-    <form action="/expenses/travel" method="POST">
-      <!-- Dynamic Project Selector -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Select Project / City</label>
-          <select name="project_name" class="form-control" required>
-            <option value="General Corporate">🏢 General Corporate / HQ</option>
-            <% projects.forEach(p => { %>
-              <option value="<%= p %>">🏗️ <%= p %></option>
-            <% }); %>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Select Employee</label>
-          <select name="employee_id" id="claim_employee_select" class="form-control" onchange="onEmployeeSelectChange()" required>
-            <option value="">-- Select Employee --</option>
-            <% employees.forEach(emp => { %>
-              <option value="<%= emp.id %>"><%= emp.name %> (<%= emp.employee_code %> - <%= emp.work_location %>)</option>
-            <% }); %>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Claim Type</label>
-          <select name="claim_type" id="claim_type_select" class="form-control" onchange="toggleClaimTypeFields()" required>
-            <option value="Travel">✈️ Travel / Outstation Trip</option>
-            <option value="Purchase">🛒 Equipment & Hardware Purchase</option>
-            <option value="Supplies">📄 Office Supplies & Printing</option>
-            <option value="Client Meeting">☕ Client Meeting & Entertainment</option>
-            <option value="Medical">🏥 Medical & Emergency</option>
-            <option value="Other">🔧 Other Out-of-Pocket Expense</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Submission Channel / Source</label>
-          <select name="submission_source" class="form-control">
-            <option value="Offline Form">📄 Offline Paper Reimbursement Form</option>
-            <option value="WhatsApp">📱 WhatsApp Message / Chat Receipt</option>
-            <option value="Email">📧 Email Attachment / Bill</option>
-            <option value="Direct Claim">🗣️ Direct Verbal / Cash Claim</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Bill / Receipt / Ref No.</label>
-          <input type="text" name="receipt_ref" class="form-control" placeholder="e.g. WA-BILL-9021 or Form #104">
-        </div>
-        <div class="form-group" id="field_item_title" style="display: none;">
-          <label class="form-label">Item / Purchase Title</label>
-          <input type="text" name="item_title" class="form-control" placeholder="e.g. Wireless Mouse & Keyboard for Office">
-        </div>
-      </div>
-
-      <!-- Travel Specific Fields (From / To Location) -->
-      <div id="fields_travel_route" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">From Location</label>
-          <input type="text" name="from_location" class="form-control" placeholder="e.g. Hazaribagh">
-        </div>
-        <div class="form-group">
-          <label class="form-label">To Location</label>
-          <input type="text" name="to_location" class="form-control" placeholder="e.g. Patna Office">
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label class="form-label">Purpose / Reason for Expense</label>
-        <input type="text" name="purpose" class="form-control" placeholder="e.g. Site Audit / Purchasing Office Supplies" required>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Date / Start Date</label>
-          <input type="date" name="start_date" class="form-control" value="<%= todayStr %>" required>
-        </div>
-        <div class="form-group" id="field_end_date">
-          <label class="form-label">End Date (Travel)</label>
-          <input type="date" name="end_date" class="form-control" value="<%= todayStr %>">
-        </div>
-      </div>
-
-      <!-- Non-Travel Direct Bill Amount Input -->
-      <div class="form-group" id="field_direct_amount" style="margin-bottom: 1rem; display: none;">
-        <label class="form-label">Total Bill Amount (₹)</label>
-        <input type="number" step="0.01" id="t_direct_total" name="claim_total_amount" class="form-control calc-trigger" placeholder="0.00" min="0">
-      </div>
-
-      <!-- Expense Breakdown Inputs (Travel) -->
-      <div id="fields_travel_breakdown" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem;">
-        <h4 style="font-size: 0.9rem; font-weight: 700; margin-top: 0; margin-bottom: 1rem; color: #334155;">💰 Travel Breakdown & Advance</h4>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-          <div class="form-group">
-            <label class="form-label">✈️ Traveling Cost (₹)</label>
-            <input type="number" step="0.01" id="t_travel" name="travel_cost" class="form-control calc-trigger" value="0" min="0">
-          </div>
-          <div class="form-group">
-            <label class="form-label">🍔 Fooding Cost (₹)</label>
-            <input type="number" step="0.01" id="t_food" name="food_cost" class="form-control calc-trigger" value="0" min="0">
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-          <div class="form-group">
-            <label class="form-label">🏨 Stay / Hotel Cost (₹)</label>
-            <input type="number" step="0.01" id="t_stay" name="stay_cost" class="form-control calc-trigger" value="0" min="0">
-          </div>
-          <div class="form-group">
-            <label class="form-label">📦 Miscellaneous Cost (₹)</label>
-            <input type="number" step="0.01" id="t_misc" name="misc_cost" class="form-control calc-trigger" value="0" min="0">
-          </div>
-        </div>
-      </div>
-
-      <!-- Advance & Calculation Summary Container -->
-      <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem;">
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label" style="font-weight: 700;">💵 Advance / Company Paid Amount (Kitna Diya Gaya)</label>
-          <input type="number" step="0.01" id="t_advance" name="advance_paid" class="form-control calc-trigger" value="0" min="0">
-        </div>
-
-        <!-- Dynamic Calculation Display -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.85rem 1.25rem; font-size: 0.95rem;">
-          <div>Total Bill / Claim: <strong id="disp_total" style="color: #0f172a; font-size: 1.1rem;">₹0.00</strong></div>
-          <div>New Claim Dues: <strong id="disp_dues" style="color: #b91c1c; font-size: 1.1rem;">₹0.00</strong></div>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label class="form-label">Additional Notes / Remarks</label>
-        <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes or receipt references..."></textarea>
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('travelExpenseModal')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Submit Claim</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL 2: Add Company / Project Expense -->
-<div id="companyExpenseModal" class="modal-backdrop">
-  <div class="modal-card" style="max-width: 550px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;"><i class="fa-solid fa-building" style="color: var(--accent);"></i> Add Project / Company Expense Receipt</h2>
-      <button type="button" onclick="closeModal('companyExpenseModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);">&times;</button>
-    </div>
-
-    <form action="/expenses/company" method="POST">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Project / Site Name</label>
-          <input type="text" name="project_name" class="form-control" placeholder="e.g. Hazaribagh Solar Site / Jodhpur HQ" required list="projectOptions">
-          <datalist id="projectOptions">
-            <% projects.forEach(p => { %>
-              <option value="<%= p %>"></option>
-            <% }); %>
-          </datalist>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Branch / City Location</label>
-          <select name="work_location" class="form-control" required>
-            <% locations.forEach(loc => { %>
-              <option value="<%= loc %>"><%= loc %></option>
-            <% }); %>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Expense Title / Description</label>
-          <input type="text" name="title" class="form-control" placeholder="e.g. Site Equipment Purchase / Electricity Bill" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Vendor / Supplier Name</label>
-          <input type="text" name="vendor_name" class="form-control" placeholder="e.g. JBVNL, Airtel, AWS, Hardware Store">
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          <select name="category" class="form-control" required>
-            <option value="Project Site Material">Project Site Material</option>
-            <option value="Office Rent">Office Rent</option>
-            <option value="Utilities">Utilities & Bills</option>
-            <option value="Software & Tech">Software & Tech</option>
-            <option value="Equipment">Equipment & Machinery</option>
-            <option value="Maintenance">Maintenance & Repairs</option>
-            <option value="Vendor Payment">Vendor Payment</option>
-            <option value="Office Supplies">Office Supplies</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Amount (₹)</label>
-          <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required min="0">
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Date</label>
-          <input type="date" name="date" class="form-control" value="<%= todayStr %>" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Payment Mode</label>
-          <select name="payment_mode" class="form-control">
-            <option value="Bank Transfer">Bank Transfer</option>
-            <option value="UPI">UPI</option>
-            <option value="Credit Card">Credit Card</option>
-            <option value="Cash">Cash</option>
-            <option value="Cheque">Cheque</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label">Payment Status</label>
-          <select name="payment_status" class="form-control">
-            <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
-            <option value="Partial">Partial</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Invoice / Receipt Reference No.</label>
-          <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. INV-2026-9041">
-        </div>
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('companyExpenseModal')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Expense Receipt</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL 3: Pay / Settle Reimbursement -->
-<div id="settlePaymentModal" class="modal-backdrop">
-  <div class="modal-card" style="max-width: 500px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;"><i class="fa-solid fa-money-bill-transfer" style="color: var(--accent);"></i> Record Payout / Reimbursement</h2>
-      <button type="button" onclick="closeModal('settlePaymentModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);">&times;</button>
-    </div>
-
-    <form id="settleForm" method="POST">
-      <input type="hidden" name="status" value="Approved">
-
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
-        <div style="font-weight: 700; color: #0f172a; font-size: 1rem;" id="p_emp_name">Employee Name</div>
-        <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem; color: #475569;">
-          <span>Total Claim: <strong id="p_total_amount" style="color: #0f172a;">₹0</strong></span>
-          <span>Already Paid: <strong id="p_advance_paid" style="color: #047857;">₹0</strong></span>
-        </div>
-        <div style="margin-top: 0.5rem; font-size: 0.95rem; font-weight: 800; color: #b91c1c;">
-          Current Remaining Dues: <span id="p_dues_amount">₹0</span>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label class="form-label">Amount Being Paid Right Now (₹)</label>
-        <input type="number" step="0.01" id="p_payment_amount" name="payment_amount" class="form-control" placeholder="Enter amount to pay..." required min="0.01">
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('settlePaymentModal')">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">Confirm Payment</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL 4: Settle Company Bill Modal -->
-<div id="settleCompanyBillModal" class="modal-backdrop">
-  <div class="modal-card" style="max-width: 500px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent);"></i> Settle & Mark Paid: Company Bill</h2>
-      <button type="button" onclick="closeModal('settleCompanyBillModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);">&times;</button>
-    </div>
-
-    <form id="settleCompanyForm" method="POST">
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
-        <div style="font-weight: 700; color: #0f172a; font-size: 1rem;" id="c_bill_title">Company Expense Title</div>
-        <div style="margin-top: 0.5rem; font-size: 1.1rem; font-weight: 800; color: #059669;">
-          Bill Amount: <span id="c_bill_amount">₹0</span>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1rem;">
-        <label class="form-label">Payment Mode</label>
-        <select name="payment_mode" class="form-control" required>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="UPI">UPI</option>
-          <option value="Credit Card">Credit Card</option>
-          <option value="Cash">Cash</option>
-          <option value="Cheque">Cheque</option>
-        </select>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label class="form-label">Invoice / Transaction Reference No.</label>
-        <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. UPI-TXN-9081 / INV-2026-9041">
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('settleCompanyBillModal')">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">Confirm Settlement (Paid)</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL 5: View Employee Ledger Modal -->
-<div id="viewEmployeeLedgerModal" class="modal-backdrop">
-  <div class="modal-card" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
-      <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0;"><i class="fa-solid fa-address-book" style="color: var(--accent);"></i> Employee Expense Ledger & Timeline</h2>
-      <button type="button" onclick="closeModal('viewEmployeeLedgerModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);">&times;</button>
-    </div>
-    <div id="ledger_modal_content"></div>
-  </div>
-</div>
-
-<script>
-function openModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'flex';
-}
-function closeModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
-}
-
-function openSettleCompanyBillModal(expId, title, amount) {
-  document.getElementById('settleCompanyForm').action = '/expenses/company/' + expId + '/pay';
-  document.getElementById('c_bill_title').innerText = title;
-  document.getElementById('c_bill_amount').innerText = '₹' + amount.toLocaleString('en-IN');
-  openModal('settleCompanyBillModal');
-}
-
-function openPayModal(claimId, empName, dues, total, advance) {
-  document.getElementById('settleForm').action = '/expenses/travel/' + claimId + '/status';
-  document.getElementById('p_emp_name').innerText = empName;
-  document.getElementById('p_total_amount').innerText = '₹' + total.toLocaleString('en-IN');
-  document.getElementById('p_advance_paid').innerText = '₹' + advance.toLocaleString('en-IN');
-  document.getElementById('p_dues_amount').innerText = '₹' + dues.toLocaleString('en-IN');
-  
-  document.getElementById('p_payment_amount').value = dues;
-  document.getElementById('p_payment_amount').max = dues;
-
-  openModal('settlePaymentModal');
-}
-
-function toggleClaimTypeFields() {
-  const type = document.getElementById('claim_type_select').value;
-  const isTravel = type === 'Travel';
-
-  document.getElementById('fields_travel_route').style.display = isTravel ? 'grid' : 'none';
-  document.getElementById('fields_travel_breakdown').style.display = isTravel ? 'block' : 'none';
-  document.getElementById('field_end_date').style.display = isTravel ? 'block' : 'none';
-
-  document.getElementById('field_item_title').style.display = isTravel ? 'none' : 'block';
-  document.getElementById('field_direct_amount').style.display = isTravel ? 'none' : 'block';
-
-  calculateClaimTotals();
-}
-
-function calculateClaimTotals() {
-  const type = document.getElementById('claim_type_select').value;
-  let total = 0;
-
-  if (type === 'Travel') {
-    const t = parseFloat(document.getElementById('t_travel').value) || 0;
-    const f = parseFloat(document.getElementById('t_food').value) || 0;
-    const s = parseFloat(document.getElementById('t_stay').value) || 0;
-    const m = parseFloat(document.getElementById('t_misc').value) || 0;
-    total = t + f + s + m;
-  } else {
-    total = parseFloat(document.getElementById('t_direct_total').value) || 0;
-  }
-
-  const adv = parseFloat(document.getElementById('t_advance').value) || 0;
-  const dues = Math.max(0, total - adv);
-
-  document.getElementById('disp_total').innerText = '₹' + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  document.getElementById('disp_dues').innerText = '₹' + dues.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.calc-trigger').forEach(input => {
-    input.addEventListener('input', calculateClaimTotals);
-  });
-});
-</script>
 
 <%- include('../partials/footer') %>
