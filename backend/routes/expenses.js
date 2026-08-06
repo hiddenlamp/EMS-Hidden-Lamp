@@ -103,18 +103,24 @@ router.get('/', (req, res) => {
   const companyMetrics = db.prepare(companyMetricsSql).get(...companyMetricsParams);
   const totalCompanyExpenses = companyMetrics.total_company;
 
-  // 4. Project-Wise Expense Aggregation
-  const projectSummarySql = `
-    SELECT 
-      project_name, 
-      work_location, 
-      COUNT(id) as count, 
-      SUM(amount) as total_spent
-    FROM company_expenses
-    GROUP BY project_name, work_location
-    ORDER BY total_spent DESC
-  `;
-  const projectSummary = db.prepare(projectSummarySql).all();
+  // 4. Project-Wise Grouping & Itemized List per Project
+  const projectMap = {};
+  companyExpenses.forEach(exp => {
+    const pName = exp.project_name || 'General Corporate';
+    if (!projectMap[pName]) {
+      projectMap[pName] = {
+        project_name: pName,
+        work_location: exp.work_location,
+        total_spent: 0,
+        count: 0,
+        items: []
+      };
+    }
+    projectMap[pName].total_spent += exp.amount;
+    projectMap[pName].count += 1;
+    projectMap[pName].items.push(exp);
+  });
+  const projectSummary = Object.values(projectMap).sort((a, b) => b.total_spent - a.total_spent);
 
   // 5. Employee Dues Ledger Aggregation
   let ledgerWhere = ' WHERE 1=1';
@@ -180,6 +186,7 @@ router.get('/', (req, res) => {
 
 // GET /expenses/company/new (Dedicated Full Page to Add Project / Company Expense)
 router.get('/company/new', (req, res) => {
+  const selectedProject = req.query.project_name || '';
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY name ASC").all();
   const locations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
@@ -190,6 +197,7 @@ router.get('/company/new', (req, res) => {
   res.render('expenses/company_new', {
     locations,
     projects,
+    selectedProject,
     todayStr,
     error: req.query.error || null
   });
@@ -198,6 +206,7 @@ router.get('/company/new', (req, res) => {
 // GET /expenses/travel/new (Dedicated Full Page to Add Employee Field Claim)
 router.get('/travel/new', (req, res) => {
   const employeeId = req.query.employee_id || '';
+  const selectedProject = req.query.project_name || '';
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY name ASC").all();
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
@@ -208,6 +217,7 @@ router.get('/travel/new', (req, res) => {
     employees,
     projects,
     selectedEmployeeId: employeeId,
+    selectedProject,
     todayStr,
     error: req.query.error || null
   });
@@ -276,26 +286,6 @@ router.get('/travel/:id/pay', (req, res) => {
     claim,
     error: req.query.error || null
   });
-});
-
-// GET /expenses/employee-dues-json/:employeeId (JSON API Helper)
-router.get('/employee-dues-json/:employeeId', (req, res) => {
-  const empId = req.params.employeeId;
-  const employee = db.prepare('SELECT id, name, employee_code, work_location FROM employees WHERE id = ?').get(empId);
-  if (!employee) return res.status(404).json({ error: 'Employee not found' });
-
-  const summary = db.prepare(`
-    SELECT 
-      COUNT(id) as claim_count,
-      COALESCE(SUM(total_amount), 0) as total_claimed,
-      COALESCE(SUM(advance_paid), 0) as total_advance_paid,
-      COALESCE(SUM(CASE WHEN status != 'Rejected' THEN dues_amount ELSE 0 END), 0) as net_dues
-    FROM travel_expenses
-    WHERE employee_id = ?
-  `).get(empId);
-
-  const claims = db.prepare('SELECT * FROM travel_expenses WHERE employee_id = ? ORDER BY start_date DESC').all(empId);
-  res.json({ employee, summary, claims });
 });
 
 // POST /expenses/travel (Create Employee Reimbursement Claim)
@@ -395,7 +385,6 @@ router.post('/travel/:id/status', (req, res) => {
 
     logAction((req.user || req.session?.user || {}).email || 'system', 'UPDATE_TRAVEL_STATUS', 'Travel Expense', claimId, { status: finalStatus, newAdvance, newDues });
     
-    // Redirect back to Employee Ledger if available
     const redirectUrl = req.body.redirect_ledger ? `/expenses/employee-ledger/${claim.employee_id}?success=Payment+recorded+successfully!` : `/expenses?tab=travel&success=Payment+updated!+New+Advance/Paid:+₹${newAdvance.toLocaleString('en-IN')},+Remaining+Dues:+₹${newDues.toLocaleString('en-IN')}.`;
     res.redirect(redirectUrl);
   } catch (err) {
@@ -437,7 +426,7 @@ router.post('/company', (req, res) => {
     );
 
     logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_EXPENSE', 'Company Expense', result.lastInsertRowid, { title, project_name: projName, amount: amt });
-    res.redirect('/expenses?tab=company&success=Project/Company+expense+recorded+successfully.');
+    res.redirect('/expenses?tab=projects&success=Project+expense+recorded+successfully+under+project+' + encodeURIComponent(projName));
   } catch (err) {
     res.redirect('/expenses/company/new?error=' + encodeURIComponent(err.message));
   }

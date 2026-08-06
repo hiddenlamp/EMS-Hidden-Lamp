@@ -66,11 +66,11 @@
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <!-- Tabs Switcher -->
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="/expenses?tab=projects&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'projects' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
+        <i class="fa-solid fa-diagram-project"></i> Projects & Site Breakdown (<%= projectSummary.length %>)
+      </a>
       <a href="/expenses?tab=company&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'company' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
         <i class="fa-solid fa-landmark"></i> Company & Project Receipts (<%= companyExpenses.length %>)
-      </a>
-      <a href="/expenses?tab=projects&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'projects' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
-        <i class="fa-solid fa-diagram-project"></i> Project-Wise Breakdown (<%= projectSummary.length %>)
       </a>
       <a href="/expenses?tab=travel&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'travel' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
         <i class="fa-solid fa-users-gear"></i> Employee Field Claims (<%= travelExpenses.length %>)
@@ -146,8 +146,103 @@
   </div>
 <% } %>
 
+<% if (activeTab === 'projects') { %>
+  <!-- TAB 1: PROJECT-WISE EXPENSE HEADINGS & ADD EXPENSE BUTTONS -->
+  <% if (projectSummary.length === 0) { %>
+    <div class="card" style="text-align: center; padding: 3rem 1rem;">
+      <i class="fa-solid fa-city" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+      <p style="color: var(--text-muted); font-size: 1rem;">No project site expenses recorded yet.</p>
+      <a href="/expenses/company/new" class="btn btn-primary" style="margin-top: 1rem;">
+        <i class="fa-solid fa-plus"></i> + Create First Project Expense
+      </a>
+    </div>
+  <% } else { %>
+    <% projectSummary.forEach(proj => { %>
+      <div class="card" style="margin-bottom: 1.5rem; border-left: 5px solid #2563eb; padding: 1.5rem;">
+        <!-- MAIN PROJECT HEADING SECTION -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0;">
+          <div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.35rem;">
+              <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
+                📍 City: <%= proj.work_location %>
+              </span>
+              <span style="background: #f1f5f9; color: #334155; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px;">
+                <%= proj.count %> Receipts Recorded
+              </span>
+            </div>
+            <h2 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0;">
+              🏗️ <%= proj.project_name %>
+            </h2>
+            <div style="font-size: 0.9rem; color: #475569; margin-top: 0.25rem;">
+              Cumulative Project Expenditure: <strong style="color: #2563eb; font-size: 1.1rem; font-weight: 800;">₹<%= proj.total_spent.toLocaleString('en-IN') %></strong>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTON: Add More Expense To THIS Specific Project -->
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="/expenses/company/new?project_name=<%= encodeURIComponent(proj.project_name) %>" class="btn btn-primary" style="font-weight: 700;">
+              <i class="fa-solid fa-plus"></i> + Add Expense to <%= proj.project_name %>
+            </a>
+          </div>
+        </div>
+
+        <!-- ITEMIZED RECEIPTS TABLE UNDER THIS PROJECT HEADING -->
+        <div class="table-responsive" style="margin-top: 1rem;">
+          <table class="table" style="font-size: 0.88rem;">
+            <thead>
+              <tr>
+                <th>Title & Vendor</th>
+                <th>Category</th>
+                <th>Amount (₹)</th>
+                <th>Date</th>
+                <th>Payment Mode</th>
+                <th>Status</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (proj.items || []).forEach(item => { %>
+                <tr>
+                  <td>
+                    <strong style="font-size: 0.95rem; color: #0f172a;"><%= item.title %></strong>
+                    <% if (item.vendor_name) { %>
+                      <br><small style="color: #92400e;">🏢 <%= item.vendor_name %></small>
+                    <% } %>
+                  </td>
+                  <td><span style="background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 600;"><%= item.category %></span></td>
+                  <td><strong style="font-size: 1.05rem; color: #0f172a;">₹<%= item.amount.toLocaleString('en-IN') %></strong></td>
+                  <td><%= item.date %></td>
+                  <td>💳 <%= item.payment_mode %></td>
+                  <td>
+                    <% if (item.payment_status === 'Paid') { %>
+                      <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Paid</span>
+                    <% } else { %>
+                      <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Unpaid</span>
+                    <% } %>
+                  </td>
+                  <td style="text-align: right; white-space: nowrap;">
+                    <% if (item.payment_status !== 'Paid') { %>
+                      <a href="/expenses/company/<%= item.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                        <i class="fa-solid fa-circle-check"></i> Mark Paid
+                      </a>
+                    <% } %>
+                    <form action="/expenses/company/<%= item.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this expense receipt?');">
+                      <button type="submit" class="btn btn-sm btn-secondary" style="color: #dc2626; padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Delete Record">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% }); %>
+  <% } %>
+
 <% if (activeTab === 'company') { %>
-  <!-- TAB 1: COMPANY & PROJECT SITE EXPENSES -->
+  <!-- TAB 2: ALL COMPANY & PROJECT SITE EXPENSES TABLE -->
   <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
       <h2 class="card-title"><i class="fa-solid fa-building-user" style="color: var(--accent);"></i> Project Site & Corporate Overhead (<%= companyExpenses.length %> Receipts)</h2>
@@ -162,178 +257,67 @@
         <p style="color: var(--text-muted); font-size: 1rem;">No company or project operational expenses recorded for selected filter.</p>
       </div>
     <% } else { %>
-      <!-- Desktop Table View (>= 768px) -->
-      <div class="desktop-table-container">
-        <div class="table-responsive">
-          <table class="table">
-            <thead>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Project & City Location</th>
+              <th>Title, Category & Vendor</th>
+              <th>Amount (₹)</th>
+              <th>Date</th>
+              <th>Payment Mode</th>
+              <th>Status</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% companyExpenses.forEach(exp => { %>
               <tr>
-                <th>Project & City Location</th>
-                <th>Title, Category & Vendor</th>
-                <th>Amount (₹)</th>
-                <th>Date</th>
-                <th>Payment Mode</th>
-                <th>Status</th>
-                <th style="text-align: right;">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% companyExpenses.forEach(exp => { %>
-                <tr>
-                  <td>
-                    <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
-                      🏗️ <%= exp.project_name || 'General Corporate' %>
+                <td>
+                  <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
+                    🏗️ <%= exp.project_name || 'General Corporate' %>
+                  </span>
+                  <br><small style="color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> <%= exp.work_location %></small>
+                </td>
+                <td>
+                  <strong style="font-size: 0.95rem; color: #0f172a;"><%= exp.title %></strong>
+                  <div style="margin-top: 0.25rem; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+                    <span style="background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                      <%= exp.category %>
                     </span>
-                    <br><small style="color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> <%= exp.work_location %></small>
-                  </td>
-                  <td>
-                    <strong style="font-size: 0.95rem; color: #0f172a;"><%= exp.title %></strong>
-                    <div style="margin-top: 0.25rem; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
-                      <span style="background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                        <%= exp.category %>
+                    <% if (exp.vendor_name) { %>
+                      <span style="background: #fef3c7; color: #92400e; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                        🏢 <%= exp.vendor_name %>
                       </span>
-                      <% if (exp.vendor_name) { %>
-                        <span style="background: #fef3c7; color: #92400e; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                          🏢 <%= exp.vendor_name %>
-                        </span>
-                      <% } %>
-                      <% if (exp.invoice_ref) { %>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">Ref: <strong><%= exp.invoice_ref %></strong></span>
-                      <% } %>
-                    </div>
-                  </td>
-                  <td><strong style="font-size: 1.05rem; color: #0f172a;">₹<%= exp.amount.toLocaleString('en-IN') %></strong></td>
-                  <td><div style="font-weight: 600;"><%= exp.date %></div></td>
-                  <td><div style="font-weight: 600; font-size: 0.85rem; color: #334155;">💳 <%= exp.payment_mode %></div></td>
-                  <td>
-                    <% if (exp.payment_status === 'Paid') { %>
-                      <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Paid</span>
-                    <% } else { %>
-                      <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Unpaid / Pending</span>
                     <% } %>
-                  </td>
-                  <td style="text-align: right; white-space: nowrap;">
-                    <% if (exp.payment_status !== 'Paid') { %>
-                      <a href="/expenses/company/<%= exp.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; padding: 0.25rem 0.55rem; font-size: 0.75rem; margin-right: 0.3rem;">
-                        <i class="fa-solid fa-circle-check"></i> Mark Paid
-                      </a>
-                    <% } %>
-
-                    <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this expense record?');">
-                      <button type="submit" class="btn btn-sm btn-secondary" style="color: #dc2626; padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Delete Record">
-                        <i class="fa-solid fa-trash-can"></i>
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Mobile Stacked Cards View (< 768px) -->
-      <div class="mobile-cards-container">
-        <% companyExpenses.forEach(exp => { %>
-          <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem;">
-              <div>
-                <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.78rem;">
-                  🏗️ <%= exp.project_name || 'General Corporate' %>
-                </span>
-                <div style="font-weight: 800; font-size: 1.05rem; color: #0f172a; margin-top: 0.35rem;"><%= exp.title %></div>
-              </div>
-              <span class="badge" style="<%= exp.payment_status === 'Paid' ? 'background: #ecfdf5; color: #047857;' : 'background: #fff1f2; color: #be123c;' %>">
-                <%= exp.payment_status === 'Paid' ? '🟢 Paid' : '🔴 Unpaid' %>
-              </span>
-            </div>
-
-            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
-              <span style="background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                📍 <%= exp.work_location %>
-              </span>
-              <span style="background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                🏷️ <%= exp.category %>
-              </span>
-              <% if (exp.vendor_name) { %>
-                <span style="background: #fef3c7; color: #92400e; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                  🏢 <%= exp.vendor_name %>
-                </span>
-              <% } %>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.65rem 0.85rem; border-radius: 8px; margin-bottom: 0.85rem;">
-              <div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Amount</div>
-                <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">₹<%= exp.amount.toLocaleString('en-IN') %></div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Date / Mode</div>
-                <div style="font-size: 0.85rem; font-weight: 600; color: #334155;"><%= exp.date %> (💳 <%= exp.payment_mode %>)</div>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-              <% if (exp.payment_status !== 'Paid') { %>
-                <a href="/expenses/company/<%= exp.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; flex: 1; justify-content: center;">
-                  <i class="fa-solid fa-circle-check"></i> Mark Paid
-                </a>
-              <% } %>
-              <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="margin: 0;" onsubmit="return confirm('Delete this expense record?');">
-                <button type="submit" class="btn btn-sm btn-secondary" style="color: #dc2626;" title="Delete Record">
-                  <i class="fa-solid fa-trash-can"></i> Delete
-                </button>
-              </form>
-            </div>
-          </div>
-        <% }); %>
-      </div>
-    <% } %>
-  </div>
-
-<% } else if (activeTab === 'projects') { %>
-  <!-- TAB 2: PROJECT-WISE EXPENSE SUMMARY & CITY BREAKDOWN -->
-  <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <h2 class="card-title"><i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i> Project-Wise Expense & City Breakdown (<%= projectSummary.length %> Active Projects)</h2>
-      <a href="/expenses/company/new" class="btn btn-sm btn-primary">
-        <i class="fa-solid fa-plus"></i> + Add Project Expense
-      </a>
-    </div>
-
-    <% if (projectSummary.length === 0) { %>
-      <div style="text-align: center; padding: 3rem 1rem;">
-        <i class="fa-solid fa-city" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-        <p style="color: var(--text-muted); font-size: 1rem;">No project site expenses recorded yet.</p>
-      </div>
-    <% } else { %>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
-        <% projectSummary.forEach(proj => { %>
-          <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; box-shadow: var(--shadow-sm);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-              <div>
-                <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
-                  📍 <%= proj.work_location %>
-                </span>
-                <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-top: 0.35rem; margin-bottom: 0.1rem;"><%= proj.project_name %></h3>
-              </div>
-              <span style="background: #f1f5f9; color: #334155; font-size: 0.8rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 9999px;">
-                <%= proj.count %> Receipts
-              </span>
-            </div>
-
-            <div style="margin-top: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.85rem 1rem; border-radius: 8px;">
-              <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Project Expenditure</div>
-              <div style="font-size: 1.5rem; font-weight: 800; color: #2563eb; margin-top: 0.2rem;">₹<%= proj.total_spent.toLocaleString('en-IN') %></div>
-            </div>
-
-            <div style="margin-top: 0.85rem; text-align: right;">
-              <a href="/expenses?tab=company&project=<%= encodeURIComponent(proj.project_name) %>" class="btn btn-sm btn-secondary" style="font-size: 0.78rem;">
-                <i class="fa-solid fa-list-check"></i> View Project Receipts
-              </a>
-            </div>
-          </div>
-        <% }); %>
+                  </div>
+                </td>
+                <td><strong style="font-size: 1.05rem; color: #0f172a;">₹<%= exp.amount.toLocaleString('en-IN') %></strong></td>
+                <td><div style="font-weight: 600;"><%= exp.date %></div></td>
+                <td><div style="font-weight: 600; font-size: 0.85rem; color: #334155;">💳 <%= exp.payment_mode %></div></td>
+                <td>
+                  <% if (exp.payment_status === 'Paid') { %>
+                    <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Paid</span>
+                  <% } else { %>
+                    <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Unpaid / Pending</span>
+                  <% } %>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <% if (exp.payment_status !== 'Paid') { %>
+                    <a href="/expenses/company/<%= exp.id %>/pay" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; padding: 0.25rem 0.55rem; font-size: 0.75rem; margin-right: 0.3rem;">
+                      <i class="fa-solid fa-circle-check"></i> Mark Paid
+                    </a>
+                  <% } %>
+                  <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this expense record?');">
+                    <button type="submit" class="btn btn-sm btn-secondary" style="color: #dc2626; padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Delete Record">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
       </div>
     <% } %>
   </div>
@@ -361,101 +345,61 @@
         <p style="color: var(--text-muted); font-size: 1rem;">No employee field expense claims found for selected filter.</p>
       </div>
     <% } else { %>
-      <!-- Desktop View (>= 768px) -->
-      <div class="desktop-table-container">
-        <div class="table-responsive">
-          <table class="table" style="font-size: 0.9rem;">
-            <thead>
+      <div class="table-responsive">
+        <table class="table" style="font-size: 0.9rem;">
+          <thead>
+            <tr>
+              <th>Employee Info</th>
+              <th>Claims Filed</th>
+              <th>Total Claimed (₹)</th>
+              <th>Total Paid / Adv (₹)</th>
+              <th>Net Accrued Dues (₹)</th>
+              <th>Status Summary</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% travelExpenses.forEach(empRecord => { %>
               <tr>
-                <th>Employee Info</th>
-                <th>Claims Filed</th>
-                <th>Total Claimed (₹)</th>
-                <th>Total Paid / Adv (₹)</th>
-                <th>Net Accrued Dues (₹)</th>
-                <th>Status Summary</th>
-                <th style="text-align: right;">Actions</th>
+                <td>
+                  <strong><%= empRecord.employee_name %></strong>
+                  <br><small style="color: var(--text-muted); font-family: monospace;"><%= empRecord.employee_code %></small>
+                  <br><span style="background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;"><%= empRecord.emp_location %></span>
+                </td>
+                <td>
+                  <strong style="font-size: 0.95rem; color: #0f172a;"><%= empRecord.claim_count %> Claims</strong>
+                  <br><small style="color: var(--text-muted);">Latest: <%= empRecord.latest_date %></small>
+                </td>
+                <td>
+                  <strong style="font-size: 1rem; color: #0f172a;">₹<%= empRecord.total_amount.toLocaleString('en-IN') %></strong>
+                </td>
+                <td>
+                  <strong style="font-size: 0.95rem; color: #047857;">₹<%= empRecord.advance_paid.toLocaleString('en-IN') %></strong>
+                </td>
+                <td>
+                  <strong style="font-size: 1.05rem; color: <%= empRecord.dues_amount > 0 ? '#b91c1c' : '#059669' %>;">
+                    ₹<%= empRecord.dues_amount.toLocaleString('en-IN') %>
+                  </strong>
+                </td>
+                <td>
+                  <% if (empRecord.dues_amount > 0) { %>
+                    <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Payment Pending</span>
+                  <% } else { %>
+                    <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Fully Settled</span>
+                  <% } %>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <a href="/expenses/employee-ledger/<%= empRecord.employee_id %>" class="btn btn-sm btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;">
+                    <i class="fa-solid fa-eye"></i> View Full Ledger
+                  </a>
+                  <a href="/expenses/travel/new?employee_id=<%= empRecord.employee_id %>" class="btn btn-sm btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.78rem;">
+                    <i class="fa-solid fa-plus"></i> + Add Claim
+                  </a>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              <% travelExpenses.forEach(empRecord => { %>
-                <tr>
-                  <td>
-                    <strong><%= empRecord.employee_name %></strong>
-                    <br><small style="color: var(--text-muted); font-family: monospace;"><%= empRecord.employee_code %></small>
-                    <br><span style="background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;"><%= empRecord.emp_location %></span>
-                  </td>
-                  <td>
-                    <strong style="font-size: 0.95rem; color: #0f172a;"><%= empRecord.claim_count %> Claims</strong>
-                    <br><small style="color: var(--text-muted);">Latest: <%= empRecord.latest_date %></small>
-                  </td>
-                  <td>
-                    <strong style="font-size: 1rem; color: #0f172a;">₹<%= empRecord.total_amount.toLocaleString('en-IN') %></strong>
-                  </td>
-                  <td>
-                    <strong style="font-size: 0.95rem; color: #047857;">₹<%= empRecord.advance_paid.toLocaleString('en-IN') %></strong>
-                  </td>
-                  <td>
-                    <strong style="font-size: 1.05rem; color: <%= empRecord.dues_amount > 0 ? '#b91c1c' : '#059669' %>;">
-                      ₹<%= empRecord.dues_amount.toLocaleString('en-IN') %>
-                    </strong>
-                  </td>
-                  <td>
-                    <% if (empRecord.dues_amount > 0) { %>
-                      <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Payment Pending</span>
-                    <% } else { %>
-                      <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Fully Settled</span>
-                    <% } %>
-                  </td>
-                  <td style="text-align: right; white-space: nowrap;">
-                    <a href="/expenses/employee-ledger/<%= empRecord.employee_id %>" class="btn btn-sm btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;">
-                      <i class="fa-solid fa-eye"></i> View Full Ledger
-                    </a>
-                    <a href="/expenses/travel/new?employee_id=<%= empRecord.employee_id %>" class="btn btn-sm btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.78rem;">
-                      <i class="fa-solid fa-plus"></i> + Add Claim
-                    </a>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Mobile Stacked Cards View (< 768px) -->
-      <div class="mobile-cards-container">
-        <% travelExpenses.forEach(empRecord => { %>
-          <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem;">
-              <div>
-                <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;"><%= empRecord.employee_name %></div>
-                <div style="font-size: 0.78rem; color: var(--text-muted);"><%= empRecord.employee_code %> | 📍 <%= empRecord.emp_location %></div>
-              </div>
-              <span class="badge" style="<%= empRecord.dues_amount > 0 ? 'background: #fff1f2; color: #be123c;' : 'background: #ecfdf5; color: #047857;' %>">
-                <%= empRecord.dues_amount > 0 ? '🔴 Pending Dues' : '🟢 Settled' %>
-              </span>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.85rem;">
-              <div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Total Claimed</div>
-                <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a;">₹<%= empRecord.total_amount.toLocaleString('en-IN') %></div>
-              </div>
-              <div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Remaining Dues</div>
-                <div style="font-size: 1.05rem; font-weight: 800; color: <%= empRecord.dues_amount > 0 ? '#b91c1c' : '#059669' %>;">₹<%= empRecord.dues_amount.toLocaleString('en-IN') %></div>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 0.5rem;">
-              <a href="/expenses/employee-ledger/<%= empRecord.employee_id %>" class="btn btn-sm btn-primary" style="flex: 1; justify-content: center;">
-                <i class="fa-solid fa-eye"></i> View Ledger
-              </a>
-              <a href="/expenses/travel/new?employee_id=<%= empRecord.employee_id %>" class="btn btn-sm btn-secondary" style="flex: 1; justify-content: center;">
-                <i class="fa-solid fa-plus"></i> + Add Claim
-              </a>
-            </div>
-          </div>
-        <% }); %>
+            <% }); %>
+          </tbody>
+        </table>
       </div>
     <% } %>
   </div>
