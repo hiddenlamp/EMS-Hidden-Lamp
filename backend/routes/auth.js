@@ -2,18 +2,21 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db/database');
+const { getUserFromToken } = require('../middleware/auth');
 
 // GET / -> Redirect to Dashboard if logged in, otherwise Login Page
 router.get('/', (req, res) => {
-  if (req.session && req.session.user) {
+  let user = (req.session && req.session.user) ? req.session.user : getUserFromToken(req);
+  if (user) {
     return res.redirect('/dashboard');
   }
   res.redirect('/login');
 });
 
-// GET /login -> Always Render Login Page
+// GET /login -> Always Render Login Page or redirect to dashboard if logged in
 router.get('/login', (req, res) => {
-  if (req.session && req.session.user) {
+  let user = (req.session && req.session.user) ? req.session.user : getUserFromToken(req);
+  if (user) {
     return res.redirect('/dashboard');
   }
   res.render('login', { error: null });
@@ -21,9 +24,10 @@ router.get('/login', (req, res) => {
 
 // GET /logout -> Log out and Redirect to Login Page
 router.get('/logout', (req, res) => {
+  res.clearCookie('ems_sid');
+  res.clearCookie('ems_user_auth');
   if (req.session) {
     req.session.destroy(() => {
-      res.clearCookie('ems_sid');
       res.redirect('/login');
     });
   } else {
@@ -65,22 +69,35 @@ router.post('/login', (req, res) => {
     }
   }
 
-  // Set session
-  req.session.user = {
+  const userObj = {
     id: user.id,
     email: user.email,
     role: user.role,
     employee_id: user.employee_id
   };
 
+  // Set session
+  req.session.user = userObj;
+
+  // Set 30-Day Persistent Auth Cookie
+  const token = Buffer.from(`${user.id}:${user.email}`).toString('base64');
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie('ems_user_auth', token, {
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 Days
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax'
+  });
+
   return res.redirect('/dashboard');
 });
 
 // POST /logout
 router.post('/logout', (req, res) => {
+  res.clearCookie('ems_sid');
+  res.clearCookie('ems_user_auth');
   if (req.session) {
     req.session.destroy(() => {
-      res.clearCookie('ems_sid');
       res.redirect('/login');
     });
   } else {
@@ -90,7 +107,8 @@ router.post('/logout', (req, res) => {
 
 // GET /dashboard
 router.get('/dashboard', (req, res) => {
-  if (!req.session || !req.session.user) {
+  let user = (req.session && req.session.user) ? req.session.user : getUserFromToken(req);
+  if (!user) {
     return res.redirect('/login');
   }
 

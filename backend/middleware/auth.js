@@ -1,9 +1,33 @@
 const db = require('../db/database');
 
+function parseCookies(req) {
+  const list = {};
+  const rc = req.headers.cookie;
+  if (rc) {
+    rc.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      if (parts.length >= 2) {
+        list[parts.shift().trim()] = decodeURIComponent(parts.join('='));
+      }
+    });
+  }
+  return list;
+}
+
 function getUserFromToken(req) {
+  // 1. Check Authorization or X-Auth-Token headers
+  let token = null;
   const authHeader = req.headers['authorization'] || req.headers['x-auth-token'];
-  if (!authHeader) return null;
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (authHeader) {
+    token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  }
+
+  // 2. Fallback: Check persistent cookie 'ems_user_auth'
+  if (!token) {
+    const cookies = parseCookies(req);
+    token = cookies['ems_user_auth'];
+  }
+
   if (!token) return null;
 
   try {
@@ -25,7 +49,7 @@ function getUserFromToken(req) {
 }
 
 function attachUser(req, res, next) {
-  let user = req.session ? req.session.user : null;
+  let user = (req.session && req.session.user) ? req.session.user : null;
   if (!user) {
     user = getUserFromToken(req);
     if (user && req.session) {
@@ -39,9 +63,12 @@ function attachUser(req, res, next) {
 }
 
 function requireAuth(req, res, next) {
-  let user = req.session ? req.session.user : null;
+  let user = (req.session && req.session.user) ? req.session.user : null;
   if (!user) {
     user = getUserFromToken(req);
+    if (user && req.session) {
+      req.session.user = user;
+    }
   }
 
   if (!user) {
@@ -51,17 +78,19 @@ function requireAuth(req, res, next) {
     return res.redirect('/login');
   }
 
-  if (!req.session.user) {
-    req.session.user = user;
-  }
+  req.user = user;
+  res.locals.user = user;
   next();
 }
 
 function requireRole(allowedRoles = []) {
   return (req, res, next) => {
-    let user = req.session ? req.session.user : null;
+    let user = (req.session && req.session.user) ? req.session.user : null;
     if (!user) {
       user = getUserFromToken(req);
+      if (user && req.session) {
+        req.session.user = user;
+      }
     }
 
     if (!user) {
@@ -80,6 +109,9 @@ function requireRole(allowedRoles = []) {
         message: 'You do not have permission to access this resource.'
       });
     }
+
+    req.user = user;
+    res.locals.user = user;
     next();
   };
 }

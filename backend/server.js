@@ -18,6 +18,7 @@ const apiRouter = require('./routes/api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'hidden_lamp_payroll_secret_key_change_in_production';
+const isProd = process.env.NODE_ENV === 'production';
 
 // Trust proxy on Render / HTTPS reverse proxies
 app.set('trust proxy', 1);
@@ -59,21 +60,22 @@ app.use(express.static(path.join(__dirname, '../frontend/public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../frontend/views'));
 
-// Session Configuration (Guaranteed Session Cookies on Localhost & HTTPS)
+// Persistent Session Configuration (30-day Rolling Cookie with Auto-Renewal on Page Refresh)
 app.use(session({
   name: 'ems_sid',
   secret: SESSION_SECRET,
-  resave: true,
-  saveUninitialized: true,
+  resave: false,
+  saveUninitialized: false,
+  rolling: true,
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 Days
     httpOnly: true,
-    secure: false, // Ensure cookies work on HTTP localhost
-    sameSite: 'lax'
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax'
   }
 }));
 
-// Attach User Info to Views
+// Attach User Info to Views with Persistent Cookie Fallback
 app.use(attachUser);
 
 // Mount EJS & API Application Routes
@@ -118,10 +120,8 @@ server.on('error', (err) => {
     });
     fallbackServer.on('error', (fErr) => {
       console.error('Server listen error:', fErr);
-      process.exit(1);
     });
   } else {
     console.error('Server listen error:', err);
-    process.exit(1);
   }
 });
