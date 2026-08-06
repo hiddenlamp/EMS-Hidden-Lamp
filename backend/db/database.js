@@ -1,30 +1,26 @@
-const { DatabaseSync } = require('node:sqlite');
+const sqlite = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
-const dbDir = path.join(__dirname);
+const dbPath = path.join(__dirname, 'payroll.db');
+const dbDir = path.dirname(dbPath);
+
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const dbPath = path.join(dbDir, 'payroll.db');
-const db = new DatabaseSync(dbPath);
-
-// Enable foreign keys and WAL mode
+const db = new sqlite.DatabaseSync(dbPath);
 db.exec('PRAGMA foreign_keys = ON;');
-db.exec('PRAGMA journal_mode = WAL;');
 
-// Initialize Schema
 function initSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('admin', 'hr', 'employee')),
-      employee_id INTEGER,
-      FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE SET NULL
+      role TEXT NOT NULL DEFAULT 'hr' CHECK(role IN ('admin', 'hr', 'employee')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS employees (
@@ -33,108 +29,101 @@ function initSchema() {
       name TEXT NOT NULL,
       designation TEXT NOT NULL,
       department TEXT NOT NULL,
+      basic_salary REAL NOT NULL DEFAULT 0,
+      hra REAL NOT NULL DEFAULT 0,
+      conveyance REAL NOT NULL DEFAULT 0,
+      medical_allowance REAL NOT NULL DEFAULT 0,
+      special_allowance REAL NOT NULL DEFAULT 0,
+      pf_deduction REAL NOT NULL DEFAULT 0,
+      esi_deduction REAL NOT NULL DEFAULT 0,
+      professional_tax REAL NOT NULL DEFAULT 0,
+      tds_deduction REAL NOT NULL DEFAULT 0,
+      other_deduction REAL NOT NULL DEFAULT 0,
+      gross_salary REAL NOT NULL DEFAULT 0,
+      net_salary REAL NOT NULL DEFAULT 0,
+      bank_account TEXT NOT NULL,
+      ifsc_code TEXT NOT NULL,
+      pan_number TEXT NOT NULL,
       work_location TEXT NOT NULL,
-      date_of_joining TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
       email TEXT,
       payment_mode TEXT DEFAULT 'Bank Transfer',
-      pan TEXT,
-      bank_name TEXT,
-      bank_account TEXT,
-      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'exited'))
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS salary_components (
+    CREATE TABLE IF NOT EXISTS payroll (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
-      component_name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('earning', 'deduction')),
-      amount REAL NOT NULL DEFAULT 0,
-      FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS attendance (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
-      period TEXT NOT NULL,
-      days_present REAL NOT NULL DEFAULT 30,
-      days_lop REAL NOT NULL DEFAULT 0,
-      UNIQUE(employee_id, period),
-      FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS attendance_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      check_in TEXT,
-      check_out TEXT,
-      status TEXT NOT NULL,
-      FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
+      month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
+      year INTEGER NOT NULL,
+      working_days INTEGER NOT NULL DEFAULT 30,
+      present_days REAL NOT NULL DEFAULT 30,
+      absent_days REAL NOT NULL DEFAULT 0,
+      half_days REAL NOT NULL DEFAULT 0,
+      leave_days REAL NOT NULL DEFAULT 0,
+      basic_salary REAL NOT NULL DEFAULT 0,
+      hra REAL NOT NULL DEFAULT 0,
+      conveyance REAL NOT NULL DEFAULT 0,
+      medical_allowance REAL NOT NULL DEFAULT 0,
+      special_allowance REAL NOT NULL DEFAULT 0,
+      gross_salary REAL NOT NULL DEFAULT 0,
+      pf_deduction REAL NOT NULL DEFAULT 0,
+      esi_deduction REAL NOT NULL DEFAULT 0,
+      professional_tax REAL NOT NULL DEFAULT 0,
+      tds_deduction REAL NOT NULL DEFAULT 0,
+      other_deduction REAL NOT NULL DEFAULT 0,
+      total_deductions REAL NOT NULL DEFAULT 0,
+      net_salary REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'Draft' CHECK(status IN ('Draft', 'Processed', 'Paid')),
+      payment_date TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+      UNIQUE(employee_id, month, year)
     );
 
     CREATE TABLE IF NOT EXISTS audit_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_email TEXT NOT NULL,
       action TEXT NOT NULL,
-      entity TEXT NOT NULL,
-      entity_id INTEGER,
+      target_type TEXT,
+      target_id INTEGER,
       details TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS payroll_runs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT UNIQUE NOT NULL,
-      pay_date TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'approved'))
-    );
-
-    CREATE TABLE IF NOT EXISTS payslips (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      payroll_run_id INTEGER NOT NULL,
-      employee_id INTEGER NOT NULL,
-      gross_pay REAL NOT NULL,
-      total_deductions REAL NOT NULL,
-      net_pay REAL NOT NULL,
-      breakdown_json TEXT NOT NULL,
-      UNIQUE(payroll_run_id, employee_id),
-      FOREIGN KEY(payroll_run_id) REFERENCES payroll_runs(id) ON DELETE CASCADE,
-      FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-      sid TEXT PRIMARY KEY,
-      sess TEXT NOT NULL,
-      expired INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS travel_expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
-      claim_type TEXT NOT NULL DEFAULT 'Travel',
+      project_name TEXT DEFAULT 'General Corporate',
+      claim_type TEXT DEFAULT 'Travel',
       item_title TEXT,
+      submission_source TEXT DEFAULT 'Offline Form',
+      receipt_ref TEXT,
       from_location TEXT,
       to_location TEXT,
       purpose TEXT NOT NULL,
       start_date TEXT NOT NULL,
-      end_date TEXT,
-      travel_cost REAL NOT NULL DEFAULT 0,
-      food_cost REAL NOT NULL DEFAULT 0,
-      stay_cost REAL NOT NULL DEFAULT 0,
-      misc_cost REAL NOT NULL DEFAULT 0,
-      total_amount REAL NOT NULL DEFAULT 0,
-      advance_paid REAL NOT NULL DEFAULT 0,
-      dues_amount REAL NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'Pending' CHECK(status IN ('Pending', 'Approved', 'Reimbursed', 'Rejected')),
+      end_date TEXT NOT NULL,
+      travel_cost REAL DEFAULT 0,
+      food_cost REAL DEFAULT 0,
+      stay_cost REAL DEFAULT 0,
+      misc_cost REAL DEFAULT 0,
+      total_amount REAL NOT NULL,
+      advance_paid REAL DEFAULT 0,
+      dues_amount REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Pending' CHECK(status IN ('Pending', 'Approved', 'Rejected', 'Reimbursed')),
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS company_expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       category TEXT NOT NULL,
+      project_name TEXT DEFAULT 'General Corporate',
+      vendor_name TEXT,
+      responsible_employee_id INTEGER,
       amount REAL NOT NULL DEFAULT 0,
       date TEXT NOT NULL,
       work_location TEXT NOT NULL,
@@ -142,7 +131,8 @@ function initSchema() {
       payment_status TEXT NOT NULL DEFAULT 'Paid' CHECK(payment_status IN ('Paid', 'Pending', 'Partial')),
       invoice_ref TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (responsible_employee_id) REFERENCES employees(id) ON DELETE SET NULL
     );
   `);
 }
@@ -160,6 +150,7 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;"); } cat
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
+try { db.exec("ALTER TABLE company_expenses ADD COLUMN responsible_employee_id INTEGER REFERENCES employees(id);"); } catch (e) {}
 try { db.exec("ALTER TABLE employees ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch (e) {}
 
 // Seed / Reset Default Admin User
@@ -174,7 +165,6 @@ function seedAdmin() {
     console.log('✅ Default Admin User password reset: admin@hiddenlamp.com / admin123');
   }
 }
-
 seedAdmin();
 
 module.exports = db;

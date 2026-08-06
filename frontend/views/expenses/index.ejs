@@ -191,7 +191,7 @@
           <table class="table" style="font-size: 0.88rem;">
             <thead>
               <tr>
-                <th>Title & Vendor</th>
+                <th>Title, Vendor & Staff In-Charge</th>
                 <th>Category</th>
                 <th>Amount (₹)</th>
                 <th>Date</th>
@@ -207,6 +207,9 @@
                     <strong style="font-size: 0.95rem; color: #0f172a;"><%= item.title %></strong>
                     <% if (item.vendor_name) { %>
                       <br><small style="color: #92400e;">🏢 <%= item.vendor_name %></small>
+                    <% } %>
+                    <% if (item.responsible_employee_name) { %>
+                      <br><small style="color: #0369a1; font-weight: 600;">👤 In-Charge: <%= item.responsible_employee_name %></small>
                     <% } %>
                   </td>
                   <td><span style="background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 600;"><%= item.category %></span></td>
@@ -262,7 +265,7 @@
           <thead>
             <tr>
               <th>Project & City Location</th>
-              <th>Title, Category & Vendor</th>
+              <th>Title, Category & Staff In-Charge</th>
               <th>Amount (₹)</th>
               <th>Date</th>
               <th>Payment Mode</th>
@@ -288,6 +291,11 @@
                     <% if (exp.vendor_name) { %>
                       <span style="background: #fef3c7; color: #92400e; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
                         🏢 <%= exp.vendor_name %>
+                      </span>
+                    <% } %>
+                    <% if (exp.responsible_employee_name) { %>
+                      <span style="background: #e0f2fe; color: #0369a1; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                        👤 In-Charge: <%= exp.responsible_employee_name %>
                       </span>
                     <% } %>
                   </div>

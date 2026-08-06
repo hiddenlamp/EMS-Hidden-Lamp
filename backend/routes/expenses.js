@@ -32,7 +32,7 @@ router.get('/', (req, res) => {
     baseParams.push(locationFilter, locationFilter, locationFilter);
   }
   if (projectFilter !== 'all') {
-    baseWhere += ' AND t.project_name = ?';
+    baseWhere += ' AND LOWER(TRIM(t.project_name)) = LOWER(TRIM(?))';
     baseParams.push(projectFilter);
   }
 
@@ -60,18 +60,27 @@ router.get('/', (req, res) => {
   `;
   const travelExpenses = db.prepare(travelSql).all(...baseParams);
 
-  // 2. Query Company & Project Site Expenses
-  let companySql = 'SELECT * FROM company_expenses WHERE 1=1';
+  // 2. Query Company & Project Site Expenses (With Responsible Employee JOIN)
+  let companySql = `
+    SELECT c.*, e.name as responsible_employee_name, e.employee_code as responsible_employee_code
+    FROM company_expenses c
+    LEFT JOIN employees e ON c.responsible_employee_id = e.id
+    WHERE 1=1
+  `;
   const companyParams = [];
   if (locationFilter !== 'all') {
-    companySql += ' AND work_location = ?';
+    companySql += ' AND c.work_location = ?';
     companyParams.push(locationFilter);
   }
   if (projectFilter !== 'all') {
-    companySql += ' AND project_name = ?';
+    companySql += ' AND LOWER(TRIM(c.project_name)) = LOWER(TRIM(?))';
     companyParams.push(projectFilter);
   }
-  companySql += ' ORDER BY date DESC, id DESC';
+  if (employeeFilter !== 'all') {
+    companySql += ' AND c.responsible_employee_id = ?';
+    companyParams.push(employeeFilter);
+  }
+  companySql += ' ORDER BY c.date DESC, c.id DESC';
   const companyExpenses = db.prepare(companySql).all(...companyParams);
 
   // 3. Synchronized Metrics Aggregation
@@ -97,28 +106,39 @@ router.get('/', (req, res) => {
     companyMetricsParams.push(locationFilter);
   }
   if (projectFilter !== 'all') {
-    companyMetricsSql += ' AND project_name = ?';
+    companyMetricsSql += ' AND LOWER(TRIM(project_name)) = LOWER(TRIM(?))';
     companyMetricsParams.push(projectFilter);
+  }
+  if (employeeFilter !== 'all') {
+    companyMetricsSql += ' AND responsible_employee_id = ?';
+    companyMetricsParams.push(employeeFilter);
   }
   const companyMetrics = db.prepare(companyMetricsSql).get(...companyMetricsParams);
   const totalCompanyExpenses = companyMetrics.total_company;
 
-  // 4. Project-Wise Grouping & Itemized List per Project
+  // 4. Case-Insensitive Project-Wise Grouping & Itemized List per Project
   const projectMap = {};
   companyExpenses.forEach(exp => {
-    const pName = exp.project_name || 'General Corporate';
-    if (!projectMap[pName]) {
-      projectMap[pName] = {
-        project_name: pName,
+    const rawName = (exp.project_name || 'General Corporate').trim();
+    const key = rawName.toLowerCase();
+
+    if (!projectMap[key]) {
+      projectMap[key] = {
+        project_name: rawName,
         work_location: exp.work_location,
         total_spent: 0,
         count: 0,
         items: []
       };
+    } else {
+      // If an existing entry was lowercase and this one has proper Title Case, prefer proper casing
+      if (rawName !== projectMap[key].project_name && rawName[0] === rawName[0].toUpperCase()) {
+        projectMap[key].project_name = rawName;
+      }
     }
-    projectMap[pName].total_spent += exp.amount;
-    projectMap[pName].count += 1;
-    projectMap[pName].items.push(exp);
+    projectMap[key].total_spent += exp.amount;
+    projectMap[key].count += 1;
+    projectMap[key].items.push(exp);
   });
   const projectSummary = Object.values(projectMap).sort((a, b) => b.total_spent - a.total_spent);
 
@@ -149,7 +169,7 @@ router.get('/', (req, res) => {
   `;
   const employeeLedger = db.prepare(ledgerSql).all(...ledgerParams);
 
-  // 6. Dropdown & Datatlist data
+  // 6. Dropdown & Datalist data with Case-Deduplication
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY work_location ASC, name ASC").all();
   
   const empLocations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
@@ -158,7 +178,17 @@ router.get('/', (req, res) => {
   
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
-  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+  
+  const projectMapUnique = new Map();
+  [...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'].forEach(p => {
+    if (p && p.trim()) {
+      const key = p.trim().toLowerCase();
+      if (!projectMapUnique.has(key)) {
+        projectMapUnique.set(key, p.trim());
+      }
+    }
+  });
+  const projects = Array.from(projectMapUnique.values()).sort();
 
   const selectedEmployeeInfo = employeeFilter !== 'all' ? db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeFilter) : null;
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -198,7 +228,17 @@ router.get('/company/new', (req, res) => {
 
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
-  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+  
+  const projectMapUnique = new Map();
+  [...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'].forEach(p => {
+    if (p && p.trim()) {
+      const key = p.trim().toLowerCase();
+      if (!projectMapUnique.has(key)) {
+        projectMapUnique.set(key, p.trim());
+      }
+    }
+  });
+  const projects = Array.from(projectMapUnique.values()).sort();
 
   const dbCategories = db.prepare("SELECT DISTINCT category FROM company_expenses WHERE category IS NOT NULL AND category != ''").all().map(r => r.category);
   const categories = Array.from(new Set([...dbCategories, 'Project Site Material', 'Lab Equipment & Hardware', 'Robotics Kit', 'Office Rent', 'Utilities & Electricity', 'Software & Cloud Tech', 'Maintenance & Repairs', 'Vendor Payment', 'Office Supplies & Printing', 'Travel Allowance'])).sort();
@@ -206,6 +246,7 @@ router.get('/company/new', (req, res) => {
   const todayStr = new Date().toISOString().substring(0, 10);
 
   res.render('expenses/company_new', {
+    employees,
     locations,
     projects,
     categories,
@@ -227,7 +268,17 @@ router.get('/travel/new', (req, res) => {
 
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
-  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+  
+  const projectMapUnique = new Map();
+  [...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'].forEach(p => {
+    if (p && p.trim()) {
+      const key = p.trim().toLowerCase();
+      if (!projectMapUnique.has(key)) {
+        projectMapUnique.set(key, p.trim());
+      }
+    }
+  });
+  const projects = Array.from(projectMapUnique.values()).sort();
 
   const todayStr = new Date().toISOString().substring(0, 10);
 
@@ -277,7 +328,13 @@ router.get('/employee-ledger/:employeeId', (req, res) => {
 
 // GET /expenses/company/:id/pay (Dedicated Page to Settle Company Bill)
 router.get('/company/:id/pay', (req, res) => {
-  const exp = db.prepare('SELECT * FROM company_expenses WHERE id = ?').get(req.params.id);
+  const exp = db.prepare(`
+    SELECT c.*, e.name as responsible_employee_name, e.employee_code as responsible_employee_code
+    FROM company_expenses c
+    LEFT JOIN employees e ON c.responsible_employee_id = e.id
+    WHERE c.id = ?
+  `).get(req.params.id);
+
   if (!exp) {
     return res.status(404).render('error', { title: '404 Not Found', message: 'Company expense bill record not found.' });
   }
@@ -424,7 +481,7 @@ router.post('/travel/:id/delete', (req, res) => {
 
 // POST /expenses/company (Create Company / Project Operational Expense)
 router.post('/company', (req, res) => {
-  const { title, category, project_name, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes } = req.body;
+  const { title, category, project_name, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes, responsible_employee_id } = req.body;
 
   if (!title || !category || !amount || !date || !work_location) {
     return res.redirect('/expenses/company/new?error=Please+fill+in+all+required+company+expense+fields.');
@@ -432,19 +489,20 @@ router.post('/company', (req, res) => {
 
   const amt = parseFloat(amount) || 0;
   const projName = project_name ? project_name.trim() : 'General Corporate';
+  const respEmpId = responsible_employee_id ? parseInt(responsible_employee_id, 10) || null : null;
 
   try {
     const result = db.prepare(`
       INSERT INTO company_expenses (
-        title, category, project_name, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        title, category, project_name, vendor_name, responsible_employee_id, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      title.trim(), category.trim(), projName, vendor_name ? vendor_name.trim() : '', amt, date, work_location.trim(),
+      title.trim(), category.trim(), projName, vendor_name ? vendor_name.trim() : '', respEmpId, amt, date, work_location.trim(),
       payment_mode || 'Bank Transfer', payment_status || 'Paid',
       invoice_ref ? invoice_ref.trim() : '', notes ? notes.trim() : ''
     );
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_EXPENSE', 'Company Expense', result.lastInsertRowid, { title, project_name: projName, amount: amt });
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_EXPENSE', 'Company Expense', result.lastInsertRowid, { title, project_name: projName, amount: amt, responsible_employee_id: respEmpId });
     res.redirect('/expenses?tab=projects&success=Project+expense+recorded+successfully+under+project+' + encodeURIComponent(projName));
   } catch (err) {
     res.redirect('/expenses/company/new?error=' + encodeURIComponent(err.message));
@@ -490,7 +548,12 @@ router.get('/report', (req, res) => {
     ORDER BY t.start_date DESC
   `).all();
 
-  const companyExp = db.prepare('SELECT * FROM company_expenses ORDER BY date DESC').all();
+  const companyExp = db.prepare(`
+    SELECT c.*, e.name as responsible_employee_name
+    FROM company_expenses c
+    LEFT JOIN employees e ON c.responsible_employee_id = e.id
+    ORDER BY c.date DESC
+  `).all();
 
   let csvContent = '=== EMPLOYEE TRAVEL CLAIMS ===\n';
   csvContent += 'ID,Project Name,Employee Code,Employee Name,From,To,Purpose,Start Date,End Date,Travel Cost,Food Cost,Stay Cost,Misc Cost,Total Amount,Advance Paid,Balance Dues,Status\n';
@@ -518,7 +581,7 @@ router.get('/report', (req, res) => {
   });
 
   csvContent += '\n=== COMPANY & PROJECT OPERATIONAL EXPENSES ===\n';
-  csvContent += 'ID,Project Name,Title,Category,Vendor,Amount,Date,Location,Payment Mode,Payment Status,Invoice Reference\n';
+  csvContent += 'ID,Project Name,Title,Category,Vendor,Responsible Employee,Amount,Date,Location,Payment Mode,Payment Status,Invoice Reference\n';
 
   companyExp.forEach(c => {
     csvContent += [
@@ -527,6 +590,7 @@ router.get('/report', (req, res) => {
       `"${c.title}"`,
       `"${c.category}"`,
       `"${c.vendor_name || ''}"`,
+      `"${c.responsible_employee_name || 'Unassigned'}"`,
       c.amount,
       c.date,
       `"${c.work_location}"`,

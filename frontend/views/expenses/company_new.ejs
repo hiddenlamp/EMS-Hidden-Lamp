@@ -52,12 +52,25 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Vendor / Supplier Name</label>
-          <input type="text" name="vendor_name" class="form-control" placeholder="e.g. JBVNL, Airtel, AWS, Hardware Store">
+          <label class="form-label" style="font-weight: 700;">Responsible Staff / Employee In-Charge</label>
+          <select name="responsible_employee_id" class="form-control">
+            <option value="">-- Optional: Select Employee In-Charge --</option>
+            <% (employees || []).forEach(emp => { %>
+              <option value="<%= emp.id %>">👤 <%= emp.name %> (<%= emp.employee_code %> - <%= emp.work_location %>)</option>
+            <% }); %>
+          </select>
+          <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
+            👤 Kis employee ko responsibility di gayi thi?
+          </small>
         </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 700;">Vendor / Supplier Name</label>
+          <input type="text" name="vendor_name" class="form-control" placeholder="e.g. JBVNL, Airtel, AWS, Hardware Store">
+        </div>
+
         <div class="form-group">
           <label class="form-label" style="font-weight: 700;">Category</label>
           <input type="text" name="category" class="form-control" placeholder="Type custom category or select..." required list="categoryOptions" style="font-weight: 600; color: #0f172a;">
