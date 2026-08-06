@@ -9,10 +9,11 @@ router.use(requireRole(['admin', 'hr']));
 
 // GET /expenses
 router.get('/', (req, res) => {
-  const activeTab = req.query.tab || 'travel';
+  const activeTab = req.query.tab || 'company';
   const statusFilter = req.query.status || 'all';
   const locationFilter = req.query.location || 'all';
   const employeeFilter = req.query.employee || 'all';
+  const projectFilter = req.query.project || 'all';
 
   // Build base WHERE clause for travel_expenses
   let baseWhere = ' WHERE 1=1';
@@ -29,6 +30,10 @@ router.get('/', (req, res) => {
   if (locationFilter !== 'all') {
     baseWhere += ' AND (e.work_location = ? OR t.from_location = ? OR t.to_location = ?)';
     baseParams.push(locationFilter, locationFilter, locationFilter);
+  }
+  if (projectFilter !== 'all') {
+    baseWhere += ' AND t.project_name = ?';
+    baseParams.push(projectFilter);
   }
 
   // 1. Query Consolidated Employee Expense Records
@@ -55,12 +60,16 @@ router.get('/', (req, res) => {
   `;
   const travelExpenses = db.prepare(travelSql).all(...baseParams);
 
-  // 2. Query Company Expenses
+  // 2. Query Company & Project Site Expenses
   let companySql = 'SELECT * FROM company_expenses WHERE 1=1';
   const companyParams = [];
   if (locationFilter !== 'all') {
     companySql += ' AND work_location = ?';
     companyParams.push(locationFilter);
+  }
+  if (projectFilter !== 'all') {
+    companySql += ' AND project_name = ?';
+    companyParams.push(projectFilter);
   }
   companySql += ' ORDER BY date DESC, id DESC';
   const companyExpenses = db.prepare(companySql).all(...companyParams);
@@ -81,14 +90,33 @@ router.get('/', (req, res) => {
   const totalAdvancePaid = travelMetrics.total_advance;
   const totalPendingDues = travelMetrics.total_dues;
 
-  const companyMetricsSql = locationFilter !== 'all' 
-    ? 'SELECT COALESCE(SUM(amount), 0) as total_company FROM company_expenses WHERE work_location = ?'
-    : 'SELECT COALESCE(SUM(amount), 0) as total_company FROM company_expenses';
-  const companyMetricsParams = locationFilter !== 'all' ? [locationFilter] : [];
+  let companyMetricsSql = 'SELECT COALESCE(SUM(amount), 0) as total_company FROM company_expenses WHERE 1=1';
+  const companyMetricsParams = [];
+  if (locationFilter !== 'all') {
+    companyMetricsSql += ' AND work_location = ?';
+    companyMetricsParams.push(locationFilter);
+  }
+  if (projectFilter !== 'all') {
+    companyMetricsSql += ' AND project_name = ?';
+    companyMetricsParams.push(projectFilter);
+  }
   const companyMetrics = db.prepare(companyMetricsSql).get(...companyMetricsParams);
   const totalCompanyExpenses = companyMetrics.total_company;
 
-  // 4. Employee Dues Ledger Aggregation (Grouped per Employee with matching filters)
+  // 4. Project-Wise Expense Aggregation (Grouped per Project & Location)
+  const projectSummarySql = `
+    SELECT 
+      project_name, 
+      work_location, 
+      COUNT(id) as count, 
+      SUM(amount) as total_spent
+    FROM company_expenses
+    GROUP BY project_name, work_location
+    ORDER BY total_spent DESC
+  `;
+  const projectSummary = db.prepare(projectSummarySql).all();
+
+  // 5. Employee Dues Ledger Aggregation (Grouped per Employee with matching filters)
   let ledgerWhere = ' WHERE 1=1';
   const ledgerParams = [];
   if (locationFilter !== 'all') {
@@ -115,9 +143,14 @@ router.get('/', (req, res) => {
   `;
   const employeeLedger = db.prepare(ledgerSql).all(...ledgerParams);
 
-  // 5. Employees & Locations dropdown data
+  // 6. Employees, Locations & Projects dropdown data
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY work_location ASC, name ASC").all();
   const locations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
+  
+  // Query unique projects from both tables
+  const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
+  const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
+  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
 
   const selectedEmployeeInfo = employeeFilter !== 'all' ? db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeFilter) : null;
 
@@ -128,9 +161,11 @@ router.get('/', (req, res) => {
     statusFilter,
     locationFilter,
     employeeFilter,
+    projectFilter,
     selectedEmployeeInfo,
     travelExpenses,
     companyExpenses,
+    projectSummary,
     employeeLedger,
     totalTravelClaims,
     totalAdvancePaid,
@@ -138,6 +173,7 @@ router.get('/', (req, res) => {
     totalCompanyExpenses,
     employees,
     locations,
+    projects,
     todayStr,
     success: req.query.success || null,
     error: req.query.error || null
@@ -178,7 +214,7 @@ router.get('/employee-dues/:employeeId', (req, res) => {
 // POST /expenses/travel (Create Employee Reimbursement Claim)
 router.post('/travel', (req, res) => {
   const {
-    employee_id, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose,
+    employee_id, project_name, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose,
     start_date, end_date, travel_cost, food_cost,
     stay_cost, misc_cost, claim_total_amount, advance_paid, notes
   } = req.body;
@@ -187,6 +223,7 @@ router.post('/travel', (req, res) => {
     return res.redirect('/expenses?tab=travel&error=Please+fill+in+all+required+claim+details.');
   }
 
+  const projName = project_name ? project_name.trim() : 'General Corporate';
   const type = claim_type || 'Travel';
   const title = item_title ? item_title.trim() : '';
   const source = submission_source || 'Offline Form';
@@ -211,11 +248,11 @@ router.post('/travel', (req, res) => {
   try {
     const result = db.prepare(`
       INSERT INTO travel_expenses (
-        employee_id, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose, start_date, end_date,
+        employee_id, project_name, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose, start_date, end_date,
         travel_cost, food_cost, stay_cost, misc_cost, total_amount, advance_paid, dues_amount, status, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      employee_id, type, title, source, refNo,
+      employee_id, projName, type, title, source, refNo,
       from_location ? from_location.trim() : '',
       to_location ? to_location.trim() : '',
       purpose.trim(),
@@ -287,29 +324,30 @@ router.post('/travel/:id/delete', (req, res) => {
   }
 });
 
-// POST /expenses/company (Create Company Operational Expense)
+// POST /expenses/company (Create Company / Project Operational Expense)
 router.post('/company', (req, res) => {
-  const { title, category, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes } = req.body;
+  const { title, category, project_name, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes } = req.body;
 
   if (!title || !category || !amount || !date || !work_location) {
     return res.redirect('/expenses?tab=company&error=Please+fill+in+all+required+company+expense+fields.');
   }
 
   const amt = parseFloat(amount) || 0;
+  const projName = project_name ? project_name.trim() : 'General Corporate';
 
   try {
     const result = db.prepare(`
       INSERT INTO company_expenses (
-        title, category, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        title, category, project_name, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      title.trim(), category.trim(), vendor_name ? vendor_name.trim() : '', amt, date, work_location.trim(),
+      title.trim(), category.trim(), projName, vendor_name ? vendor_name.trim() : '', amt, date, work_location.trim(),
       payment_mode || 'Bank Transfer', payment_status || 'Paid',
       invoice_ref ? invoice_ref.trim() : '', notes ? notes.trim() : ''
     );
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_EXPENSE', 'Company Expense', result.lastInsertRowid, { title, amount: amt });
-    res.redirect('/expenses?tab=company&success=Company+expense+recorded+successfully.');
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_EXPENSE', 'Company Expense', result.lastInsertRowid, { title, project_name: projName, amount: amt });
+    res.redirect('/expenses?tab=company&success=Project/Company+expense+recorded+successfully.');
   } catch (err) {
     res.redirect('/expenses?tab=company&error=' + encodeURIComponent(err.message));
   }
@@ -357,11 +395,12 @@ router.get('/report', (req, res) => {
   const companyExp = db.prepare('SELECT * FROM company_expenses ORDER BY date DESC').all();
 
   let csvContent = '=== EMPLOYEE TRAVEL CLAIMS ===\n';
-  csvContent += 'ID,Employee Code,Employee Name,From,To,Purpose,Start Date,End Date,Travel Cost,Food Cost,Stay Cost,Misc Cost,Total Amount,Advance Paid,Balance Dues,Status\n';
+  csvContent += 'ID,Project Name,Employee Code,Employee Name,From,To,Purpose,Start Date,End Date,Travel Cost,Food Cost,Stay Cost,Misc Cost,Total Amount,Advance Paid,Balance Dues,Status\n';
 
   travelClaims.forEach(t => {
     csvContent += [
       t.id,
+      `"${t.project_name || 'General Corporate'}"`,
       `"${t.employee_code}"`,
       `"${t.employee_name}"`,
       `"${t.from_location}"`,
@@ -380,14 +419,16 @@ router.get('/report', (req, res) => {
     ].join(',') + '\n';
   });
 
-  csvContent += '\n=== COMPANY OPERATIONAL EXPENSES ===\n';
-  csvContent += 'ID,Title,Category,Amount,Date,Location,Payment Mode,Payment Status,Invoice Reference\n';
+  csvContent += '\n=== COMPANY & PROJECT OPERATIONAL EXPENSES ===\n';
+  csvContent += 'ID,Project Name,Title,Category,Vendor,Amount,Date,Location,Payment Mode,Payment Status,Invoice Reference\n';
 
   companyExp.forEach(c => {
     csvContent += [
       c.id,
+      `"${c.project_name || 'General Corporate'}"`,
       `"${c.title}"`,
       `"${c.category}"`,
+      `"${c.vendor_name || ''}"`,
       c.amount,
       c.date,
       `"${c.work_location}"`,
