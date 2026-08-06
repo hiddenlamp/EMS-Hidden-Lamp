@@ -149,13 +149,16 @@ router.get('/', (req, res) => {
   `;
   const employeeLedger = db.prepare(ledgerSql).all(...ledgerParams);
 
-  // 6. Dropdown data
+  // 6. Dropdown & Datatlist data
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY work_location ASC, name ASC").all();
-  const locations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
+  
+  const empLocations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
+  const companyLocations = db.prepare("SELECT DISTINCT work_location FROM company_expenses WHERE work_location IS NOT NULL AND work_location != ''").all().map(r => r.work_location);
+  const locations = Array.from(new Set([...empLocations, ...companyLocations, 'Dantewada', 'Hazaribagh', 'Jodhpur', 'Ranchi', 'Delhi', 'Patna', 'Jaipur'])).sort();
   
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
-  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
 
   const selectedEmployeeInfo = employeeFilter !== 'all' ? db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeFilter) : null;
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -188,15 +191,24 @@ router.get('/', (req, res) => {
 router.get('/company/new', (req, res) => {
   const selectedProject = req.query.project_name || '';
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY name ASC").all();
-  const locations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
+  
+  const empLocations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
+  const companyLocations = db.prepare("SELECT DISTINCT work_location FROM company_expenses WHERE work_location IS NOT NULL AND work_location != ''").all().map(r => r.work_location);
+  const locations = Array.from(new Set([...empLocations, ...companyLocations, 'Dantewada', 'Hazaribagh', 'Jodhpur', 'Ranchi', 'Delhi', 'Patna', 'Jaipur'])).sort();
+
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
-  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+
+  const dbCategories = db.prepare("SELECT DISTINCT category FROM company_expenses WHERE category IS NOT NULL AND category != ''").all().map(r => r.category);
+  const categories = Array.from(new Set([...dbCategories, 'Project Site Material', 'Lab Equipment & Hardware', 'Robotics Kit', 'Office Rent', 'Utilities & Electricity', 'Software & Cloud Tech', 'Maintenance & Repairs', 'Vendor Payment', 'Office Supplies & Printing', 'Travel Allowance'])).sort();
+
   const todayStr = new Date().toISOString().substring(0, 10);
 
   res.render('expenses/company_new', {
     locations,
     projects,
+    categories,
     selectedProject,
     todayStr,
     error: req.query.error || null
@@ -208,14 +220,21 @@ router.get('/travel/new', (req, res) => {
   const employeeId = req.query.employee_id || '';
   const selectedProject = req.query.project_name || '';
   const employees = db.prepare("SELECT id, employee_code, name, designation, work_location FROM employees WHERE status = 'active' ORDER BY name ASC").all();
+  
+  const empLocations = db.prepare('SELECT DISTINCT work_location FROM employees ORDER BY work_location ASC').all().map(r => r.work_location);
+  const companyLocations = db.prepare("SELECT DISTINCT work_location FROM company_expenses WHERE work_location IS NOT NULL AND work_location != ''").all().map(r => r.work_location);
+  const locations = Array.from(new Set([...empLocations, ...companyLocations, 'Dantewada', 'Hazaribagh', 'Jodhpur', 'Ranchi', 'Delhi', 'Patna', 'Jaipur'])).sort();
+
   const companyProjects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
   const travelProjects = db.prepare("SELECT DISTINCT project_name FROM travel_expenses WHERE project_name IS NOT NULL AND project_name != ''").all().map(r => r.project_name);
-  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+  const projects = Array.from(new Set([...companyProjects, ...travelProjects, 'Robotics Lab', 'Hazaribagh Solar Site', 'Jodhpur HQ Maintenance', 'Delhi Branch Office', 'Ranchi Expansion Project', 'Jaipur Site Alpha'])).sort();
+
   const todayStr = new Date().toISOString().substring(0, 10);
 
   res.render('expenses/travel_new', {
     employees,
     projects,
+    locations,
     selectedEmployeeId: employeeId,
     selectedProject,
     todayStr,

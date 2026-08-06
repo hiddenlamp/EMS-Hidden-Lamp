@@ -33,11 +33,15 @@
 
         <div class="form-group">
           <label class="form-label" style="font-weight: 700;">Branch / City Location</label>
-          <select name="work_location" class="form-control" required>
+          <input type="text" name="work_location" class="form-control" placeholder="Type new city or select location..." required list="locationOptions" style="font-weight: 600; color: #0f172a;">
+          <datalist id="locationOptions">
             <% locations.forEach(loc => { %>
-              <option value="<%= loc %>"><%= loc %></option>
+              <option value="<%= loc %>"></option>
             <% }); %>
-          </select>
+          </datalist>
+          <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
+            💡 Select a city location or type a new city manually.
+          </small>
         </div>
       </div>
 
@@ -56,16 +60,15 @@
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
         <div class="form-group">
           <label class="form-label" style="font-weight: 700;">Category</label>
-          <select name="category" class="form-control" required>
-            <option value="Project Site Material">Project Site Material</option>
-            <option value="Office Rent">Office Rent</option>
-            <option value="Utilities">Utilities & Bills</option>
-            <option value="Software & Tech">Software & Tech</option>
-            <option value="Equipment">Equipment & Machinery</option>
-            <option value="Maintenance">Maintenance & Repairs</option>
-            <option value="Vendor Payment">Vendor Payment</option>
-            <option value="Office Supplies">Office Supplies</option>
-          </select>
+          <input type="text" name="category" class="form-control" placeholder="Type custom category or select..." required list="categoryOptions" style="font-weight: 600; color: #0f172a;">
+          <datalist id="categoryOptions">
+            <% (categories || []).forEach(cat => { %>
+              <option value="<%= cat %>"></option>
+            <% }); %>
+          </datalist>
+          <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
+            💡 Select a category or type a custom category manually.
+          </small>
         </div>
 
         <div class="form-group">
