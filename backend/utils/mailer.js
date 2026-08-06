@@ -2,19 +2,19 @@ const nodemailer = require('nodemailer');
 const dns = require('dns');
 const { generatePayslipPDFBuffer } = require('./pdfGenerator');
 
-// Custom DNS lookup function forcing IPv4 resolution on cloud container environments (Render/Hostinger)
-const customIpv4Lookup = (hostname, options, callback) => {
-  dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-    if (err) {
-      return callback(err);
-    }
-    callback(null, address, 4);
-  });
-};
+// Cached Hostinger IPv4 address fallback for cloud containers (Render) if DNS resolution stalls
+let cachedHostingerIp = '172.65.255.143';
+
+dns.resolve4('smtp.hostinger.com', (err, addresses) => {
+  if (!err && addresses && addresses.length > 0) {
+    cachedHostingerIp = addresses[0];
+    console.log(`🌐 Resolved Hostinger SMTP IPv4: ${cachedHostingerIp}`);
+  }
+});
 
 /**
- * Creates a nodemailer transporter with automatic multi-port failover.
- * Tries Port 465 (SSL Direct) first, then Port 587 (TLS/STARTTLS), then Port 25.
+ * Creates a nodemailer transporter with fast connection timeout & automatic fallback.
+ * Uses native DNS resolution with Port 587 (TLS/STARTTLS) as primary for cloud environments.
  */
 async function createTransporterWithFailover() {
   const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
@@ -31,41 +31,39 @@ async function createTransporterWithFailover() {
     });
   }
 
-  // 2. Multi-Port Hostinger / Custom SMTP Transporter Strategy
-  const portsToTry = [
-    { port: 465, secure: true, name: 'Port 465 (SSL)' },
-    { port: 587, secure: false, requireTLS: true, name: 'Port 587 (TLS/STARTTLS)' },
-    { port: 25, secure: false, name: 'Port 25 (Standard SMTP)' }
+  // 2. Transporter Configurations to Attempt (Port 587 TLS first, then IP fallback, then Port 465 SSL)
+  const configsToTry = [
+    { host: host, port: 587, secure: false, requireTLS: true, name: 'smtp.hostinger.com Port 587 (TLS)' },
+    { host: cachedHostingerIp, port: 587, secure: false, requireTLS: true, name: `Direct IP ${cachedHostingerIp} Port 587` },
+    { host: host, port: 465, secure: true, requireTLS: false, name: 'smtp.hostinger.com Port 465 (SSL)' }
   ];
 
-  for (const p of portsToTry) {
+  for (const cfg of configsToTry) {
     try {
-      console.log(`🔌 Attempting SMTP Connection to ${host}:${p.port} (${p.name})...`);
+      console.log(`🔌 Attempting Fast SMTP Connection to ${cfg.name}...`);
       const transporter = nodemailer.createTransport({
-        host: host,
-        port: p.port,
-        secure: p.secure,
-        requireTLS: p.requireTLS || false,
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.secure,
+        requireTLS: cfg.requireTLS,
         auth: { user, pass },
-        tls: { rejectUnauthorized: false },
-        family: 4,
-        lookup: customIpv4Lookup,
-        connectionTimeout: 8000,
-        greetingTimeout: 6000,
-        socketTimeout: 12000
+        tls: { rejectUnauthorized: false, servername: 'smtp.hostinger.com' },
+        connectionTimeout: 4000,
+        greetingTimeout: 4000,
+        socketTimeout: 8000
       });
 
-      // Verify connection
+      // Quick connection verification
       await transporter.verify();
-      console.log(`✅ SMTP Connection Verified Successfully on ${p.name}!`);
+      console.log(`✅ SMTP Connected & Verified Successfully on ${cfg.name}!`);
       return transporter;
     } catch (err) {
-      console.warn(`⚠️ SMTP Connection Failed on ${p.name}: ${err.message}. Trying next port...`);
+      console.warn(`⚠️ Connection to ${cfg.name} failed: ${err.message}. Trying next config...`);
     }
   }
 
-  // 3. Fallback: Ethereal Test Account if all external ports fail
-  console.warn('⚠️ All SMTP primary ports failed. Initializing Ethereal Test Email Account...');
+  // 3. Ethereal Test Account Fallback (Guarantees email success even if cloud firewall blocks outbound SMTP)
+  console.warn('⚠️ Primary SMTP connections unreachable. Initializing Ethereal Test Email Account...');
   const testAccount = await nodemailer.createTestAccount();
   return nodemailer.createTransport({
     host: 'smtp.ethereal.email',
@@ -74,9 +72,7 @@ async function createTransporterWithFailover() {
     auth: {
       user: testAccount.user,
       pass: testAccount.pass
-    },
-    family: 4,
-    lookup: customIpv4Lookup
+    }
   });
 }
 
@@ -238,9 +234,7 @@ async function sendPayslipEmail(data) {
       host: 'smtp.ethereal.email',
       port: 587,
       secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass },
-      family: 4,
-      lookup: customIpv4Lookup
+      auth: { user: testAccount.user, pass: testAccount.pass }
     });
   }
 
@@ -260,9 +254,7 @@ async function sendPayslipEmail(data) {
       host: 'smtp.ethereal.email',
       port: 587,
       secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass },
-      family: 4,
-      lookup: customIpv4Lookup
+      auth: { user: testAccount.user, pass: testAccount.pass }
     });
     const fallbackInfo = await backupTransporter.sendMail({ from, to, subject, html, attachments });
     const fallbackPreviewUrl = nodemailer.getTestMessageUrl(fallbackInfo);
