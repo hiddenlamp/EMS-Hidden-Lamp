@@ -93,7 +93,8 @@ function initSchema() {
 
     CREATE TABLE IF NOT EXISTS travel_expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
+      employee_id INTEGER,
+      employee_name_input TEXT,
       project_name TEXT DEFAULT 'General Corporate',
       claim_type TEXT DEFAULT 'Travel',
       item_title TEXT,
@@ -113,8 +114,7 @@ function initSchema() {
       dues_amount REAL NOT NULL,
       status TEXT NOT NULL DEFAULT 'Pending' CHECK(status IN ('Pending', 'Approved', 'Rejected', 'Reimbursed')),
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS company_expenses (
@@ -126,6 +126,8 @@ function initSchema() {
       vendor_name TEXT,
       responsible_employee_id INTEGER,
       amount REAL NOT NULL DEFAULT 0,
+      advance_paid REAL DEFAULT 0,
+      dues_amount REAL DEFAULT 0,
       date TEXT NOT NULL,
       work_location TEXT NOT NULL,
       payment_mode TEXT DEFAULT 'Bank Transfer',
@@ -148,17 +150,21 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN claim_type TEXT DEFAULT 'T
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN item_title TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN submission_source TEXT DEFAULT 'Offline Form';"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE travel_expenses ADD COLUMN employee_name_input TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN expense_type TEXT DEFAULT 'Project';"); } catch (e) {}
+try { db.exec("ALTER TABLE company_expenses ADD COLUMN advance_paid REAL DEFAULT 0;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_expenses ADD COLUMN dues_amount REAL DEFAULT 0;"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN responsible_employee_id INTEGER REFERENCES employees(id);"); } catch (e) {}
 try { db.exec("ALTER TABLE employees ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch (e) {}
 
-// Backfill expense_type for existing records
+// Backfill expense_type & dues for existing records
 try {
   db.exec("UPDATE company_expenses SET expense_type = 'Company Overhead' WHERE project_name IS NULL OR TRIM(project_name) = '' OR TRIM(project_name) = 'General Corporate';");
   db.exec("UPDATE company_expenses SET expense_type = 'Project' WHERE project_name IS NOT NULL AND TRIM(project_name) != '' AND TRIM(project_name) != 'General Corporate';");
+  db.exec("UPDATE company_expenses SET dues_amount = CASE WHEN payment_status = 'Paid' THEN 0 ELSE MAX(0, amount - COALESCE(advance_paid, 0)) END WHERE dues_amount IS NULL OR dues_amount = 0;");
 } catch (e) {}
 
 // Seed / Reset Default Admin User

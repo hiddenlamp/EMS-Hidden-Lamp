@@ -20,8 +20,8 @@ router.get('/', (req, res) => {
   const baseParams = [];
 
   if (employeeFilter !== 'all') {
-    baseWhere += ' AND t.employee_id = ?';
-    baseParams.push(employeeFilter);
+    baseWhere += ' AND (t.employee_id = ? OR t.employee_name_input LIKE ?)';
+    baseParams.push(employeeFilter, `%${employeeFilter}%`);
   }
   if (statusFilter !== 'all') {
     baseWhere += ' AND t.status = ?';
@@ -39,11 +39,11 @@ router.get('/', (req, res) => {
   // 1. Query Consolidated Employee Expense Claims
   const travelSql = `
     SELECT 
-      e.id as employee_id, 
-      e.name as employee_name, 
-      e.employee_code, 
-      e.work_location as emp_location, 
-      e.designation,
+      COALESCE(e.id, 0) as employee_id, 
+      COALESCE(e.name, t.employee_name_input, 'Staff Member') as employee_name, 
+      COALESCE(e.employee_code, 'EMP-CLAIM') as employee_code, 
+      COALESCE(e.work_location, 'Field Site') as emp_location, 
+      COALESCE(e.designation, 'Staff') as designation,
       COUNT(t.id) as claim_count,
       COALESCE(SUM(t.total_amount), 0) as total_amount,
       COALESCE(SUM(t.advance_paid), 0) as advance_paid,
@@ -52,10 +52,10 @@ router.get('/', (req, res) => {
       SUM(CASE WHEN t.status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
       SUM(CASE WHEN t.status = 'Approved' THEN 1 ELSE 0 END) as approved_count,
       SUM(CASE WHEN t.status = 'Reimbursed' THEN 1 ELSE 0 END) as reimbursed_count
-    FROM employees e
-    JOIN travel_expenses t ON e.id = t.employee_id
+    FROM travel_expenses t
+    LEFT JOIN employees e ON t.employee_id = e.id
     ${baseWhere}
-    GROUP BY e.id
+    GROUP BY COALESCE(e.id, t.employee_name_input)
     ORDER BY dues_amount DESC, latest_date DESC
   `;
   const travelExpenses = db.prepare(travelSql).all(...baseParams);
@@ -109,16 +109,24 @@ router.get('/', (req, res) => {
       COALESCE(SUM(t.advance_paid), 0) as total_advance,
       COALESCE(SUM(CASE WHEN t.status != 'Rejected' THEN t.dues_amount ELSE 0 END), 0) as total_dues
     FROM travel_expenses t
-    JOIN employees e ON t.employee_id = e.id
+    LEFT JOIN employees e ON t.employee_id = e.id
     ${baseWhere}
   `).get(...baseParams);
 
   const totalTravelClaims = travelMetrics.total_claimed;
-  const totalAdvancePaid = travelMetrics.total_advance;
-  const totalPendingDues = travelMetrics.total_dues;
+  const totalTravelAdvance = travelMetrics.total_advance;
+  const totalTravelDues = travelMetrics.total_dues;
 
   const totalProjectExpenses = projectExpensesList.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const totalProjectAdvance = projectExpensesList.reduce((sum, item) => sum + (item.advance_paid || 0), 0);
+  const totalProjectDues = projectExpensesList.reduce((sum, item) => sum + (item.dues_amount || 0), 0);
+
   const totalCompanyExpenses = companyExpenses.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const totalCompanyAdvance = companyExpenses.reduce((sum, item) => sum + (item.advance_paid || 0), 0);
+  const totalCompanyDues = companyExpenses.reduce((sum, item) => sum + (item.dues_amount || 0), 0);
+
+  const totalAdvancePaid = totalTravelAdvance + totalProjectAdvance + totalCompanyAdvance;
+  const totalPendingDues = totalTravelDues + totalProjectDues + totalCompanyDues;
 
   // 5. Case-Insensitive Project-Wise Grouping for Tab 1
   const projectMap = {};
@@ -131,6 +139,8 @@ router.get('/', (req, res) => {
         project_name: rawName,
         work_location: exp.work_location,
         total_spent: 0,
+        total_advance: 0,
+        total_dues: 0,
         count: 0,
         items: []
       };
@@ -140,6 +150,8 @@ router.get('/', (req, res) => {
       }
     }
     projectMap[key].total_spent += exp.amount;
+    projectMap[key].total_advance += (exp.advance_paid || 0);
+    projectMap[key].total_dues += (exp.dues_amount || 0);
     projectMap[key].count += 1;
     projectMap[key].items.push(exp);
   });
@@ -347,75 +359,97 @@ router.get('/employee-ledger/:employeeId', (req, res) => {
   });
 });
 
-// POST /expenses/project (Create Project Expense)
+// POST /expenses/project (Create Project Expense with Total Bill, Advance & Dues)
 router.post('/project', (req, res) => {
-  const { title, category, project_name, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes, responsible_employee_id } = req.body;
+  const { title, category, project_name, vendor_name, amount, advance_paid, date, work_location, payment_mode, invoice_ref, notes, responsible_employee_id } = req.body;
 
   if (!title || !category || !amount || !date || !work_location || !project_name) {
     return res.redirect('/expenses/project/new?error=Please+fill+in+all+required+project+expense+fields.');
   }
 
-  const amt = parseFloat(amount) || 0;
+  const totalAmt = parseFloat(amount) || 0;
+  const advPaid = parseFloat(advance_paid) || 0;
+  const duesAmt = Math.max(0, Math.round((totalAmt - advPaid) * 100) / 100);
+  const status = duesAmt === 0 ? 'Paid' : (advPaid > 0 ? 'Partial' : 'Pending');
+
   const projName = project_name.trim();
   const respEmpId = responsible_employee_id ? parseInt(responsible_employee_id, 10) || null : null;
 
   try {
     const result = db.prepare(`
       INSERT INTO company_expenses (
-        title, category, expense_type, project_name, vendor_name, responsible_employee_id, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
-      ) VALUES (?, ?, 'Project', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        title, category, expense_type, project_name, vendor_name, responsible_employee_id, amount, advance_paid, dues_amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
+      ) VALUES (?, ?, 'Project', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      title.trim(), category.trim(), projName, vendor_name ? vendor_name.trim() : '', respEmpId, amt, date, work_location.trim(),
-      payment_mode || 'Bank Transfer', payment_status || 'Paid',
+      title.trim(), category.trim(), projName, vendor_name ? vendor_name.trim() : '', respEmpId,
+      totalAmt, advPaid, duesAmt, date, work_location.trim(),
+      payment_mode || 'Bank Transfer', status,
       invoice_ref ? invoice_ref.trim() : '', notes ? notes.trim() : ''
     );
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_PROJECT_EXPENSE', 'Project Expense', result.lastInsertRowid, { title, project_name: projName, amount: amt });
-    res.redirect('/expenses?tab=projects&success=Project+expense+recorded+successfully+under+project+' + encodeURIComponent(projName));
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_PROJECT_EXPENSE', 'Project Expense', result.lastInsertRowid, { title, project_name: projName, amount: totalAmt, advance_paid: advPaid, dues_amount: duesAmt });
+    res.redirect('/expenses?tab=projects&success=Project+expense+recorded!+Total:+₹' + totalAmt.toLocaleString('en-IN') + ',+Advance:+₹' + advPaid.toLocaleString('en-IN') + ',+Dues:+₹' + duesAmt.toLocaleString('en-IN'));
   } catch (err) {
     res.redirect('/expenses/project/new?error=' + encodeURIComponent(err.message));
   }
 });
 
-// POST /expenses/company (Create Company Operational Overhead Bill)
+// POST /expenses/company (Create Company Operational Overhead Bill with Total, Advance & Dues)
 router.post('/company', (req, res) => {
-  const { title, category, vendor_name, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes, responsible_employee_id } = req.body;
+  const { title, category, vendor_name, amount, advance_paid, date, work_location, payment_mode, invoice_ref, notes, responsible_employee_id } = req.body;
 
   if (!title || !category || !amount || !date || !work_location) {
     return res.redirect('/expenses/company/new?error=Please+fill+in+all+required+company+overhead+bill+fields.');
   }
 
-  const amt = parseFloat(amount) || 0;
+  const totalAmt = parseFloat(amount) || 0;
+  const advPaid = parseFloat(advance_paid) || 0;
+  const duesAmt = Math.max(0, Math.round((totalAmt - advPaid) * 100) / 100);
+  const status = duesAmt === 0 ? 'Paid' : (advPaid > 0 ? 'Partial' : 'Pending');
+
   const respEmpId = responsible_employee_id ? parseInt(responsible_employee_id, 10) || null : null;
 
   try {
     const result = db.prepare(`
       INSERT INTO company_expenses (
-        title, category, expense_type, project_name, vendor_name, responsible_employee_id, amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
-      ) VALUES (?, ?, 'Company Overhead', 'General Corporate', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        title, category, expense_type, project_name, vendor_name, responsible_employee_id, amount, advance_paid, dues_amount, date, work_location, payment_mode, payment_status, invoice_ref, notes
+      ) VALUES (?, ?, 'Company Overhead', 'General Corporate', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      title.trim(), category.trim(), vendor_name ? vendor_name.trim() : '', respEmpId, amt, date, work_location.trim(),
-      payment_mode || 'Bank Transfer', payment_status || 'Paid',
+      title.trim(), category.trim(), vendor_name ? vendor_name.trim() : '', respEmpId,
+      totalAmt, advPaid, duesAmt, date, work_location.trim(),
+      payment_mode || 'Bank Transfer', status,
       invoice_ref ? invoice_ref.trim() : '', notes ? notes.trim() : ''
     );
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_OVERHEAD', 'Company Expense', result.lastInsertRowid, { title, amount: amt });
-    res.redirect('/expenses?tab=company&success=Company+operational+overhead+bill+recorded+successfully.');
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_OVERHEAD', 'Company Expense', result.lastInsertRowid, { title, amount: totalAmt, advance_paid: advPaid, dues_amount: duesAmt });
+    res.redirect('/expenses?tab=company&success=Company+overhead+bill+recorded!+Total:+₹' + totalAmt.toLocaleString('en-IN') + ',+Advance:+₹' + advPaid.toLocaleString('en-IN') + ',+Dues:+₹' + duesAmt.toLocaleString('en-IN'));
   } catch (err) {
     res.redirect('/expenses/company/new?error=' + encodeURIComponent(err.message));
   }
 });
 
-// POST /expenses/travel (Create Employee Reimbursement Claim)
+// POST /expenses/travel (Create Employee Reimbursement Claim with Manual or Dropdown Employee)
 router.post('/travel', (req, res) => {
   const {
-    employee_id, project_name, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose,
+    employee_id, employee_name_custom, project_name, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose,
     start_date, end_date, travel_cost, food_cost,
     stay_cost, misc_cost, claim_total_amount, advance_paid, notes
   } = req.body;
 
-  if (!employee_id || !purpose || !start_date) {
+  if ((!employee_id && !employee_name_custom) || !purpose || !start_date) {
     return res.redirect('/expenses/travel/new?error=Please+fill+in+all+required+claim+details.');
+  }
+
+  // Parse employee name / ID
+  let empId = employee_id ? parseInt(employee_id, 10) || null : null;
+  let customEmpName = employee_name_custom ? employee_name_custom.trim() : '';
+
+  if (customEmpName && !empId) {
+    // Try matching active employee by name
+    const found = db.prepare("SELECT id FROM employees WHERE LOWER(name) = LOWER(?) OR ? LIKE '%' || name || '%'").get(customEmpName, customEmpName);
+    if (found) {
+      empId = found.id;
+    }
   }
 
   const projName = project_name ? project_name.trim() : 'General Corporate';
@@ -443,11 +477,11 @@ router.post('/travel', (req, res) => {
   try {
     const result = db.prepare(`
       INSERT INTO travel_expenses (
-        employee_id, project_name, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose, start_date, end_date,
+        employee_id, employee_name_input, project_name, claim_type, item_title, submission_source, receipt_ref, from_location, to_location, purpose, start_date, end_date,
         travel_cost, food_cost, stay_cost, misc_cost, total_amount, advance_paid, dues_amount, status, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      employee_id, projName, type, title, source, refNo,
+      empId, customEmpName, projName, type, title, source, refNo,
       from_location ? from_location.trim() : '',
       to_location ? to_location.trim() : '',
       purpose.trim(),
@@ -459,14 +493,14 @@ router.post('/travel', (req, res) => {
       notes ? notes.trim() : ''
     );
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_EMPLOYEE_CLAIM', 'Employee Expense', result.lastInsertRowid, { type, totalAmount, duesAmount });
+    logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_EMPLOYEE_CLAIM', 'Employee Expense', result.lastInsertRowid, { type, totalAmount, duesAmount, employee_name_input: customEmpName });
     res.redirect('/expenses?tab=travel&success=Employee+expense+record+entered+successfully.');
   } catch (err) {
     res.redirect('/expenses/travel/new?error=' + encodeURIComponent(err.message));
   }
 });
 
-// GET /expenses/company/:id/pay (Dedicated Page to Settle Company Bill)
+// GET /expenses/company/:id/pay (Dedicated Page to Settle Company / Project Dues)
 router.get('/company/:id/pay', (req, res) => {
   const exp = db.prepare(`
     SELECT c.*, e.name as responsible_employee_name, e.employee_code as responsible_employee_code
@@ -476,7 +510,7 @@ router.get('/company/:id/pay', (req, res) => {
   `).get(req.params.id);
 
   if (!exp) {
-    return res.status(404).render('error', { title: '404 Not Found', message: 'Company expense bill record not found.' });
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Expense bill record not found.' });
   }
 
   res.render('expenses/company_pay', {
@@ -488,9 +522,9 @@ router.get('/company/:id/pay', (req, res) => {
 // GET /expenses/travel/:id/pay (Dedicated Page to Pay Employee Reimbursement Dues)
 router.get('/travel/:id/pay', (req, res) => {
   const claim = db.prepare(`
-    SELECT t.*, e.name as employee_name, e.employee_code, e.work_location
+    SELECT t.*, COALESCE(e.name, t.employee_name_input, 'Staff Member') as employee_name, COALESCE(e.employee_code, 'EMP-CLAIM') as employee_code, COALESCE(e.work_location, 'Field') as work_location
     FROM travel_expenses t
-    JOIN employees e ON t.employee_id = e.id
+    LEFT JOIN employees e ON t.employee_id = e.id
     WHERE t.id = ?
   `).get(req.params.id);
 
@@ -541,19 +575,8 @@ router.post('/travel/:id/status', (req, res) => {
 
     logAction((req.user || req.session?.user || {}).email || 'system', 'UPDATE_TRAVEL_STATUS', 'Travel Expense', claimId, { status: finalStatus, newAdvance, newDues });
     
-    const redirectUrl = req.body.redirect_ledger ? `/expenses/employee-ledger/${claim.employee_id}?success=Payment+recorded+successfully!` : `/expenses?tab=travel&success=Payment+updated!+New+Advance/Paid:+₹${newAdvance.toLocaleString('en-IN')},+Remaining+Dues:+₹${newDues.toLocaleString('en-IN')}.`;
+    const redirectUrl = claim.employee_id ? `/expenses/employee-ledger/${claim.employee_id}?success=Payment+recorded+successfully!` : `/expenses?tab=travel&success=Payment+updated!+New+Advance/Paid:+₹${newAdvance.toLocaleString('en-IN')},+Remaining+Dues:+₹${newDues.toLocaleString('en-IN')}.`;
     res.redirect(redirectUrl);
-  } catch (err) {
-    res.redirect('/expenses?tab=travel&error=' + encodeURIComponent(err.message));
-  }
-});
-
-// POST /expenses/travel/:id/delete
-router.post('/travel/:id/delete', (req, res) => {
-  try {
-    db.prepare('DELETE FROM travel_expenses WHERE id = ?').run(req.params.id);
-    logAction((req.user || req.session?.user || {}).email || 'system', 'DELETE_TRAVEL_EXPENSE', 'Travel Expense', req.params.id, {});
-    res.redirect('/expenses?tab=travel&success=Travel+claim+record+deleted.');
   } catch (err) {
     res.redirect('/expenses?tab=travel&error=' + encodeURIComponent(err.message));
   }
@@ -561,20 +584,39 @@ router.post('/travel/:id/delete', (req, res) => {
 
 // POST /expenses/company/:id/pay (Settle / Mark Paid Company Expense Bill)
 router.post('/company/:id/pay', (req, res) => {
-  const { payment_mode, invoice_ref } = req.body;
+  const { payment_mode, payment_amount, invoice_ref } = req.body;
+  const expId = req.params.id;
+
+  const exp = db.prepare('SELECT * FROM company_expenses WHERE id = ?').get(expId);
+  if (!exp) {
+    return res.redirect('/expenses?error=Expense+record+not+found.');
+  }
+
   try {
+    let addedPay = parseFloat(payment_amount) || 0;
+    if (!addedPay || addedPay <= 0) {
+      addedPay = exp.dues_amount || (exp.amount - exp.advance_paid);
+    }
+
+    const newAdvance = Math.min(exp.amount, Math.round((exp.advance_paid + addedPay) * 100) / 100);
+    const newDues = Math.max(0, Math.round((exp.amount - newAdvance) * 100) / 100);
+    const newStatus = newDues === 0 ? 'Paid' : 'Partial';
+    const redirectTab = exp.expense_type === 'Company Overhead' ? 'company' : 'projects';
+
     db.prepare(`
       UPDATE company_expenses
-      SET payment_status = 'Paid',
+      SET payment_status = ?,
+          advance_paid = ?,
+          dues_amount = ?,
           payment_mode = CASE WHEN ? != '' THEN ? ELSE payment_mode END,
           invoice_ref = CASE WHEN ? != '' THEN ? ELSE invoice_ref END
       WHERE id = ?
-    `).run(payment_mode || '', payment_mode || '', invoice_ref || '', invoice_ref || '', req.params.id);
+    `).run(newStatus, newAdvance, newDues, payment_mode || '', payment_mode || '', invoice_ref || '', invoice_ref || '', expId);
 
-    logAction((req.user || req.session?.user || {}).email || 'system', 'SETTLE_COMPANY_EXPENSE', 'Company Expense', req.params.id, {});
-    res.redirect('/expenses?tab=company&success=Company+bill+settled+and+marked+as+Paid.');
+    logAction((req.user || req.session?.user || {}).email || 'system', 'SETTLE_COMPANY_EXPENSE', 'Company Expense', expId, { newStatus, newAdvance, newDues });
+    res.redirect(`/expenses?tab=${redirectTab}&success=Payment+recorded!+Paid:+₹${newAdvance.toLocaleString('en-IN')},+Remaining+Dues:+₹${newDues.toLocaleString('en-IN')}.`);
   } catch (err) {
-    res.redirect('/expenses?tab=company&error=' + encodeURIComponent(err.message));
+    res.redirect('/expenses?error=' + encodeURIComponent(err.message));
   }
 });
 
@@ -594,9 +636,9 @@ router.post('/company/:id/delete', (req, res) => {
 // GET /expenses/report (Download Expenses CSV Report)
 router.get('/report', (req, res) => {
   const travelClaims = db.prepare(`
-    SELECT t.*, e.name as employee_name, e.employee_code, e.work_location
+    SELECT t.*, COALESCE(e.name, t.employee_name_input, 'Staff Member') as employee_name, COALESCE(e.employee_code, 'EMP-CLAIM') as employee_code, COALESCE(e.work_location, 'Field') as work_location
     FROM travel_expenses t
-    JOIN employees e ON t.employee_id = e.id
+    LEFT JOIN employees e ON t.employee_id = e.id
     ORDER BY t.start_date DESC
   `).all();
 
@@ -633,7 +675,7 @@ router.get('/report', (req, res) => {
   });
 
   csvContent += '\n=== COMPANY & PROJECT OPERATIONAL EXPENSES ===\n';
-  csvContent += 'ID,Expense Type,Project Name,Title,Category,Vendor,Responsible Employee,Amount,Date,Location,Payment Mode,Payment Status,Invoice Reference\n';
+  csvContent += 'ID,Expense Type,Project Name,Title,Category,Vendor,Responsible Employee,Total Amount,Advance Paid,Balance Dues,Date,Location,Payment Mode,Payment Status,Invoice Reference\n';
 
   companyExp.forEach(c => {
     csvContent += [
@@ -645,6 +687,8 @@ router.get('/report', (req, res) => {
       `"${c.vendor_name || ''}"`,
       `"${c.responsible_employee_name || 'Unassigned'}"`,
       c.amount,
+      c.advance_paid || 0,
+      c.dues_amount || 0,
       c.date,
       `"${c.work_location}"`,
       `"${c.payment_mode}"`,

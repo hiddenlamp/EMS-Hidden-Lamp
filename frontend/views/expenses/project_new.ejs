@@ -81,14 +81,30 @@
               <option value="<%= cat %>"></option>
             <% }); %>
           </datalist>
-          <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
-            💡 e.g. Project Site Material, Lab Equipment, Robotics Kit, Site Labor, Transport.
-          </small>
+        </div>
+      </div>
+
+      <!-- Financials: Total Bill, Advance Paid & Remaining Dues -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem;">
+        <h4 style="font-size: 0.95rem; font-weight: 700; margin-top: 0; margin-bottom: 1rem; color: #1e293b;">💰 Project Bill Amounts, Advance & Dues</h4>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 700;">Total Bill Amount (₹)</label>
+            <input type="number" step="0.01" id="p_total_amount" name="amount" class="form-control calc-trigger" placeholder="0.00" required min="0" style="font-size: 1.1rem; font-weight: 800; color: #2563eb;">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 700;">Advance / Paid Amount (₹)</label>
+            <input type="number" step="0.01" id="p_advance_paid" name="advance_paid" class="form-control calc-trigger" placeholder="0.00" value="0" min="0" style="font-size: 1.1rem; font-weight: 700; color: #059669;">
+            <small style="color: var(--text-muted); margin-top: 0.25rem; display: block;">💵 Advance ya company dwara kitna pay ho chuka hai</small>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Amount (₹)</label>
-          <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required min="0" style="font-size: 1.1rem; font-weight: 800; color: #2563eb;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.85rem 1.25rem; font-size: 0.95rem;">
+          <div>Total Bill: <strong id="disp_total_bill" style="color: #0f172a; font-size: 1.1rem;">₹0.00</strong></div>
+          <div>Advance Paid: <strong id="disp_advance_paid" style="color: #059669; font-size: 1.1rem;">₹0.00</strong></div>
+          <div>Remaining Dues: <strong id="disp_dues_amount" style="color: #b91c1c; font-size: 1.1rem;">₹0.00</strong></div>
         </div>
       </div>
 
@@ -112,17 +128,13 @@
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Payment Status</label>
-          <select name="payment_status" class="form-control">
-            <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
-            <option value="Partial">Partial</option>
-          </select>
+          <label class="form-label" style="font-weight: 700;">Invoice / Bill Ref No.</label>
+          <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. PRJ-2026-109">
         </div>
 
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Invoice / Bill Ref No.</label>
-          <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. PRJ-2026-109">
+          <label class="form-label" style="font-weight: 700;">Additional Notes</label>
+          <input type="text" name="notes" class="form-control" placeholder="Optional remarks...">
         </div>
       </div>
 
@@ -135,5 +147,23 @@
     </form>
   </div>
 </div>
+
+<script>
+function calculateDues() {
+  const total = parseFloat(document.getElementById('p_total_amount').value) || 0;
+  const adv = parseFloat(document.getElementById('p_advance_paid').value) || 0;
+  const dues = Math.max(0, total - adv);
+
+  document.getElementById('disp_total_bill').innerText = '₹' + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  document.getElementById('disp_advance_paid').innerText = '₹' + adv.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  document.getElementById('disp_dues_amount').innerText = '₹' + dues.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.calc-trigger').forEach(input => {
+    input.addEventListener('input', calculateDues);
+  });
+});
+</script>
 
 <%- include('../partials/footer') %>

@@ -1,13 +1,13 @@
-<%- include('../partials/header', { title: 'Settle Company Bill', path: '/expenses' }) %>
+<%- include('../partials/header', { title: 'Settle Expense Dues', path: '/expenses' }) %>
 
-<div style="max-width: 600px; margin: 0 auto;">
+<div style="max-width: 650px; margin: 0 auto;">
   <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
     <div>
-      <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent);"></i> Settle Company Expense Bill</h1>
-      <p class="page-description">Record payment mode and mark this company bill as <strong>Paid</strong>.</p>
+      <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent);"></i> Settle Expense Dues</h1>
+      <p class="page-description">Record payment towards remaining balance dues for this expense bill.</p>
     </div>
-    <a href="/expenses?tab=company" class="btn btn-secondary">
-      <i class="fa-solid fa-arrow-left"></i> ← Back
+    <a href="/expenses?tab=<%= expense.expense_type === 'Company Overhead' ? 'company' : 'projects' %>" class="btn btn-secondary">
+      <i class="fa-solid fa-arrow-left"></i> ← Back to Expenses
     </a>
   </div>
 
@@ -15,28 +15,62 @@
     <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <%= error %></div>
   <% } %>
 
-  <div class="card" style="padding: 1.75rem;">
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem;">
-      <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
-        🏗️ <%= expense.project_name || 'General Corporate' %>
-      </span>
-      <h2 style="font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.4rem; margin-bottom: 0.2rem;"><%= expense.title %></h2>
-      <div style="font-size: 0.85rem; color: #64748b;">Category: <%= expense.category %> | Location: <%= expense.work_location %></div>
+  <div class="card" style="padding: 1.75rem; border-top: 4px solid #059669;">
+    <!-- EXPENSE BILL FINANCIAL SUMMARY CARD -->
+    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
+          <%= expense.expense_type === 'Company Overhead' ? '🏢 Company Operational Overhead' : ('🏗️ Project: ' + (expense.project_name || 'General Corporate')) %>
+        </span>
+        <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">
+          📍 <%= expense.work_location %>
+        </span>
+      </div>
 
-      <div style="margin-top: 1rem; font-size: 1.6rem; font-weight: 800; color: #059669;">
-        Bill Amount: ₹<%= expense.amount.toLocaleString('en-IN') %>
+      <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; margin-bottom: 0.3rem;"><%= expense.title %></h2>
+      <div style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
+        Category: <strong><%= expense.category %></strong> 
+        <% if (expense.vendor_name) { %> | Vendor: <strong style="color: #92400e;"><%= expense.vendor_name %></strong> <% } %>
+        <% if (expense.responsible_employee_name) { %> | Staff In-Charge: <strong style="color: #0369a1;"><%= expense.responsible_employee_name %></strong> <% } %>
+      </div>
+
+      <!-- Financial Metrics Breakdown -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+        <div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 700;">Total Bill</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-top: 0.1rem;">₹<%= expense.amount.toLocaleString('en-IN') %></div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: #047857; font-weight: 700;">Paid / Advance</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #059669; margin-top: 0.1rem;">₹<%= (expense.advance_paid || 0).toLocaleString('en-IN') %></div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: #b91c1c; font-weight: 700;">Remaining Dues</div>
+          <div style="font-size: 1.2rem; font-weight: 800; color: #dc2626; margin-top: 0.1rem;">₹<%= (expense.dues_amount || Math.max(0, expense.amount - (expense.advance_paid || 0))).toLocaleString('en-IN') %></div>
+        </div>
       </div>
     </div>
 
+    <!-- PAYMENT ENTRY FORM -->
     <form action="/expenses/company/<%= expense.id %>/pay" method="POST">
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-weight: 700;">Payment Amount (₹) (Kitna Pay Kar Rahe Hain)</label>
+        <input type="number" step="0.01" name="payment_amount" class="form-control" value="<%= (expense.dues_amount || Math.max(0, expense.amount - (expense.advance_paid || 0))) %>" max="<%= (expense.dues_amount || Math.max(0, expense.amount - (expense.advance_paid || 0))) %>" required style="font-size: 1.1rem; font-weight: 800; color: #059669;">
+        <small style="color: var(--text-muted); margin-top: 0.25rem; display: block;">
+          💡 Enter full dues amount for complete settlement or partial amount for partial payment.
+        </small>
+      </div>
+
       <div class="form-group" style="margin-bottom: 1.25rem;">
         <label class="form-label" style="font-weight: 700;">Payment Mode</label>
         <select name="payment_mode" class="form-control" required>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="UPI">UPI</option>
-          <option value="Credit Card">Credit Card</option>
-          <option value="Cash">Cash</option>
-          <option value="Cheque">Cheque</option>
+          <option value="Bank Transfer" <%= expense.payment_mode === 'Bank Transfer' ? 'selected' : '' %>>Bank Transfer</option>
+          <option value="UPI" <%= expense.payment_mode === 'UPI' ? 'selected' : '' %>>UPI</option>
+          <option value="Credit Card" <%= expense.payment_mode === 'Credit Card' ? 'selected' : '' %>>Credit Card</option>
+          <option value="Cash" <%= expense.payment_mode === 'Cash' ? 'selected' : '' %>>Cash</option>
+          <option value="Cheque" <%= expense.payment_mode === 'Cheque' ? 'selected' : '' %>>Cheque</option>
         </select>
       </div>
 
@@ -46,9 +80,9 @@
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
-        <a href="/expenses?tab=company" class="btn btn-secondary">Cancel</a>
+        <a href="/expenses?tab=<%= expense.expense_type === 'Company Overhead' ? 'company' : 'projects' %>" class="btn btn-secondary">Cancel</a>
         <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; padding: 0.65rem 1.5rem; font-weight: 700;">
-          <i class="fa-solid fa-circle-check"></i> Confirm Settlement (Paid)
+          <i class="fa-solid fa-circle-check"></i> Record Payment & Settle Dues
         </button>
       </div>
     </form>

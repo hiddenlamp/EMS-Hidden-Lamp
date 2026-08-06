@@ -20,10 +20,23 @@
       <!-- Admin Control Banner -->
       <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.85rem 1.1rem; margin-bottom: 1.25rem; font-size: 0.88rem; color: #166534; display: flex; align-items: center; gap: 0.6rem;">
         <i class="fa-solid fa-shield-halved" style="font-size: 1.2rem; color: #15803d;"></i>
-        <div><strong>Admin Control Form Entry</strong>: Enter paper reimbursement slips, WhatsApp bill photos, or field claims on behalf of staff.</div>
+        <div><strong>Admin Control Form Entry</strong>: Select employee from list or type manual staff name.</div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 700;">Employee Name (Select List or Type Manually)</label>
+          <input type="text" name="employee_name_custom" class="form-control" placeholder="Select employee or type full name..." required list="employeeOptions" style="font-weight: 600; color: #0f172a;">
+          <datalist id="employeeOptions">
+            <% employees.forEach(emp => { %>
+              <option value="<%= emp.name %> (<%= emp.employee_code %> - <%= emp.work_location %>)"></option>
+            <% }); %>
+          </datalist>
+          <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
+            💡 Select active staff or type any custom employee/contractor name manually.
+          </small>
+        </div>
+
         <div class="form-group">
           <label class="form-label" style="font-weight: 700;">Select / Enter Project Name</label>
           <input type="text" name="project_name" class="form-control" placeholder="Type new project name or select from list..." required list="projectOptions" value="<%= selectedProject || '' %>" style="font-weight: 600; color: #0f172a;">
@@ -35,16 +48,6 @@
           <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
             💡 Select an existing project or type a new project name manually.
           </small>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Select Employee</label>
-          <select name="employee_id" id="claim_employee_select" class="form-control" required>
-            <option value="">-- Select Employee --</option>
-            <% employees.forEach(emp => { %>
-              <option value="<%= emp.id %>" <%= String(selectedEmployeeId) === String(emp.id) ? 'selected' : '' %>><%= emp.name %> (<%= emp.employee_code %> - <%= emp.work_location %>)</option>
-            <% }); %>
-          </select>
         </div>
       </div>
 
