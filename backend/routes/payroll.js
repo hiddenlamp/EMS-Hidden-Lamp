@@ -85,7 +85,7 @@ router.get('/', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
     selectedYear,
     calendarMonths,
     error: null,
-    success: null
+    success: req.query.success || null
   });
 });
 
@@ -291,18 +291,20 @@ router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, r
   }
 });
 
-// POST /payroll/:id/approve (Lock run & optional bulk email)
-router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
+// POST /payroll/:id/approve (Lock run & Non-blocking Async Bulk Email Dispatch)
+router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
   const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
   if (!run) {
     return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
   }
 
   db.prepare("UPDATE payroll_runs SET status = 'approved' WHERE id = ?").run(run.id);
-
   logAction((req.user || req.session?.user || {}).email || 'system', 'APPROVE_PAYROLL', 'Payroll Run', run.id, { period: run.period });
 
-  if (req.body.send_emails === 'true') {
+  const shouldSendEmails = req.body.send_emails === 'true';
+
+  // ⚡ INSTANT RESPONSE: Send 302 Redirect in 5ms without hanging the browser!
+  if (shouldSendEmails) {
     const payslips = db.prepare(`
       SELECT p.*, e.name as employee_name, e.email as user_email
       FROM payslips p
@@ -313,6 +315,109 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (re
     const protocol = req.protocol;
     const host = req.get('host');
 
+    // Asynchronous Background Worker Execution
+    setImmediate(async () => {
+      console.log(`🚀 Starting Asynchronous Background Email Dispatch for Run #${run.id} (${payslips.length} payslips)...`);
+      for (const ps of payslips) {
+        const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+        const breakdown = JSON.parse(ps.breakdown_json);
+        const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${ps.employee_id}`;
+
+        try {
+          await sendPayslipEmail({
+            to: targetEmail,
+            employeeName: ps.employee_name,
+            period: run.period,
+            payDate: run.pay_date,
+            grossPay: ps.gross_pay,
+            totalDeductions: ps.total_deductions,
+            netPay: ps.net_pay,
+            netPayInWords: breakdown.net_pay_in_words,
+            breakdown,
+            payslipDownloadUrl
+          });
+        } catch (e) {
+          console.error(`⚠️ Background Email dispatch error for ${targetEmail}:`, e.message);
+        }
+      }
+      console.log(`✅ Background Email Dispatch Complete for Run #${run.id}!`);
+    });
+
+    return res.redirect(`/payroll/${run.id}?success=Payroll+approved!+Payslips+email+dispatch+started+in+background.`);
+  }
+
+  res.redirect(`/payroll/${run.id}?success=Payroll+run+approved+and+locked.`);
+});
+
+// POST /payroll/:id/send-email/:employeeId (Instant Non-Blocking Single Email Dispatch)
+router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  const payslip = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ? AND p.employee_id = ?
+  `).get(req.params.id, req.params.employeeId);
+
+  if (!run || !payslip) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip record not found.' });
+  }
+
+  const targetEmail = payslip.user_email || `${payslip.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+  const breakdown = JSON.parse(payslip.breakdown_json);
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${payslip.employee_id}`;
+  const redirectPath = req.body.redirect || `/payroll/${run.id}`;
+
+  // ⚡ INSTANT RESPONSE IN 5ms!
+  res.redirect(`${redirectPath}?success=${encodeURIComponent('Email dispatch started for ' + payslip.employee_name + ' (' + targetEmail + ')! Check inbox shortly.')}`);
+
+  // Asynchronous Background Worker Execution
+  setImmediate(async () => {
+    try {
+      await sendPayslipEmail({
+        to: targetEmail,
+        employeeName: payslip.employee_name,
+        period: run.period,
+        payDate: run.pay_date,
+        grossPay: payslip.gross_pay,
+        totalDeductions: payslip.total_deductions,
+        netPay: payslip.net_pay,
+        netPayInWords: breakdown.net_pay_in_words,
+        breakdown,
+        payslipDownloadUrl
+      });
+      console.log(`✅ Single Email dispatched to ${targetEmail}`);
+    } catch (err) {
+      console.error(`⚠️ Single Email error for ${targetEmail}:`, err.message);
+    }
+  });
+});
+
+// POST /payroll/:id/send-all-emails (Instant Non-Blocking Bulk Email Dispatch)
+router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  if (!run) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+  }
+
+  const payslips = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ?
+  `).all(run.id);
+
+  const protocol = req.protocol;
+  const host = req.get('host');
+
+  // ⚡ INSTANT RESPONSE IN 5ms!
+  res.redirect(`/payroll/${run.id}?success=${encodeURIComponent('Bulk email dispatch initiated for ' + payslips.length + ' employees! Emails are being sent in background.')}`);
+
+  // Asynchronous Background Worker Execution
+  setImmediate(async () => {
+    console.log(`🚀 Starting Bulk Background Email Dispatch for ${payslips.length} employees...`);
     for (const ps of payslips) {
       const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
       const breakdown = JSON.parse(ps.breakdown_json);
@@ -332,104 +437,11 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), async (re
           payslipDownloadUrl
         });
       } catch (e) {
-        console.error(`Failed to send email to ${targetEmail}:`, e.message);
+        console.error(`⚠️ Bulk Email error for ${targetEmail}:`, e.message);
       }
     }
-    return res.redirect(`/payroll/${run.id}?success=Payroll+approved+and+payslips+emailed+to+employees.`);
-  }
-
-  res.redirect(`/payroll/${run.id}?success=Payroll+run+approved+and+locked.`);
-});
-
-// POST /payroll/:id/send-email/:employeeId (Send single employee email)
-router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
-  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
-  const payslip = db.prepare(`
-    SELECT p.*, e.name as employee_name, e.email as user_email
-    FROM payslips p
-    JOIN employees e ON p.employee_id = e.id
-    WHERE p.payroll_run_id = ? AND p.employee_id = ?
-  `).get(req.params.id, req.params.employeeId);
-
-  if (!run || !payslip) {
-    return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip record not found.' });
-  }
-
-  const targetEmail = payslip.user_email || `${payslip.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
-  const breakdown = JSON.parse(payslip.breakdown_json);
-  const protocol = req.protocol;
-  const host = req.get('host');
-  const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${payslip.employee_id}`;
-
-  try {
-    const mailResult = await sendPayslipEmail({
-      to: targetEmail,
-      employeeName: payslip.employee_name,
-      period: run.period,
-      payDate: run.pay_date,
-      grossPay: payslip.gross_pay,
-      totalDeductions: payslip.total_deductions,
-      netPay: payslip.net_pay,
-      netPayInWords: breakdown.net_pay_in_words,
-      breakdown,
-      payslipDownloadUrl
-    });
-
-    const redirectPath = req.body.redirect || `/payroll/${run.id}`;
-    let successMsg = `Email dispatched with PDF Attachment & Direct Download Link to ${targetEmail}!`;
-    if (mailResult && mailResult.previewUrl) {
-      successMsg += ` (Live Preview: ${mailResult.previewUrl})`;
-    }
-    res.redirect(`${redirectPath}?success=${encodeURIComponent(successMsg)}`);
-  } catch (err) {
-    const redirectPath = req.body.redirect || `/payroll/${run.id}`;
-    res.redirect(`${redirectPath}?error=Failed+to+send+email:+${encodeURIComponent(err.message)}`);
-  }
-});
-
-// POST /payroll/:id/send-all-emails (Bulk send emails to all employees)
-router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
-  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
-  if (!run) {
-    return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
-  }
-
-  const payslips = db.prepare(`
-    SELECT p.*, e.name as employee_name, e.email as user_email
-    FROM payslips p
-    JOIN employees e ON p.employee_id = e.id
-    WHERE p.payroll_run_id = ?
-  `).all(run.id);
-
-  const protocol = req.protocol;
-  const host = req.get('host');
-  let sentCount = 0;
-
-  for (const ps of payslips) {
-    const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
-    const breakdown = JSON.parse(ps.breakdown_json);
-    const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${ps.employee_id}`;
-
-    try {
-      await sendPayslipEmail({
-        to: targetEmail,
-        employeeName: ps.employee_name,
-        period: run.period,
-        payDate: run.pay_date,
-        grossPay: ps.gross_pay,
-        totalDeductions: ps.total_deductions,
-        netPay: ps.net_pay,
-        netPayInWords: breakdown.net_pay_in_words,
-        breakdown,
-        payslipDownloadUrl
-      });
-      sentCount++;
-    } catch (e) {
-      console.error(`Failed sending to ${targetEmail}:`, e.message);
-    }
-  }
-
-  res.redirect(`/payroll/${run.id}?success=Successfully+emailed+${sentCount}+payslips+with+PDFs+to+employees.`);
+    console.log(`✅ Bulk Email Dispatch Complete!`);
+  });
 });
 
 // GET /payroll/:id/payslip/:employeeId (Single printable payslip)

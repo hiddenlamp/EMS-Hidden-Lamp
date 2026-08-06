@@ -167,6 +167,20 @@ try {
   db.exec("UPDATE company_expenses SET dues_amount = CASE WHEN payment_status = 'Paid' THEN 0 ELSE MAX(0, amount - COALESCE(advance_paid, 0)) END WHERE dues_amount IS NULL OR dues_amount = 0;");
 } catch (e) {}
 
+// High Performance DB Indexes for Instant Page Navigation & Fast Queries
+try {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status);
+    CREATE INDEX IF NOT EXISTS idx_employees_location ON employees(work_location);
+    CREATE INDEX IF NOT EXISTS idx_company_exp_type ON company_expenses(expense_type);
+    CREATE INDEX IF NOT EXISTS idx_company_exp_proj ON company_expenses(project_name);
+    CREATE INDEX IF NOT EXISTS idx_travel_exp_emp ON travel_expenses(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_travel_exp_status ON travel_expenses(status);
+    CREATE INDEX IF NOT EXISTS idx_payslips_run ON payslips(payroll_run_id);
+    CREATE INDEX IF NOT EXISTS idx_payslips_emp ON payslips(employee_id);
+  `);
+} catch (e) {}
+
 // Seed / Reset Default Admin User
 function seedAdmin() {
   const existingAdmin = db.prepare('SELECT * FROM users WHERE email = ?').get('admin@hiddenlamp.com');
