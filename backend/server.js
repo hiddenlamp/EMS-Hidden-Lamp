@@ -53,6 +53,19 @@ app.get('/api', (req, res) => {
   res.json({ status: 'ok', message: 'Hidden Lamp Payroll Backend API is active' });
 });
 
+// Self-Ping Keep-Alive for Render Cloud Service (Prevents unnecessary sleep during active usage)
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+  const https = require('https');
+  const appUrl = 'https://ems-hidden-lamp-1.onrender.com/health';
+  setInterval(() => {
+    https.get(appUrl, (res) => {
+      console.log(`💓 Render Self-Ping Keep-Alive Heartbeat: Status ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.warn(`⚠️ Self-Ping error: ${err.message}`);
+    });
+  }, 10 * 60 * 1000); // Every 10 minutes
+}
+
 // Serve Static Public Assets (CSS, Images, Logos, Client JS)
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 

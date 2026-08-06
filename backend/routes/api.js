@@ -22,8 +22,11 @@ if (groqApiKey && groqApiKey !== 'missing_key') {
 
 // GET /api/auth/me
 router.get('/auth/me', (req, res) => {
-  if (req.session && req.session.user) {
-    return res.json({ authenticated: true, user: req.session.user });
+  const { getUserFromToken } = require('../middleware/auth');
+  const user = getUserFromToken(req);
+  if (user) {
+    req.session.user = user;
+    return res.json({ authenticated: true, user });
   }
   res.json({ authenticated: false, user: null });
 });

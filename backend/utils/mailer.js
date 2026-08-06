@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
 
-// Custom DNS lookup function that strictly forces IPv4 resolution on Render.com containers
+// Custom DNS lookup function forcing IPv4 resolution on cloud container environments (Render/Hostinger)
 const customIpv4Lookup = (hostname, options, callback) => {
   dns.lookup(hostname, { family: 4 }, (err, address, family) => {
     if (err) {
@@ -11,41 +11,60 @@ const customIpv4Lookup = (hostname, options, callback) => {
   });
 };
 
-async function getTransporter() {
+/**
+ * Creates a nodemailer transporter with automatic multi-port failover.
+ * Tries Port 465 (SSL Direct) first, then Port 587 (TLS/STARTTLS), then Port 25.
+ */
+async function createTransporterWithFailover() {
   const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
   const user = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
   const pass = (process.env.SMTP_PASS || 'Hiddenlamp@734006').trim();
   const service = (process.env.SMTP_SERVICE || '').trim();
 
-  // 1. Gmail service
+  // 1. Gmail Service Handler
   if (service.toLowerCase() === 'gmail' || host.includes('gmail')) {
+    console.log('📧 Using Gmail SMTP Service Configuration...');
     return nodemailer.createTransport({
       service: 'gmail',
       auth: { user, pass }
     });
   }
 
-  // 2. Hostinger / Custom SMTP Host & Credentials (Port 465 SSL Direct IPv4)
-  if (host && user && pass) {
-    const isHostinger = host.includes('hostinger');
-    const port = isHostinger ? 465 : (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465);
-    const isSecure = isHostinger ? true : (process.env.SMTP_SECURE !== undefined ? (process.env.SMTP_SECURE === 'true') : (port === 465));
+  // 2. Multi-Port Hostinger / Custom SMTP Transporter Strategy
+  const portsToTry = [
+    { port: 465, secure: true, name: 'Port 465 (SSL)' },
+    { port: 587, secure: false, requireTLS: true, name: 'Port 587 (TLS/STARTTLS)' },
+    { port: 25, secure: false, name: 'Port 25 (Standard SMTP)' }
+  ];
 
-    return nodemailer.createTransport({
-      host: host,
-      port: port,
-      secure: isSecure,
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-      family: 4,
-      lookup: customIpv4Lookup,
-      connectionTimeout: 6000, // 6s fast connection timeout
-      greetingTimeout: 5000,
-      socketTimeout: 10000
-    });
+  for (const p of portsToTry) {
+    try {
+      console.log(`🔌 Attempting SMTP Connection to ${host}:${p.port} (${p.name})...`);
+      const transporter = nodemailer.createTransport({
+        host: host,
+        port: p.port,
+        secure: p.secure,
+        requireTLS: p.requireTLS || false,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false },
+        family: 4,
+        lookup: customIpv4Lookup,
+        connectionTimeout: 8000,
+        greetingTimeout: 6000,
+        socketTimeout: 12000
+      });
+
+      // Verify connection
+      await transporter.verify();
+      console.log(`✅ SMTP Connection Verified Successfully on ${p.name}!`);
+      return transporter;
+    } catch (err) {
+      console.warn(`⚠️ SMTP Connection Failed on ${p.name}: ${err.message}. Trying next port...`);
+    }
   }
 
-  // 3. Fallback: Ethereal Email Test Account
+  // 3. Fallback: Ethereal Test Account if all external ports fail
+  console.warn('⚠️ All SMTP primary ports failed. Initializing Ethereal Test Email Account...');
   const testAccount = await nodemailer.createTestAccount();
   return nodemailer.createTransport({
     host: 'smtp.ethereal.email',
@@ -70,14 +89,14 @@ async function sendPayslipEmail(data) {
   const earningsRows = (breakdown.earnings || []).map(e => `
     <tr>
       <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">${e.name}</td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #0f172a;">₹${e.prorated_amount.toFixed(2)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #0f172a;">₹${(e.prorated_amount || e.amount || 0).toFixed(2)}</td>
     </tr>
   `).join('');
 
   const deductionsRows = (breakdown.deductions || []).map(d => `
     <tr>
       <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">${d.name}</td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #dc2626;">₹${d.amount.toFixed(2)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #dc2626;">₹${(d.amount || 0).toFixed(2)}</td>
     </tr>
   `).join('');
 
@@ -117,10 +136,10 @@ async function sendPayslipEmail(data) {
 
           <div class="meta-grid">
             <div class="meta-row"><strong>Employee Name:</strong> <span>${employeeName}</span></div>
-            <div class="meta-row"><strong>Work Location:</strong> <span>${breakdown.employee.work_location || 'Main Branch'}</span></div>
+            <div class="meta-row"><strong>Work Location:</strong> <span>${breakdown.employee?.work_location || 'Main Branch'}</span></div>
             <div class="meta-row"><strong>Pay Period:</strong> <span>${period}</span></div>
             <div class="meta-row"><strong>Pay Date:</strong> <span>${payDate}</span></div>
-            <div class="meta-row"><strong>Paid Days:</strong> <span>${breakdown.days_present} / ${breakdown.days_in_month || 30} days (${breakdown.days_lop || 0} LOP)</span></div>
+            <div class="meta-row"><strong>Paid Days:</strong> <span>${breakdown.days_present || 30} / ${breakdown.days_in_month || 30} days (${breakdown.days_lop || 0} LOP)</span></div>
           </div>
 
           <table class="table">
@@ -179,9 +198,9 @@ async function sendPayslipEmail(data) {
 
   let transporter;
   try {
-    transporter = await getTransporter();
+    transporter = await createTransporterWithFailover();
   } catch (err) {
-    console.warn('Could not initialize primary SMTP, creating fallback Ethereal transporter:', err.message);
+    console.warn('⚠️ Primary SMTP initialization error:', err.message);
     const testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
@@ -197,14 +216,13 @@ async function sendPayslipEmail(data) {
     const info = await transporter.sendMail({ from, to, subject, html });
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
-      console.log(`✉️ Real Email Dispatched to Ethereal: ${to} (Preview: ${previewUrl})`);
+      console.log(`✉️ Email Dispatched to Ethereal Sandbox: ${to} (Preview: ${previewUrl})`);
     } else {
-      console.log(`✅ Real Hostinger SMTP Email sent successfully to ${to} (MessageID: ${info.messageId})`);
+      console.log(`✅ Hostinger SMTP Email sent successfully to ${to} (MessageID: ${info.messageId})`);
     }
     return { messageId: info.messageId, previewUrl: previewUrl || null };
   } catch (sendErr) {
-    console.warn(`⚠️ Hostinger Primary Send Error: ${sendErr.message}. Dispatching via Backup Ethereal Service...`);
-    // Bulletproof Fallback: Send via Ethereal so user receives instant success and preview link
+    console.warn(`⚠️ Hostinger Mail Send Error: ${sendErr.message}. Dispatching via Backup Service...`);
     const testAccount = await nodemailer.createTestAccount();
     const backupTransporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
