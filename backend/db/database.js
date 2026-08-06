@@ -121,6 +121,7 @@ function initSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       category TEXT NOT NULL,
+      expense_type TEXT DEFAULT 'Project' CHECK(expense_type IN ('Project', 'Company Overhead')),
       project_name TEXT DEFAULT 'General Corporate',
       vendor_name TEXT,
       responsible_employee_id INTEGER,
@@ -149,9 +150,16 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN submission_source TEXT DEF
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN receipt_ref TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN vendor_name TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
+try { db.exec("ALTER TABLE company_expenses ADD COLUMN expense_type TEXT DEFAULT 'Project';"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN responsible_employee_id INTEGER REFERENCES employees(id);"); } catch (e) {}
 try { db.exec("ALTER TABLE employees ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch (e) {}
+
+// Backfill expense_type for existing records
+try {
+  db.exec("UPDATE company_expenses SET expense_type = 'Company Overhead' WHERE project_name IS NULL OR TRIM(project_name) = '' OR TRIM(project_name) = 'General Corporate';");
+  db.exec("UPDATE company_expenses SET expense_type = 'Project' WHERE project_name IS NOT NULL AND TRIM(project_name) != '' AND TRIM(project_name) != 'General Corporate';");
+} catch (e) {}
 
 // Seed / Reset Default Admin User
 function seedAdmin() {

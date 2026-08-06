@@ -3,17 +3,20 @@
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
   <div>
     <h1 class="page-title">Corporate Receipts & Project Expenses</h1>
-    <p class="page-description">Track city-wise project site expenses, vendor receipts, employee field claims, and company overhead.</p>
+    <p class="page-description">Track city-wise project site expenses, company operational overhead bills, vendor receipts, and employee field claims.</p>
   </div>
-  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+  <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
     <a href="/expenses/report" class="btn btn-secondary">
       <i class="fa-solid fa-file-csv"></i> Download CSV Report
     </a>
-    <a href="/expenses/company/new" class="btn btn-secondary">
-      <i class="fa-solid fa-building-circle-check"></i> + Project / Company Expense
+    <a href="/expenses/project/new" class="btn btn-primary" style="background: #2563eb; border-color: #2563eb; font-weight: 700;">
+      <i class="fa-solid fa-diagram-project"></i> + Project Site Expense
     </a>
-    <a href="/expenses/travel/new" class="btn btn-primary">
-      <i class="fa-solid fa-plus"></i> + Add Field Expense Claim
+    <a href="/expenses/company/new" class="btn btn-secondary" style="background: #ecfdf5; color: #047857; border-color: #a7f3d0; font-weight: 700;">
+      <i class="fa-solid fa-landmark"></i> + Company Overhead Bill
+    </a>
+    <a href="/expenses/travel/new" class="btn btn-secondary" style="font-weight: 600;">
+      <i class="fa-solid fa-user-shield"></i> + Field Expense Claim
     </a>
   </div>
 </div>
@@ -29,10 +32,18 @@
 <!-- Summary Metric KPI Cards -->
 <div class="metrics-grid">
   <div class="metric-card bg-pastel-orange">
-    <div class="metric-icon"><i class="fa-solid fa-building-user"></i></div>
+    <div class="metric-icon"><i class="fa-solid fa-diagram-project"></i></div>
+    <div>
+      <div class="metric-value">₹<%= totalProjectExpenses.toLocaleString('en-IN') %></div>
+      <div class="metric-label">Project Site Expenses</div>
+    </div>
+  </div>
+
+  <div class="metric-card bg-pastel-green">
+    <div class="metric-icon"><i class="fa-solid fa-landmark"></i></div>
     <div>
       <div class="metric-value">₹<%= totalCompanyExpenses.toLocaleString('en-IN') %></div>
-      <div class="metric-label">Project Site & Company Expenses</div>
+      <div class="metric-label">Company Operational Overhead</div>
     </div>
   </div>
 
@@ -41,14 +52,6 @@
     <div>
       <div class="metric-value">₹<%= totalTravelClaims.toLocaleString('en-IN') %></div>
       <div class="metric-label">Employee Field Claims</div>
-    </div>
-  </div>
-
-  <div class="metric-card bg-pastel-green">
-    <div class="metric-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
-    <div>
-      <div class="metric-value">₹<%= totalAdvancePaid.toLocaleString('en-IN') %></div>
-      <div class="metric-label">Total Advance / Paid</div>
     </div>
   </div>
 
@@ -66,14 +69,14 @@
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <!-- Tabs Switcher -->
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <a href="/expenses?tab=projects&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'projects' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
-        <i class="fa-solid fa-diagram-project"></i> Projects & Site Breakdown (<%= projectSummary.length %>)
+      <a href="/expenses?tab=projects&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'projects' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 700;">
+        <i class="fa-solid fa-diagram-project"></i> 🏗️ Project Site Expenses (<%= projectSummary.length %> Projects)
       </a>
-      <a href="/expenses?tab=company&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'company' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
-        <i class="fa-solid fa-landmark"></i> Company & Project Receipts (<%= companyExpenses.length %>)
+      <a href="/expenses?tab=company&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'company' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 700;">
+        <i class="fa-solid fa-landmark"></i> 🏢 Company Operational Overhead (<%= companyExpenses.length %> Bills)
       </a>
-      <a href="/expenses?tab=travel&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'travel' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 600;">
-        <i class="fa-solid fa-users-gear"></i> Employee Field Claims (<%= travelExpenses.length %>)
+      <a href="/expenses?tab=travel&status=<%= statusFilter %>&location=<%= locationFilter %>&project=<%= projectFilter %>&employee=<%= employeeFilter %>" class="btn <%= activeTab === 'travel' ? 'btn-primary' : 'btn-secondary' %>" style="font-weight: 700;">
+        <i class="fa-solid fa-users-gear"></i> 👤 Employee Field Claims (<%= travelExpenses.length %>)
       </a>
     </div>
 
@@ -81,12 +84,14 @@
     <form method="GET" action="/expenses" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
       <input type="hidden" name="tab" value="<%= activeTab %>">
       
-      <select name="project" class="form-control" onchange="this.form.submit()" style="min-width: 170px;">
-        <option value="all" <%= projectFilter === 'all' ? 'selected' : '' %>>🏗️ All Projects</option>
-        <% projects.forEach(proj => { %>
-          <option value="<%= proj %>" <%= projectFilter === proj ? 'selected' : '' %>><%= proj %></option>
-        <% }); %>
-      </select>
+      <% if (activeTab === 'projects') { %>
+        <select name="project" class="form-control" onchange="this.form.submit()" style="min-width: 170px;">
+          <option value="all" <%= projectFilter === 'all' ? 'selected' : '' %>>🏗️ All Projects</option>
+          <% projects.forEach(proj => { %>
+            <option value="<%= proj %>" <%= projectFilter === proj ? 'selected' : '' %>><%= proj %></option>
+          <% }); %>
+        </select>
+      <% } %>
 
       <select name="location" class="form-control" onchange="this.form.submit()" style="min-width: 150px;">
         <option value="all" <%= locationFilter === 'all' ? 'selected' : '' %>>📍 All Cities</option>
@@ -96,7 +101,7 @@
       </select>
 
       <select name="employee" class="form-control" onchange="this.form.submit()" style="min-width: 170px;">
-        <option value="all" <%= employeeFilter === 'all' ? 'selected' : '' %>>👤 All Employees</option>
+        <option value="all" <%= employeeFilter === 'all' ? 'selected' : '' %>>👤 All Staff In-Charge</option>
         <% employees.forEach(emp => { %>
           <option value="<%= emp.id %>" <%= String(employeeFilter) === String(emp.id) ? 'selected' : '' %>><%= emp.name %> (<%= emp.employee_code %>)</option>
         <% }); %>
@@ -147,12 +152,12 @@
 <% } %>
 
 <% if (activeTab === 'projects') { %>
-  <!-- TAB 1: PROJECT-WISE EXPENSE HEADINGS & ADD EXPENSE BUTTONS -->
+  <!-- TAB 1: DEDICATED PROJECT SITE EXPENSES & HEADINGS -->
   <% if (projectSummary.length === 0) { %>
     <div class="card" style="text-align: center; padding: 3rem 1rem;">
       <i class="fa-solid fa-city" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
       <p style="color: var(--text-muted); font-size: 1rem;">No project site expenses recorded yet.</p>
-      <a href="/expenses/company/new" class="btn btn-primary" style="margin-top: 1rem;">
+      <a href="/expenses/project/new" class="btn btn-primary" style="margin-top: 1rem;">
         <i class="fa-solid fa-plus"></i> + Create First Project Expense
       </a>
     </div>
@@ -180,7 +185,7 @@
 
           <!-- ACTION BUTTON: Add More Expense To THIS Specific Project -->
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a href="/expenses/company/new?project_name=<%= encodeURIComponent(proj.project_name) %>" class="btn btn-primary" style="font-weight: 700;">
+            <a href="/expenses/project/new?project_name=<%= encodeURIComponent(proj.project_name) %>" class="btn btn-primary" style="font-weight: 700;">
               <i class="fa-solid fa-plus"></i> + Add Expense to <%= proj.project_name %>
             </a>
           </div>
@@ -245,27 +250,31 @@
   <% } %>
 
 <% } else if (activeTab === 'company') { %>
-  <!-- TAB 2: ALL COMPANY & PROJECT SITE EXPENSES TABLE -->
-  <div class="card">
+  <!-- TAB 2: DEDICATED COMPANY OPERATIONAL OVERHEAD BILLS TABLE -->
+  <div class="card" style="border-top: 4px solid #059669;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <h2 class="card-title"><i class="fa-solid fa-building-user" style="color: var(--accent);"></i> Project Site & Corporate Overhead (<%= companyExpenses.length %> Receipts)</h2>
-      <a href="/expenses/company/new" class="btn btn-sm btn-primary">
-        <i class="fa-solid fa-plus"></i> + Add Expense Receipt
+      <h2 class="card-title"><i class="fa-solid fa-landmark" style="color: #059669;"></i> Company Operational Overhead Bills (<%= companyExpenses.length %> Records)</h2>
+      <a href="/expenses/company/new" class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669;">
+        <i class="fa-solid fa-plus"></i> + Add Company Overhead Bill
       </a>
     </div>
 
     <% if (companyExpenses.length === 0) { %>
       <div style="text-align: center; padding: 3rem 1rem;">
         <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-        <p style="color: var(--text-muted); font-size: 1rem;">No company or project operational expenses recorded for selected filter.</p>
+        <p style="color: var(--text-muted); font-size: 1rem;">No company operational overhead bills recorded yet.</p>
+        <a href="/expenses/company/new" class="btn btn-primary" style="background: #059669; border-color: #059669; margin-top: 1rem;">
+          <i class="fa-solid fa-plus"></i> + Add First Company Overhead Bill
+        </a>
       </div>
     <% } else { %>
       <div class="table-responsive">
         <table class="table">
           <thead>
             <tr>
-              <th>Project & City Location</th>
-              <th>Title, Category & Staff In-Charge</th>
+              <th>Office Location</th>
+              <th>Bill Title, Category & Vendor</th>
+              <th>Staff In-Charge</th>
               <th>Amount (₹)</th>
               <th>Date</th>
               <th>Payment Mode</th>
@@ -277,37 +286,40 @@
             <% companyExpenses.forEach(exp => { %>
               <tr>
                 <td>
-                  <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
-                    🏗️ <%= exp.project_name || 'General Corporate' %>
+                  <span style="background: #ecfdf5; color: #047857; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
+                    📍 <%= exp.work_location %>
                   </span>
-                  <br><small style="color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> <%= exp.work_location %></small>
                 </td>
                 <td>
                   <strong style="font-size: 0.95rem; color: #0f172a;"><%= exp.title %></strong>
                   <div style="margin-top: 0.25rem; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
                     <span style="background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                      <%= exp.category %>
+                      🏷️ <%= exp.category %>
                     </span>
                     <% if (exp.vendor_name) { %>
                       <span style="background: #fef3c7; color: #92400e; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
                         🏢 <%= exp.vendor_name %>
                       </span>
                     <% } %>
-                    <% if (exp.responsible_employee_name) { %>
-                      <span style="background: #e0f2fe; color: #0369a1; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                        👤 In-Charge: <%= exp.responsible_employee_name %>
-                      </span>
-                    <% } %>
                   </div>
                 </td>
-                <td><strong style="font-size: 1.05rem; color: #0f172a;">₹<%= exp.amount.toLocaleString('en-IN') %></strong></td>
+                <td>
+                  <% if (exp.responsible_employee_name) { %>
+                    <span style="background: #e0f2fe; color: #0369a1; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600;">
+                      👤 <%= exp.responsible_employee_name %>
+                    </span>
+                  <% } else { %>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Unassigned</span>
+                  <% } %>
+                </td>
+                <td><strong style="font-size: 1.05rem; color: #059669;">₹<%= exp.amount.toLocaleString('en-IN') %></strong></td>
                 <td><div style="font-weight: 600;"><%= exp.date %></div></td>
                 <td><div style="font-weight: 600; font-size: 0.85rem; color: #334155;">💳 <%= exp.payment_mode %></div></td>
                 <td>
                   <% if (exp.payment_status === 'Paid') { %>
                     <span class="badge badge-approved" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">🟢 Paid</span>
                   <% } else { %>
-                    <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Unpaid / Pending</span>
+                    <span class="badge badge-danger" style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;">🔴 Unpaid</span>
                   <% } %>
                 </td>
                 <td style="text-align: right; white-space: nowrap;">
@@ -316,7 +328,7 @@
                       <i class="fa-solid fa-circle-check"></i> Mark Paid
                     </a>
                   <% } %>
-                  <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this expense record?');">
+                  <form action="/expenses/company/<%= exp.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this overhead bill record?');">
                     <button type="submit" class="btn btn-sm btn-secondary" style="color: #dc2626; padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Delete Record">
                       <i class="fa-solid fa-trash-can"></i>
                     </button>

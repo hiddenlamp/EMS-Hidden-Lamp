@@ -1,13 +1,13 @@
-<%- include('../partials/header', { title: 'Add Project / Company Expense', path: '/expenses' }) %>
+<%- include('../partials/header', { title: 'Add Company Overhead Bill', path: '/expenses' }) %>
 
 <div style="max-width: 800px; margin: 0 auto;">
   <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
     <div>
-      <h1 class="page-title"><i class="fa-solid fa-building-circle-check" style="color: var(--accent);"></i> Add Project / Company Expense Receipt</h1>
-      <p class="page-description">Record city-wise project site material, operational bill, or vendor payment.</p>
+      <h1 class="page-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Add Company Operational Overhead Bill</h1>
+      <p class="page-description">Record office rent, electricity bills, internet, software subscriptions, stationery, tea/coffee, or corporate overhead.</p>
     </div>
     <a href="/expenses?tab=company" class="btn btn-secondary">
-      <i class="fa-solid fa-arrow-left"></i> ← Back to Expenses
+      <i class="fa-solid fa-arrow-left"></i> ← Back to Company Expenses
     </a>
   </div>
 
@@ -15,44 +15,39 @@
     <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <%= error %></div>
   <% } %>
 
-  <div class="card" style="padding: 1.75rem;">
+  <div class="card" style="padding: 1.75rem; border-top: 4px solid #059669;">
     <form action="/expenses/company" method="POST">
+      <input type="hidden" name="expense_type" value="Company Overhead">
+      <input type="hidden" name="project_name" value="General Corporate">
+
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Project / Site Name</label>
-          <input type="text" name="project_name" class="form-control" placeholder="Type new project name or select from list..." required list="projectOptions" value="<%= selectedProject || '' %>" style="font-weight: 600; color: #0f172a;">
-          <datalist id="projectOptions">
-            <% projects.forEach(p => { %>
-              <option value="<%= p %>"></option>
-            <% }); %>
-          </datalist>
-          <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
-            💡 Select an existing project or type a new project name manually.
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Branch / City Location</label>
-          <input type="text" name="work_location" class="form-control" placeholder="Type new city or select location..." required list="locationOptions" style="font-weight: 600; color: #0f172a;">
+          <label class="form-label" style="font-weight: 700;">Office / Branch Location</label>
+          <input type="text" name="work_location" class="form-control" placeholder="Type city or select office..." required list="locationOptions" style="font-weight: 600; color: #0f172a;">
           <datalist id="locationOptions">
             <% locations.forEach(loc => { %>
               <option value="<%= loc %>"></option>
             <% }); %>
           </datalist>
           <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
-            💡 Select a city location or type a new city manually.
+            📍 Select or type office location (e.g. Jodhpur HQ, Delhi Branch, Ranchi Office).
           </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 700;">Bill Title / Overhead Purpose</label>
+          <input type="text" name="title" class="form-control" placeholder="e.g. Monthly Office Rent, Broadband Bill, AWS Hosting" required>
         </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Expense Title / Description</label>
-          <input type="text" name="title" class="form-control" placeholder="e.g. Site Solar Panels & Wiring" required>
+          <label class="form-label" style="font-weight: 700;">Vendor / Utility Company / Supplier</label>
+          <input type="text" name="vendor_name" class="form-control" placeholder="e.g. Airtel, JBVNL, Landlord, Amazon Web Services">
         </div>
 
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Responsible Staff / Employee In-Charge</label>
+          <label class="form-label" style="font-weight: 700;">Responsible Staff / Person In-Charge</label>
           <select name="responsible_employee_id" class="form-control">
             <option value="">-- Optional: Select Employee In-Charge --</option>
             <% (employees || []).forEach(emp => { %>
@@ -60,39 +55,40 @@
             <% }); %>
           </select>
           <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
-            👤 Kis employee ko responsibility di gayi thi?
+            👤 Kis staff member ko is bill / payment ki responsibility mili thi?
           </small>
         </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Vendor / Supplier Name</label>
-          <input type="text" name="vendor_name" class="form-control" placeholder="e.g. JBVNL, Airtel, AWS, Hardware Store">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Category</label>
-          <input type="text" name="category" class="form-control" placeholder="Type custom category or select..." required list="categoryOptions" style="font-weight: 600; color: #0f172a;">
+          <label class="form-label" style="font-weight: 700;">Overhead Category</label>
+          <input type="text" name="category" class="form-control" placeholder="Type category or select..." required list="categoryOptions" value="Office Rent" style="font-weight: 600; color: #0f172a;">
           <datalist id="categoryOptions">
-            <% (categories || []).forEach(cat => { %>
-              <option value="<%= cat %>"></option>
-            <% }); %>
+            <option value="Office Rent"></option>
+            <option value="Electricity & Utilities"></option>
+            <option value="Internet & Broadband"></option>
+            <option value="Software & Tech Subscriptions"></option>
+            <option value="Office Supplies & Stationery"></option>
+            <option value="Tea, Coffee & Refreshments"></option>
+            <option value="Building Maintenance & Cleaning"></option>
+            <option value="Legal & Professional Fees"></option>
+            <option value="Corporate Overhead"></option>
           </datalist>
           <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;">
-            💡 Select a category or type a custom category manually.
+            💡 Select or type company operational category.
           </small>
         </div>
 
         <div class="form-group">
           <label class="form-label" style="font-weight: 700;">Amount (₹)</label>
-          <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required min="0" style="font-size: 1.1rem; font-weight: 800; color: #2563eb;">
+          <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required min="0" style="font-size: 1.1rem; font-weight: 800; color: #059669;">
         </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Date</label>
+          <label class="form-label" style="font-weight: 700;">Bill Date</label>
           <input type="date" name="date" class="form-control" value="<%= todayStr %>" required>
         </div>
 
@@ -119,15 +115,15 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700;">Invoice / Receipt Reference No.</label>
-          <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. INV-2026-9041">
+          <label class="form-label" style="font-weight: 700;">Invoice / Receipt Ref No.</label>
+          <input type="text" name="invoice_ref" class="form-control" placeholder="e.g. RENT-AUG-2026">
         </div>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
         <a href="/expenses?tab=company" class="btn btn-secondary">Cancel</a>
-        <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 700;">
-          <i class="fa-solid fa-floppy-disk"></i> Save Expense Receipt
+        <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; padding: 0.65rem 1.5rem; font-weight: 700;">
+          <i class="fa-solid fa-floppy-disk"></i> Save Company Overhead Bill
         </button>
       </div>
     </form>
