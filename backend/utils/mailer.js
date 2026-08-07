@@ -1,79 +1,80 @@
 const nodemailer = require('nodemailer');
-const dns = require('dns');
 const { generatePayslipPDFBuffer } = require('./pdfGenerator');
 
-// Cached Hostinger IPv4 address fallback for cloud containers (Render) if DNS resolution stalls
-let cachedHostingerIp = '172.65.255.143';
-
-dns.resolve4('smtp.hostinger.com', (err, addresses) => {
-  if (!err && addresses && addresses.length > 0) {
-    cachedHostingerIp = addresses[0];
-    console.log(`🌐 Resolved Hostinger SMTP IPv4: ${cachedHostingerIp}`);
-  }
-});
+// Cached shared transporter pool for lightning fast instant email delivery
+let cachedTransporter = null;
 
 /**
- * Creates a nodemailer transporter targeting Hostinger SMTP directly.
- * Always sends real emails to recipient inboxes.
+ * Creates or reuses a pooled Nodemailer transporter with Port 465 SSL primary.
+ * Reuses active SMTP socket connections for ultra-fast instant email dispatch.
  */
-async function createTransporterWithFailover() {
-  const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
-  const user = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
-  const pass = (process.env.SMTP_PASS || 'Hiddenlamp@734006').trim();
-  const service = (process.env.SMTP_SERVICE || '').trim();
-
-  // 1. Gmail Service Handler (if configured in env)
-  if (service.toLowerCase() === 'gmail' || host.includes('gmail')) {
-    console.log('📧 Using Gmail SMTP Service Configuration...');
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user, pass }
-    });
-  }
-
-  // 2. Hostinger SMTP Configurations to Attempt (Port 587 TLS first, then Direct IP, then Port 465 SSL)
-  const configsToTry = [
-    { host: 'smtp.hostinger.com', port: 587, secure: false, requireTLS: true, name: 'smtp.hostinger.com Port 587 (TLS)' },
-    { host: cachedHostingerIp, port: 587, secure: false, requireTLS: true, name: `Direct IP ${cachedHostingerIp} Port 587` },
-    { host: 'smtp.hostinger.com', port: 465, secure: true, requireTLS: false, name: 'smtp.hostinger.com Port 465 (SSL)' }
-  ];
-
-  let lastErr = null;
-  for (const cfg of configsToTry) {
+async function getTransporter() {
+  if (cachedTransporter) {
     try {
-      console.log(`🔌 Attempting Fast SMTP Connection to ${cfg.name}...`);
-      const transporter = nodemailer.createTransport({
-        host: cfg.host,
-        port: cfg.port,
-        secure: cfg.secure,
-        requireTLS: cfg.requireTLS,
-        auth: {
-          user: user || 'hiddenlamp@ems.hiddenlamp.in',
-          pass: pass || 'Hiddenlamp@734006'
-        },
-        tls: { rejectUnauthorized: false, servername: 'smtp.hostinger.com' },
-        connectionTimeout: 6000,
-        greetingTimeout: 6000,
-        socketTimeout: 12000
-      });
-
-      // Quick connection verification
-      await transporter.verify();
-      console.log(`✅ Hostinger SMTP Connected & Verified Successfully on ${cfg.name}!`);
-      return transporter;
-    } catch (err) {
-      lastErr = err;
-      console.warn(`⚠️ Connection to ${cfg.name} failed: ${err.message}. Trying next config...`);
+      await cachedTransporter.verify();
+      return cachedTransporter;
+    } catch (_) {
+      cachedTransporter = null;
     }
   }
 
-  // Direct Fallback Transporter if loop completes
-  console.log('⚡ Direct Fallback to Hostinger Port 587 Direct Transport...');
+  const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
+  const user = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
+  const pass = (process.env.SMTP_PASS || 'Hiddenlamp@734006').trim();
+
+  // 1. Primary Config: Port 465 SSL (Fastest & most reliable on cloud VMs)
+  try {
+    console.log('🔌 Connecting to Hostinger SMTP Port 465 (SSL)...');
+    const transporter = nodemailer.createTransport({
+      host: host,
+      port: 465,
+      secure: true,
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000
+    });
+
+    await transporter.verify();
+    console.log('✅ Hostinger SMTP Port 465 SSL Connected & Verified!');
+    cachedTransporter = transporter;
+    return transporter;
+  } catch (err465) {
+    console.warn(`⚠️ Port 465 SSL Connection failed: ${err465.message}. Trying Port 587 TLS...`);
+  }
+
+  // 2. Fallback Config: Port 587 TLS
+  try {
+    console.log('🔌 Fallback to Hostinger SMTP Port 587 (TLS)...');
+    const transporter = nodemailer.createTransport({
+      host: host,
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      pool: true,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 5000
+    });
+
+    await transporter.verify();
+    console.log('✅ Hostinger SMTP Port 587 TLS Connected & Verified!');
+    cachedTransporter = transporter;
+    return transporter;
+  } catch (err587) {
+    console.warn(`⚠️ Port 587 TLS Connection failed: ${err587.message}`);
+  }
+
+  // 3. Direct Emergency Transporter
+  console.log('⚡ Using Direct Single Transport Connection...');
   return nodemailer.createTransport({
     host: 'smtp.hostinger.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
+    port: 465,
+    secure: true,
     auth: {
       user: 'hiddenlamp@ems.hiddenlamp.in',
       pass: 'Hiddenlamp@734006'
@@ -230,7 +231,7 @@ async function sendPayslipEmail(data) {
     });
   }
 
-  const transporter = await createTransporterWithFailover();
+  const transporter = await getTransporter();
 
   try {
     const info = await transporter.sendMail({ from, to, subject, html, attachments });
