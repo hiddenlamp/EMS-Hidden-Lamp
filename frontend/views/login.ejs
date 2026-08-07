@@ -2,252 +2,123 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Administrator Authentication | Hidden Lamp Enterprise Payroll</title>
-  <link rel="stylesheet" href="/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body.login-page-bg {
-      min-height: 100vh;
+    html, body {
+      height: 100%;
       width: 100%;
-      background: radial-gradient(circle at 15% 15%, #1e1b4b 0%, #0f172a 45%, #020617 100%);
+      overflow: hidden;
       font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+      background: radial-gradient(circle at 50% 30%, #1e293b 0%, #0f172a 60%, #020617 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1.5rem;
-      position: relative;
-      overflow-x: hidden;
+      position: fixed;
+      top: 0;
+      left: 0;
     }
 
-    /* Ambient Lighting Orbs */
-    .ambient-orb-1 {
+    /* Subtle Ambient Lighting Accents */
+    .bg-glow-1 {
       position: absolute;
-      top: -10%;
-      left: -5%;
-      width: 450px;
-      height: 450px;
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+      top: -15%;
+      left: 20%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
       filter: blur(80px);
       pointer-events: none;
     }
 
-    .ambient-orb-2 {
+    .bg-glow-2 {
       position: absolute;
-      bottom: -10%;
-      right: -5%;
+      bottom: -15%;
+      right: 20%;
       width: 500px;
       height: 500px;
-      background: radial-gradient(circle, rgba(129, 140, 248, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.18) 0%, rgba(0, 0, 0, 0) 70%);
       filter: blur(90px);
       pointer-events: none;
     }
 
-    /* Main Container */
-    .login-container {
+    /* Centered Compact Card (Fits 100% On Screen Without Scrollbar) */
+    .login-card-compact {
       width: 100%;
-      max-width: 1060px;
-      display: grid;
-      grid-template-columns: 1.1fr 1fr;
-      gap: 2rem;
-      align-items: center;
-      position: relative;
-      z-index: 10;
-    }
-
-    @media (max-width: 900px) {
-      .login-container {
-        grid-template-columns: 1fr;
-        max-width: 460px;
-      }
-      .brand-hero-panel {
-        display: none;
-      }
-    }
-
-    /* Left Panel: Hero Showcase */
-    .brand-hero-panel {
-      color: #ffffff;
-      padding: 2rem 1.5rem;
-    }
-
-    .brand-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 0.4rem 0.9rem;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: #38bdf8;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-bottom: 1.25rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .hero-title {
-      font-size: 2.35rem;
-      font-weight: 800;
-      line-height: 1.2;
-      letter-spacing: -0.03em;
-      margin-bottom: 1rem;
-      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero-subtitle {
-      font-size: 1rem;
-      color: #94a3b8;
-      line-height: 1.6;
-      margin-bottom: 2rem;
-    }
-
-    .feature-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .feature-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.85rem;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.9rem 1.1rem;
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-
-    .feature-item:hover {
-      transform: translateX(4px);
-      border-color: rgba(56, 189, 248, 0.3);
-      background: rgba(255, 255, 255, 0.06);
-    }
-
-    .feature-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: rgba(56, 189, 248, 0.15);
-      color: #38bdf8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-
-    .feature-text strong {
-      display: block;
-      font-size: 0.92rem;
-      color: #f8fafc;
-      margin-bottom: 0.15rem;
-    }
-
-    .feature-text p {
-      font-size: 0.8rem;
-      color: #94a3b8;
-      margin: 0;
-    }
-
-    .stats-strip {
-      display: flex;
-      gap: 1.5rem;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .stat-box {
-      font-size: 0.82rem;
-      color: #cbd5e1;
-    }
-
-    .stat-box strong {
-      display: block;
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: #38bdf8;
-    }
-
-    /* Right Panel: Sleek Login Glass Card */
-    .login-glass-card {
+      max-width: 410px;
       background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(24px);
       border-radius: 20px;
-      padding: 2.5rem 2.25rem;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.6);
-      transition: transform 0.2s ease;
+      padding: 2.25rem 2rem;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.5);
+      position: relative;
+      z-index: 10;
+      margin: 1rem;
     }
 
-    .login-logo-header {
+    .login-header-compact {
       text-align: center;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1.5rem;
     }
 
-    .login-logo-img {
-      height: 60px;
+    .logo-img-compact {
+      height: 56px;
       border-radius: 12px;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.65rem;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
       border: 2px solid #ffffff;
     }
 
-    .login-card-title {
-      font-size: 1.5rem;
+    .title-compact {
+      font-size: 1.45rem;
       font-weight: 800;
       color: #0f172a;
       letter-spacing: -0.02em;
       margin: 0;
     }
 
-    .login-card-sub {
-      font-size: 0.85rem;
+    .subtitle-compact {
+      font-size: 0.82rem;
       color: #64748b;
-      margin-top: 0.35rem;
-      font-weight: 500;
+      margin-top: 0.25rem;
+      font-weight: 600;
     }
 
-    .form-group-custom {
-      margin-bottom: 1.25rem;
+    .form-group-compact {
+      margin-bottom: 1.1rem;
     }
 
-    .form-label-custom {
+    .label-compact {
       display: block;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 700;
       color: #1e293b;
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.4rem;
     }
 
-    .input-wrapper {
+    .input-wrapper-compact {
       position: relative;
     }
 
-    .input-icon-left {
+    .input-icon {
       position: absolute;
       left: 14px;
       top: 50%;
       transform: translateY(-50%);
       color: #64748b;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       transition: color 0.2s ease;
     }
 
-    .input-custom {
+    .input-compact {
       width: 100%;
-      padding: 0.75rem 1rem 0.75rem 2.6rem;
-      font-size: 0.92rem;
+      padding: 0.7rem 1rem 0.7rem 2.5rem;
+      font-size: 0.9rem;
       color: #0f172a;
       background: #f8fafc;
       border: 1.5px solid #cbd5e1;
@@ -257,48 +128,48 @@
       transition: all 0.2s ease;
     }
 
-    .input-custom:focus {
+    .input-compact:focus {
       background: #ffffff;
       border-color: #2563eb;
       box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
     }
 
-    .input-custom:focus + .input-icon-left {
+    .input-compact:focus + .input-icon {
       color: #2563eb;
     }
 
-    .btn-submit-login {
+    .btn-login-submit {
       width: 100%;
-      padding: 0.85rem 1.5rem;
-      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      padding: 0.8rem 1.25rem;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
       color: #ffffff;
       border: none;
-      border-radius: 12px;
-      font-size: 0.95rem;
+      border-radius: 10px;
+      font-size: 0.92rem;
       font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+      box-shadow: 0 8px 18px -4px rgba(37, 99, 235, 0.45);
       transition: all 0.2s ease;
-      margin-top: 1.5rem;
+      margin-top: 1.25rem;
     }
 
-    .btn-submit-login:hover {
+    .btn-login-submit:hover {
       transform: translateY(-2px);
-      box-shadow: 0 14px 24px -5px rgba(37, 99, 235, 0.5);
-      background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
+      box-shadow: 0 12px 22px -4px rgba(37, 99, 235, 0.55);
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
     }
 
-    .demo-credentials-box {
+    .demo-credentials-compact {
       background: #f0fdf4;
       border: 1px solid #bbf7d0;
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
-      margin-top: 1.25rem;
-      font-size: 0.82rem;
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      margin-top: 1.1rem;
+      font-size: 0.8rem;
       color: #166534;
       display: flex;
       align-items: center;
@@ -306,132 +177,95 @@
       gap: 0.5rem;
     }
 
-    .security-footer {
-      margin-top: 1.5rem;
-      padding-top: 1rem;
+    .footer-security-compact {
+      margin-top: 1.25rem;
+      padding-top: 0.85rem;
       border-top: 1px solid #e2e8f0;
       text-align: center;
-      font-size: 0.76rem;
+      font-size: 0.75rem;
       color: #64748b;
       font-weight: 600;
     }
+
+    .alert-danger-compact {
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      background: #fff1f2;
+      color: #e11d48;
+      border: 1px solid #fca5a5;
+      margin-bottom: 1.1rem;
+      font-size: 0.84rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
   </style>
 </head>
-<body class="login-page-bg">
-  <div class="ambient-orb-1"></div>
-  <div class="ambient-orb-2"></div>
+<body>
+  <div class="bg-glow-1"></div>
+  <div class="bg-glow-2"></div>
 
-  <div class="login-container">
-    <!-- LEFT PANEL: Hero Brand & Feature Showcase -->
-    <div class="brand-hero-panel">
-      <div class="brand-badge">
-        <i class="fa-solid fa-bolt"></i> Hidden Lamp Executive Suite
-      </div>
-      <h1 class="hero-title">Next-Gen Employee Payroll & Operations Portal</h1>
-      <p class="hero-subtitle">
-        Enterprise platform for automated salary calculations, multi-city project expense tracking, and real-time compliance management.
-      </p>
-
-      <div class="feature-list">
-        <div class="feature-item">
-          <div class="feature-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-          <div class="feature-text">
-            <strong>Automated Payroll & Payslip Dispatch</strong>
-            <p>1-Click salary calculations, LOP prorating, and instant PDF email dispatch to staff.</p>
-          </div>
-        </div>
-
-        <div class="feature-item">
-          <div class="feature-icon"><i class="fa-solid fa-diagram-project"></i></div>
-          <div class="feature-text">
-            <strong>City-Wise Project Expense Tracking</strong>
-            <p>Itemized project material receipts, vendor bills, and employee travel reimbursement ledgers.</p>
-          </div>
-        </div>
-
-        <div class="feature-item">
-          <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
-          <div class="feature-text">
-            <strong>Bank-Grade Security & Audit Logging</strong>
-            <p>256-Bit SSL encryption with 30-day persistent session security and audit trails.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="stats-strip">
-        <div class="stat-box">
-          <strong>500+</strong> Active Employees
-        </div>
-        <div class="stat-box">
-          <strong>99.9%</strong> Audit Compliance
-        </div>
-        <div class="stat-box">
-          <strong>Multi-City</strong> Site Coverage
-        </div>
-      </div>
+  <!-- CENTERED COMPACT SINGLE CARD (100% NON-SCROLLABLE) -->
+  <div class="login-card-compact">
+    <div class="login-header-compact">
+      <img src="/images/logo.png" alt="Hidden Lamp Logo" class="logo-img-compact">
+      <h1 class="title-compact">HIDDEN LAMP</h1>
+      <p class="subtitle-compact">Enterprise Payroll & Operations Portal</p>
     </div>
 
-    <!-- RIGHT PANEL: Sleek Login Card -->
-    <div class="login-glass-card">
-      <div class="login-logo-header">
-        <img src="/images/logo.png" alt="Hidden Lamp Logo" class="login-logo-img">
-        <h2 class="login-card-title">HIDDEN LAMP</h2>
-        <p class="login-card-sub">Enterprise Payroll & Executive Portal</p>
+    <% if (error) { %>
+      <div class="alert-danger-compact">
+        <i class="fa-solid fa-circle-exclamation"></i> <%= error %>
+      </div>
+    <% } %>
+
+    <form action="/login" method="POST" id="loginForm">
+      <div class="form-group-compact">
+        <label for="email" class="label-compact">
+          <i class="fa-regular fa-envelope" style="color: #2563eb; margin-right: 0.3rem;"></i> Corporate Email Address
+        </label>
+        <div class="input-wrapper-compact">
+          <i class="fa-solid fa-user-shield input-icon"></i>
+          <input type="email" id="email" name="email" class="input-compact" placeholder="name@hiddenlamp.com" required autofocus>
+        </div>
       </div>
 
-      <% if (error) { %>
-        <div class="alert alert-danger" style="margin-bottom: 1.25rem; font-size: 0.88rem; padding: 0.75rem 1rem; border-radius: 8px;">
-          <i class="fa-solid fa-triangle-exclamation"></i> <%= error %>
+      <div class="form-group-compact">
+        <label for="password" class="label-compact">
+          <i class="fa-solid fa-lock" style="color: #2563eb; margin-right: 0.3rem;"></i> Access Password
+        </label>
+        <div class="input-wrapper-compact">
+          <i class="fa-solid fa-key input-icon"></i>
+          <input type="password" id="password" name="password" class="input-compact" placeholder="Enter your password" style="padding-right: 2.5rem;" required>
+          <button type="button" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.9rem;" title="Show/Hide Password">
+            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+          </button>
         </div>
-      <% } %>
-
-      <form action="/login" method="POST" id="loginForm">
-        <div class="form-group-custom">
-          <label for="email" class="form-label-custom">
-            <i class="fa-regular fa-envelope" style="color: #2563eb; margin-right: 0.35rem;"></i> Corporate Email Address
-          </label>
-          <div class="input-wrapper">
-            <i class="fa-solid fa-user-shield input-icon-left"></i>
-            <input type="email" id="email" name="email" class="input-custom" placeholder="name@hiddenlamp.com" required autofocus>
-          </div>
-        </div>
-
-        <div class="form-group-custom">
-          <label for="password" class="form-label-custom">
-            <i class="fa-solid fa-lock" style="color: #2563eb; margin-right: 0.35rem;"></i> Access Password
-          </label>
-          <div class="input-wrapper">
-            <i class="fa-solid fa-key input-icon-left"></i>
-            <input type="password" id="password" name="password" class="input-custom" placeholder="Enter your password" style="padding-right: 2.6rem;" required>
-            <button type="button" id="togglePassword" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.95rem;" title="Show/Hide Password">
-              <i class="fa-solid fa-eye" id="eyeIcon"></i>
-            </button>
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; font-size: 0.82rem;">
-          <label style="display: flex; align-items: center; gap: 0.4rem; color: #475569; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" name="remember" style="accent-color: #2563eb; border-radius: 4px;"> Remember session
-          </label>
-          <a href="javascript:void(0)" onclick="alert('Please contact your IT Systems Administrator to reset your enterprise password.')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Forgot Password?</a>
-        </div>
-
-        <button type="submit" class="btn-submit-login">
-          <i class="fa-solid fa-shield-halved"></i> Sign In to Executive Portal
-        </button>
-      </form>
-
-      <div class="demo-credentials-box">
-        <div>
-          <i class="fa-solid fa-key" style="color: #16a34a; margin-right: 0.35rem;"></i>
-          <strong>Default Admin:</strong> <span style="font-family: monospace;">admin@hiddenlamp.com</span>
-        </div>
-        <span style="background: #dcfce7; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700; font-family: monospace;">admin123</span>
       </div>
 
-      <div class="security-footer">
-        <i class="fa-solid fa-lock" style="color: #059669; margin-right: 0.3rem;"></i> 256-Bit SSL Encrypted Enterprise Session
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.4rem; font-size: 0.8rem;">
+        <label style="display: flex; align-items: center; gap: 0.35rem; color: #475569; cursor: pointer; font-weight: 500;">
+          <input type="checkbox" name="remember" style="accent-color: #2563eb; border-radius: 4px;"> Remember session
+        </label>
+        <a href="javascript:void(0)" onclick="alert('Please contact your IT Systems Administrator to reset your enterprise password.')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Forgot Password?</a>
       </div>
+
+      <button type="submit" class="btn-login-submit">
+        <i class="fa-solid fa-shield-halved"></i> Sign In to Executive Portal
+      </button>
+    </form>
+
+    <div class="demo-credentials-compact">
+      <div>
+        <i class="fa-solid fa-key" style="color: #16a34a; margin-right: 0.3rem;"></i>
+        <strong>Default Admin:</strong> <span style="font-family: monospace;">admin@hiddenlamp.com</span>
+      </div>
+      <span style="background: #dcfce7; padding: 0.15rem 0.35rem; border-radius: 4px; font-weight: 700; font-family: monospace;">admin123</span>
+    </div>
+
+    <div class="footer-security-compact">
+      <i class="fa-solid fa-lock" style="color: #059669; margin-right: 0.3rem;"></i> 256-Bit SSL Encrypted Enterprise Session
     </div>
   </div>
 
