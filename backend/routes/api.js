@@ -86,12 +86,12 @@ router.get('/dashboard', (req, res) => {
   `).get().total || 0;
 
   const locationSummary = db.prepare(`
-    SELECT e.work_location, COUNT(e.id) as heads, SUM(c.amount) as location_budget
+    SELECT e.work_location, COUNT(DISTINCT e.id) as heads, COALESCE(SUM(c.amount), 0) as location_budget
     FROM employees e
     LEFT JOIN salary_components c ON c.employee_id = e.id AND c.type = 'earning'
     WHERE e.status = 'active'
     GROUP BY e.work_location
-    ORDER BY heads DESC
+    ORDER BY heads DESC, e.work_location ASC
   `).all();
 
   const recentRuns = db.prepare('SELECT * FROM payroll_runs ORDER BY period DESC LIMIT 5').all();
