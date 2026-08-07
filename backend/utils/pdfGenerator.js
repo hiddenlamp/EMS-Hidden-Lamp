@@ -10,7 +10,7 @@ const fs = require('fs');
  * - Employee Summary table (left) vs Net Pay Green Accent Card (right)
  * - Side-by-side Earnings (blue) & Deductions (red) tables
  * - Total Net Payable banner with highlighted amount
- * - Large Authorized Signatory Box with actual signature image & company stamp seal
+ * - Large Authorized Signatory Box PINNED TO THE BOTTOM OF A4 PAGE with actual signature image & company stamp seal
  */
 function generatePayslipPDFBuffer(payslipData) {
   return new Promise((resolve, reject) => {
@@ -142,7 +142,7 @@ function generatePayslipPDFBuffer(payslipData) {
       doc.text(':', netPayCardX + 120, y + 78);
       doc.fillColor('#065f46').font('Helvetica-Bold').text(`${lopDays}`, netPayCardX + 140, y + 78, { align: 'right', width: 75 });
 
-      y = Math.max(sumY, y + 106) + 10;
+      y = Math.max(sumY, y + 106) + 14;
 
       // ==========================================
       // 3. TABLES: EARNINGS & DEDUCTIONS (SIDE BY SIDE)
@@ -254,55 +254,54 @@ function generatePayslipPDFBuffer(payslipData) {
       doc.fillColor('#0f172a').font('Helvetica-Bold')
          .text(`${netPayInWords || breakdown.net_pay_words || 'Indian Rupee Twenty Thousand Five Hundred Only'}`);
 
-      y += 35;
-
       // ==========================================
-      // 5. SIGNATURES & STAMP SEAL SECTION
+      // 5. SIGNATURES & STAMP SEAL SECTION (PINNED TO BOTTOM OF A4 PAGE)
       // ==========================================
       const sigBoxWidth = 230;
       const leftBoxX = 36;
       const rightBoxX = 329;
+      const sigY = 675; // Pinned right near the bottom of A4 page (842pt height)
 
       // Left: Employee Acknowledgement Box
       doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5)
-         .text('EMPLOYEE ACKNOWLEDGEMENT', leftBoxX, y, { align: 'center', width: sigBoxWidth });
+         .text('EMPLOYEE ACKNOWLEDGEMENT', leftBoxX, sigY, { align: 'center', width: sigBoxWidth });
       
-      doc.rect(leftBoxX, y + 12, sigBoxWidth, 60).fillAndStroke('#ffffff', '#e2e8f0');
+      doc.rect(leftBoxX, sigY + 12, sigBoxWidth, 64).fillAndStroke('#ffffff', '#e2e8f0');
       doc.fillColor('#94a3b8').font('Helvetica-Oblique').fontSize(8)
-         .text('Employee Signature', leftBoxX, y + 36, { align: 'center', width: sigBoxWidth });
+         .text('Employee Signature', leftBoxX, sigY + 38, { align: 'center', width: sigBoxWidth });
       
-      doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(leftBoxX, y + 80).lineTo(leftBoxX + sigBoxWidth, y + 80).stroke();
+      doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(leftBoxX, sigY + 84).lineTo(leftBoxX + sigBoxWidth, sigY + 84).stroke();
       doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8.5)
-         .text('Signature of Employee', leftBoxX, y + 84, { align: 'center', width: sigBoxWidth });
+         .text('Signature of Employee', leftBoxX, sigY + 88, { align: 'center', width: sigBoxWidth });
 
       // Right: Authorized Signatory Box with Real Signature Image
       doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5)
-         .text('FOR HIDDEN LAMP PRIVATE LIMITED', rightBoxX, y, { align: 'center', width: sigBoxWidth });
+         .text('FOR HIDDEN LAMP PRIVATE LIMITED', rightBoxX, sigY, { align: 'center', width: sigBoxWidth });
       
-      doc.rect(rightBoxX, y + 12, sigBoxWidth, 60).fillAndStroke('#ffffff', '#e2e8f0');
+      doc.rect(rightBoxX, sigY + 12, sigBoxWidth, 64).fillAndStroke('#ffffff', '#e2e8f0');
 
       // Draw Real Signature Image if available
       if (fs.existsSync(signaturePath)) {
         try {
-          doc.image(signaturePath, rightBoxX + 35, y + 16, { fit: [160, 52] });
+          doc.image(signaturePath, rightBoxX + 35, sigY + 16, { fit: [160, 54] });
         } catch (e) {
           doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(8)
-             .text('HIDDEN LAMP PVT LTD (SEAL)', rightBoxX, y + 34, { align: 'center', width: sigBoxWidth });
+             .text('HIDDEN LAMP PVT LTD (SEAL)', rightBoxX, sigY + 38, { align: 'center', width: sigBoxWidth });
         }
       } else {
         doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(8)
-           .text('HIDDEN LAMP PVT LTD (SEAL)', rightBoxX, y + 34, { align: 'center', width: sigBoxWidth });
+           .text('HIDDEN LAMP PVT LTD (SEAL)', rightBoxX, sigY + 38, { align: 'center', width: sigBoxWidth });
       }
 
-      doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(rightBoxX, y + 80).lineTo(rightBoxX + sigBoxWidth, y + 80).stroke();
+      doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(rightBoxX, sigY + 84).lineTo(rightBoxX + sigBoxWidth, sigY + 84).stroke();
       doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8.5)
-         .text('Authorized Signatory / Director', rightBoxX, y + 84, { align: 'center', width: sigBoxWidth });
-
-      y += 104;
+         .text('Authorized Signatory / Director', rightBoxX, sigY + 88, { align: 'center', width: sigBoxWidth });
 
       // Footer Note
+      const footerY = 788;
+      doc.strokeColor('#e2e8f0').lineWidth(0.75).moveTo(36, footerY).lineTo(559, footerY).stroke();
       doc.fillColor('#64748b').font('Helvetica').fontSize(7.5)
-         .text(`This is an official computer-generated salary payslip statement of Hidden Lamp Pvt. Ltd. | Reference: ${refNo}`, 36, y, { align: 'center', width: 523 });
+         .text(`This is an official computer-generated salary payslip statement of Hidden Lamp Pvt. Ltd. | Reference: ${refNo}`, 36, footerY + 8, { align: 'center', width: 523 });
 
       doc.end();
     } catch (err) {

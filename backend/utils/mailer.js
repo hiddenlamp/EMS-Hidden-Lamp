@@ -220,22 +220,11 @@ async function sendPayslipEmail(data) {
     </html>
   `;
 
-  // Attach PDF directly to the email
-  const attachments = [];
-  if (pdfBuffer) {
-    const safeEmpName = employeeName.replace(/[^a-zA-Z0-9]/g, '_');
-    attachments.push({
-      filename: `Payslip_${safeEmpName}_${period}.pdf`,
-      content: pdfBuffer,
-      contentType: 'application/pdf'
-    });
-  }
-
   const transporter = await getTransporter();
 
   try {
-    const info = await transporter.sendMail({ from, to, subject, html, attachments });
-    console.log(`✅ Hostinger SMTP Email sent successfully with PDF attachment to ${to} (MessageID: ${info.messageId})`);
+    const info = await transporter.sendMail({ from, to, subject, html });
+    console.log(`✅ Hostinger SMTP Email sent successfully to ${to} (MessageID: ${info.messageId})`);
     return { messageId: info.messageId, previewUrl: null };
   } catch (sendErr) {
     console.error(`❌ Hostinger Email Send Error for ${to}:`, sendErr.message);
