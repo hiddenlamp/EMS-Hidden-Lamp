@@ -202,26 +202,6 @@ const LoginPage = () => {
         </form>
 
         <div style={{
-          background: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: '8px',
-          padding: '0.65rem 0.85rem',
-          marginTop: '1.1rem',
-          fontSize: '0.8rem',
-          color: '#166534',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.5rem'
-        }}>
-          <div>
-            <i className="fa-solid fa-key" style={{ color: '#16a34a', marginRight: '0.3rem' }}></i>
-            <strong>Default Admin:</strong> <span style={{ fontFamily: 'monospace' }}>admin@hiddenlamp.com</span>
-          </div>
-          <span style={{ background: '#dcfce7', padding: '0.15rem 0.35rem', borderRadius: '4px', fontWeight: 700, fontFamily: 'monospace' }}>admin123</span>
-        </div>
-
-        <div style={{
           marginTop: '1.25rem',
           paddingTop: '0.85rem',
           borderTop: '1px solid #e2e8f0',
