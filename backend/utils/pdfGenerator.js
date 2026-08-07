@@ -1,8 +1,10 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * Generates a clean, professional, print-ready PDF buffer for an employee payslip.
- * Uses pure PDFKit for fast, 0-dependency generation across all OS/cloud environments.
+ * Matches the website's HTML design with actual Company Logo, Signature Image, and Rs. currency formatting.
  */
 function generatePayslipPDFBuffer(payslipData) {
   return new Promise((resolve, reject) => {
@@ -19,26 +21,37 @@ function generatePayslipPDFBuffer(payslipData) {
       const { breakdown, period, payDate, grossPay, totalDeductions, netPay, netPayInWords } = payslipData;
       const emp = breakdown.employee || {};
 
+      // Image Asset Paths
+      const logoPath = path.join(__dirname, '../../frontend/public/images/logo.png');
+      const signaturePath = path.join(__dirname, '../../frontend/public/images/signature.png');
+
       // 1. Header Banner
-      doc.rect(36, 36, 523, 70).fill('#0f172a');
+      doc.rect(36, 36, 523, 72).fill('#0f172a');
       
+      // Draw Logo Image if available
+      if (fs.existsSync(logoPath)) {
+        try {
+          doc.image(logoPath, 48, 44, { fit: [140, 56] });
+        } catch (e) {}
+      }
+
       doc.fillColor('#ffffff')
-         .fontSize(18)
+         .fontSize(16)
          .font('Helvetica-Bold')
-         .text('HIDDEN LAMP PRIVATE LIMITED', 48, 48, { align: 'center', width: 499 });
+         .text('HIDDEN LAMP PRIVATE LIMITED', 190, 48, { align: 'right', width: 350 });
       
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
          .fillColor('#94a3b8')
-         .text(`Employee Salary Slip for ${period} | Pay Date: ${payDate || 'End of Month'}`, 48, 72, { align: 'center', width: 499 });
+         .text(`Employee Salary Slip for ${period} | Pay Date: ${payDate || 'End of Month'}`, 190, 70, { align: 'right', width: 350 });
 
-      let y = 118;
+      let y = 120;
 
       // 2. Employee Metadata Box
       doc.rect(36, y, 523, 75).fillAndStroke('#f8fafc', '#cbd5e1');
       doc.fillColor('#0f172a');
 
-      doc.fontSize(10).font('Helvetica-Bold').text(`Employee Name:`, 48, y + 12);
+      doc.fontSize(9).font('Helvetica-Bold').text(`Employee Name:`, 48, y + 12);
       doc.font('Helvetica').text(`${emp.name || 'Staff Member'}`, 150, y + 12);
 
       doc.font('Helvetica-Bold').text(`Employee Code:`, 320, y + 12);
@@ -67,13 +80,13 @@ function generatePayslipPDFBuffer(payslipData) {
       doc.rect(earningsX, y, tableWidth, 22).fill('#2563eb');
       doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9)
          .text('EARNINGS COMPONENT', earningsX + 8, y + 6)
-         .text('AMOUNT (₹)', earningsX + 160, y + 6, { align: 'right', width: 80 });
+         .text('AMOUNT (Rs.)', earningsX + 150, y + 6, { align: 'right', width: 90 });
 
       // Deductions Table Header
       doc.rect(deductionsX, y, tableWidth, 22).fill('#dc2626');
       doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9)
          .text('DEDUCTIONS COMPONENT', deductionsX + 8, y + 6)
-         .text('AMOUNT (₹)', deductionsX + 160, y + 6, { align: 'right', width: 80 });
+         .text('AMOUNT (Rs.)', deductionsX + 150, y + 6, { align: 'right', width: 90 });
 
       y += 22;
 
@@ -93,9 +106,9 @@ function generatePayslipPDFBuffer(payslipData) {
         if (earningsList[i]) {
           const e = earningsList[i];
           const amt = (e.prorated_amount !== undefined ? e.prorated_amount : e.amount) || 0;
-          doc.text(e.name, earningsX + 8, y + 5, { width: 150 });
+          doc.text(e.name, earningsX + 8, y + 5, { width: 140 });
           doc.font('Helvetica-Bold').fillColor('#0f172a')
-             .text(`₹${amt.toFixed(2)}`, earningsX + 160, y + 5, { align: 'right', width: 80 });
+             .text(`Rs. ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, earningsX + 145, y + 5, { align: 'right', width: 95 });
         }
 
         // Render Deduction Item
@@ -103,12 +116,12 @@ function generatePayslipPDFBuffer(payslipData) {
           const d = deductionsList[i];
           const amt = d.amount || 0;
           doc.font('Helvetica').fillColor('#334155')
-             .text(d.name, deductionsX + 8, y + 5, { width: 150 });
+             .text(d.name, deductionsX + 8, y + 5, { width: 140 });
           doc.font('Helvetica-Bold').fillColor('#dc2626')
-             .text(`₹${amt.toFixed(2)}`, deductionsX + 160, y + 5, { align: 'right', width: 80 });
+             .text(`Rs. ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, deductionsX + 145, y + 5, { align: 'right', width: 95 });
         } else if (i === 0 && deductionsList.length === 0) {
           doc.fillColor('#94a3b8').text('Nil', deductionsX + 8, y + 5);
-          doc.text('₹0.00', deductionsX + 160, y + 5, { align: 'right', width: 80 });
+          doc.text('Rs. 0.00', deductionsX + 145, y + 5, { align: 'right', width: 95 });
         }
 
         y += rowHeight;
@@ -118,12 +131,12 @@ function generatePayslipPDFBuffer(payslipData) {
       doc.rect(earningsX, y, tableWidth, 22).fillAndStroke('#ecfdf5', '#a7f3d0');
       doc.fillColor('#065f46').font('Helvetica-Bold').fontSize(9)
          .text('TOTAL GROSS EARNINGS', earningsX + 8, y + 6)
-         .text(`₹${grossPay.toFixed(2)}`, earningsX + 160, y + 6, { align: 'right', width: 80 });
+         .text(`Rs. ${grossPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, earningsX + 130, y + 6, { align: 'right', width: 110 });
 
       doc.rect(deductionsX, y, tableWidth, 22).fillAndStroke('#fff1f2', '#fecdd3');
       doc.fillColor('#9f1239').font('Helvetica-Bold').fontSize(9)
          .text('TOTAL DEDUCTIONS', deductionsX + 8, y + 6)
-         .text(`₹${totalDeductions.toFixed(2)}`, deductionsX + 160, y + 6, { align: 'right', width: 80 });
+         .text(`Rs. ${totalDeductions.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, deductionsX + 130, y + 6, { align: 'right', width: 110 });
 
       y += 30;
 
@@ -134,7 +147,7 @@ function generatePayslipPDFBuffer(payslipData) {
          .text('NET SALARY PAYABLE', 48, y + 10, { align: 'center', width: 499 });
 
       doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(18)
-         .text(`₹${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 48, y + 26, { align: 'center', width: 499 });
+         .text(`Rs. ${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 48, y + 26, { align: 'center', width: 499 });
 
       y += 68;
 
@@ -144,36 +157,44 @@ function generatePayslipPDFBuffer(payslipData) {
 
       y += 28;
 
-      // 5. PROMINENT LARGE AUTHORIZED SIGNATURE & STAMP SEAL BOX
-      const sigWidth = 220;
+      // 5. PROMINENT AUTHORIZED SIGNATURE & STAMP SEAL BOX
+      const sigWidth = 230;
       const leftSigX = 36;
-      const rightSigX = 339;
+      const rightSigX = 329;
 
       // Left Box: Employee Acknowledgement
-      doc.rect(leftSigX, y, sigWidth, 65).fillAndStroke('#f8fafc', '#cbd5e1');
+      doc.rect(leftSigX, y, sigWidth, 75).fillAndStroke('#f8fafc', '#cbd5e1');
       doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(8)
          .text('EMPLOYEE ACKNOWLEDGEMENT', leftSigX, y + 8, { align: 'center', width: sigWidth });
       doc.fillColor('#94a3b8').font('Helvetica-Oblique').fontSize(8)
-         .text('Employee Signature', leftSigX, y + 30, { align: 'center', width: sigWidth });
-      doc.strokeColor('#64748b').lineWidth(1).moveTo(leftSigX + 20, y + 50).lineTo(leftSigX + sigWidth - 20, y + 50).stroke();
+         .text('Employee Signature', leftSigX, y + 36, { align: 'center', width: sigWidth });
+      doc.strokeColor('#64748b').lineWidth(1).moveTo(leftSigX + 20, y + 58).lineTo(leftSigX + sigWidth - 20, y + 58).stroke();
       doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8)
-         .text('Signature of Employee', leftSigX, y + 53, { align: 'center', width: sigWidth });
+         .text('Signature of Employee', leftSigX, y + 61, { align: 'center', width: sigWidth });
 
-      // Right Box: Prominent Company Seal & Authorized Signatory
-      doc.rect(rightSigX, y, sigWidth, 65).fillAndStroke('#eff6ff', '#93c5fd');
+      // Right Box: Prominent Company Seal & Authorized Signatory Image
+      doc.rect(rightSigX, y, sigWidth, 75).fillAndStroke('#eff6ff', '#93c5fd');
       doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(8)
          .text('FOR HIDDEN LAMP PRIVATE LIMITED', rightSigX, y + 8, { align: 'center', width: sigWidth });
       
-      // Stamp Badge Box
-      doc.rect(rightSigX + 30, y + 22, sigWidth - 60, 22).fillAndStroke('#dbeafe', '#1d4ed8');
-      doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(8)
-         .text('HIDDEN LAMP PVT LTD (SEAL)', rightSigX + 30, y + 28, { align: 'center', width: sigWidth - 60 });
+      // Draw Signature Image if file exists
+      if (fs.existsSync(signaturePath)) {
+        try {
+          doc.image(signaturePath, rightSigX + 35, y + 20, { fit: [160, 36] });
+        } catch (e) {
+          doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(8)
+             .text('HIDDEN LAMP PVT LTD (SEAL)', rightSigX, y + 30, { align: 'center', width: sigWidth });
+        }
+      } else {
+        doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(8)
+           .text('HIDDEN LAMP PVT LTD (SEAL)', rightSigX, y + 30, { align: 'center', width: sigWidth });
+      }
 
-      doc.strokeColor('#1d4ed8').lineWidth(1.5).moveTo(rightSigX + 20, y + 50).lineTo(rightSigX + sigWidth - 20, y + 50).stroke();
+      doc.strokeColor('#1d4ed8').lineWidth(1.5).moveTo(rightSigX + 20, y + 58).lineTo(rightSigX + sigWidth - 20, y + 58).stroke();
       doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8)
-         .text('Authorized Signatory / Director', rightSigX, y + 53, { align: 'center', width: sigWidth });
+         .text('Authorized Signatory / Director', rightSigX, y + 61, { align: 'center', width: sigWidth });
 
-      y += 75;
+      y += 85;
 
       // 6. Footer Note
       doc.strokeColor('#cbd5e1').lineWidth(0.75).moveTo(36, y).lineTo(559, y).stroke();
