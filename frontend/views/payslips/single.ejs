@@ -325,49 +325,76 @@
       text-align: right;
       font-size: 0.85rem;
       color: #475569;
-      margin-bottom: 24px;
+      margin-bottom: 18px;
     }
     .amount-words-row strong {
       color: #0f172a;
       font-weight: 700;
     }
 
-    /* Signatures Section */
+    /* Prominent Large Signatures Section */
     .signatures-row {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-top: 20px;
+      margin-top: 18px;
       padding-top: 10px;
     }
     .signature-box {
-      width: 220px;
+      width: 260px;
+      text-align: center;
     }
     .signature-space {
-      height: 52px;
+      min-height: 90px;
+      height: 95px;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 8px;
+      background: rgba(248, 250, 252, 0.6);
+      border: 1px dashed #cbd5e1;
+      margin-bottom: 8px;
+      padding: 6px;
     }
     .signature-img {
-      height: 52px;
-      max-width: 180px;
+      max-height: 85px;
+      max-width: 230px;
       object-fit: contain;
     }
-    .signature-line {
-      border-top: 1px solid #94a3b8;
-      padding-top: 5px;
+    .signature-stamp-placeholder {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #1e3a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: 2px solid #1e3a8a;
+      padding: 8px 16px;
+      border-radius: 6px;
+      background: rgba(239, 246, 255, 0.8);
+      transform: rotate(-3deg);
+    }
+    .signature-company-title {
       font-size: 0.78rem;
       font-weight: 700;
-      color: #334155;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+    .signature-line {
+      border-top: 2px solid #64748b;
+      padding-top: 6px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #0f172a;
       text-align: center;
     }
     .footer-note {
       text-align: center;
-      font-size: 0.72rem;
-      color: #94a3b8;
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid #f1f5f9;
+      font-size: 0.74rem;
+      color: #64748b;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
     }
 
     @media print {
@@ -617,26 +644,38 @@
 
       <!-- Amount in Words -->
       <div class="amount-words-row">
-        Amount in Words: <strong><%= breakdown.net_pay_words || 'Rupees Only' %></strong>
+        Amount in Words: <strong><%= breakdown.net_pay_words || breakdown.net_pay_in_words || 'Rupees Only' %></strong>
       </div>
     </div>
 
-    <!-- Signatures & Footer Note -->
+    <!-- PROMINENT LARGE AUTHORIZED SIGNATURE & STAMP SECTION -->
     <div>
       <div class="signatures-row">
         <div class="signature-box">
-          <div class="signature-space"></div>
-          <div class="signature-line">Employer Signature</div>
-        </div>
-        <div class="signature-box">
+          <div class="signature-company-title">EMPLOYEE ACKNOWLEDGEMENT</div>
           <div class="signature-space">
-            <img src="/images/signature.png" alt="Authorized Signatory" class="signature-img" onerror="this.style.display='none';">
+            <span style="font-size: 0.8rem; color: #94a3b8; font-style: italic;">Employee Signature</span>
           </div>
-          <div class="signature-line">Authorized Signatory</div>
+          <div class="signature-line">Signature of Employee</div>
+        </div>
+        
+        <div class="signature-box">
+          <div class="signature-company-title">FOR HIDDEN LAMP PRIVATE LIMITED</div>
+          <div class="signature-space">
+            <img src="/images/signature.png" alt="Authorized Signatory" class="signature-img" onerror="this.onerror=null; this.replaceWith(document.getElementById('stamp-fallback-template').content.cloneNode(true));">
+            <template id="stamp-fallback-template">
+              <div class="signature-stamp-placeholder">
+                <i class="fa-solid fa-stamp" style="margin-right: 4px;"></i> HIDDEN LAMP PVT LTD<br>
+                <small style="font-size: 0.65rem; font-weight: 600;">AUTHORIZED SIGNATORY</small>
+              </div>
+            </template>
+          </div>
+          <div class="signature-line">Authorized Signatory / Director</div>
         </div>
       </div>
+      
       <div class="footer-note">
-        This is a computer-generated document. No physical signature is required. | Reference: <strong><%= payslipRefNo %></strong>
+        This is an official computer-generated salary payslip statement of Hidden Lamp Pvt. Ltd. | Reference: <strong><%= payslipRefNo %></strong>
       </div>
     </div>
   </div>

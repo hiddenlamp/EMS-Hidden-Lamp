@@ -32,7 +32,7 @@ function generatePayslipPDFBuffer(payslipData) {
          .fillColor('#94a3b8')
          .text(`Employee Salary Slip for ${period} | Pay Date: ${payDate || 'End of Month'}`, 48, 72, { align: 'center', width: 499 });
 
-      let y = 120;
+      let y = 118;
 
       // 2. Employee Metadata Box
       doc.rect(36, y, 523, 75).fillAndStroke('#f8fafc', '#cbd5e1');
@@ -56,7 +56,7 @@ function generatePayslipPDFBuffer(payslipData) {
       doc.font('Helvetica-Bold').text(`Pay Period:`, 320, y + 52);
       doc.font('Helvetica').text(`${period}`, 420, y + 52);
 
-      y += 95;
+      y += 92;
 
       // 3. Earnings & Deductions Tables (Side by Side)
       const tableWidth = 250;
@@ -125,33 +125,64 @@ function generatePayslipPDFBuffer(payslipData) {
          .text('TOTAL DEDUCTIONS', deductionsX + 8, y + 6)
          .text(`₹${totalDeductions.toFixed(2)}`, deductionsX + 160, y + 6, { align: 'right', width: 80 });
 
-      y += 35;
+      y += 30;
 
       // 4. Net Salary Highlight Banner
-      doc.rect(36, y, 523, 65).fillAndStroke('#f0fdf4', '#86efac');
+      doc.rect(36, y, 523, 58).fillAndStroke('#f0fdf4', '#86efac');
       
-      doc.fillColor('#166534').font('Helvetica-Bold').fontSize(11)
-         .text('NET SALARY PAYABLE', 48, y + 12, { align: 'center', width: 499 });
+      doc.fillColor('#166534').font('Helvetica-Bold').fontSize(10)
+         .text('NET SALARY PAYABLE', 48, y + 10, { align: 'center', width: 499 });
 
-      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(20)
-         .text(`₹${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 48, y + 28, { align: 'center', width: 499 });
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(18)
+         .text(`₹${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 48, y + 26, { align: 'center', width: 499 });
 
-      y += 75;
+      y += 68;
 
       // Amount In Words
       doc.fillColor('#475569').font('Helvetica-Oblique').fontSize(9)
          .text(`Amount in Words: ${netPayInWords || ''}`, 36, y, { align: 'center', width: 523 });
 
-      y += 35;
+      y += 28;
 
-      // 5. Footer & Signature Line
-      doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(36, y).lineTo(559, y).stroke();
-      y += 12;
+      // 5. PROMINENT LARGE AUTHORIZED SIGNATURE & STAMP SEAL BOX
+      const sigWidth = 220;
+      const leftSigX = 36;
+      const rightSigX = 339;
+
+      // Left Box: Employee Acknowledgement
+      doc.rect(leftSigX, y, sigWidth, 65).fillAndStroke('#f8fafc', '#cbd5e1');
+      doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(8)
+         .text('EMPLOYEE ACKNOWLEDGEMENT', leftSigX, y + 8, { align: 'center', width: sigWidth });
+      doc.fillColor('#94a3b8').font('Helvetica-Oblique').fontSize(8)
+         .text('Employee Signature', leftSigX, y + 30, { align: 'center', width: sigWidth });
+      doc.strokeColor('#64748b').lineWidth(1).moveTo(leftSigX + 20, y + 50).lineTo(leftSigX + sigWidth - 20, y + 50).stroke();
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8)
+         .text('Signature of Employee', leftSigX, y + 53, { align: 'center', width: sigWidth });
+
+      // Right Box: Prominent Company Seal & Authorized Signatory
+      doc.rect(rightSigX, y, sigWidth, 65).fillAndStroke('#eff6ff', '#93c5fd');
+      doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(8)
+         .text('FOR HIDDEN LAMP PRIVATE LIMITED', rightSigX, y + 8, { align: 'center', width: sigWidth });
+      
+      // Stamp Badge Box
+      doc.rect(rightSigX + 30, y + 22, sigWidth - 60, 22).fillAndStroke('#dbeafe', '#1d4ed8');
+      doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(8)
+         .text('HIDDEN LAMP PVT LTD (SEAL)', rightSigX + 30, y + 28, { align: 'center', width: sigWidth - 60 });
+
+      doc.strokeColor('#1d4ed8').lineWidth(1.5).moveTo(rightSigX + 20, y + 50).lineTo(rightSigX + sigWidth - 20, y + 50).stroke();
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8)
+         .text('Authorized Signatory / Director', rightSigX, y + 53, { align: 'center', width: sigWidth });
+
+      y += 75;
+
+      // 6. Footer Note
+      doc.strokeColor('#cbd5e1').lineWidth(0.75).moveTo(36, y).lineTo(559, y).stroke();
+      y += 8;
 
       doc.fillColor('#64748b').font('Helvetica').fontSize(8)
-         .text('This is a computer-generated salary slip and does not require a physical signature.', 36, y, { align: 'center', width: 523 });
+         .text('This is an official computer-generated salary payslip statement of Hidden Lamp Pvt. Ltd.', 36, y, { align: 'center', width: 523 });
       
-      doc.text('Hidden Lamp Private Limited | Registered Office: 26, UIT Pratap Nagar, Jodhpur Rajasthan 342001 India', 36, y + 12, { align: 'center', width: 523 });
+      doc.text('Hidden Lamp Private Limited | Registered Office: 26, UIT Pratap Nagar, Jodhpur Rajasthan 342001 India', 36, y + 10, { align: 'center', width: 523 });
 
       doc.end();
     } catch (err) {

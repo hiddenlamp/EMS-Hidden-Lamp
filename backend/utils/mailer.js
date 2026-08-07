@@ -13,8 +13,8 @@ dns.resolve4('smtp.hostinger.com', (err, addresses) => {
 });
 
 /**
- * Creates a nodemailer transporter with fast connection timeout & automatic fallback.
- * Uses native DNS resolution with Port 587 (TLS/STARTTLS) as primary for cloud environments.
+ * Creates a nodemailer transporter targeting Hostinger SMTP directly.
+ * Always sends real emails to recipient inboxes.
  */
 async function createTransporterWithFailover() {
   const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
@@ -22,7 +22,7 @@ async function createTransporterWithFailover() {
   const pass = (process.env.SMTP_PASS || 'Hiddenlamp@734006').trim();
   const service = (process.env.SMTP_SERVICE || '').trim();
 
-  // 1. Gmail Service Handler
+  // 1. Gmail Service Handler (if configured in env)
   if (service.toLowerCase() === 'gmail' || host.includes('gmail')) {
     console.log('📧 Using Gmail SMTP Service Configuration...');
     return nodemailer.createTransport({
@@ -31,13 +31,14 @@ async function createTransporterWithFailover() {
     });
   }
 
-  // 2. Transporter Configurations to Attempt (Port 587 TLS first, then IP fallback, then Port 465 SSL)
+  // 2. Hostinger SMTP Configurations to Attempt (Port 587 TLS first, then Direct IP, then Port 465 SSL)
   const configsToTry = [
-    { host: host, port: 587, secure: false, requireTLS: true, name: 'smtp.hostinger.com Port 587 (TLS)' },
+    { host: 'smtp.hostinger.com', port: 587, secure: false, requireTLS: true, name: 'smtp.hostinger.com Port 587 (TLS)' },
     { host: cachedHostingerIp, port: 587, secure: false, requireTLS: true, name: `Direct IP ${cachedHostingerIp} Port 587` },
-    { host: host, port: 465, secure: true, requireTLS: false, name: 'smtp.hostinger.com Port 465 (SSL)' }
+    { host: 'smtp.hostinger.com', port: 465, secure: true, requireTLS: false, name: 'smtp.hostinger.com Port 465 (SSL)' }
   ];
 
+  let lastErr = null;
   for (const cfg of configsToTry) {
     try {
       console.log(`🔌 Attempting Fast SMTP Connection to ${cfg.name}...`);
@@ -46,40 +47,45 @@ async function createTransporterWithFailover() {
         port: cfg.port,
         secure: cfg.secure,
         requireTLS: cfg.requireTLS,
-        auth: { user, pass },
+        auth: {
+          user: user || 'hiddenlamp@ems.hiddenlamp.in',
+          pass: pass || 'Hiddenlamp@734006'
+        },
         tls: { rejectUnauthorized: false, servername: 'smtp.hostinger.com' },
-        connectionTimeout: 4000,
-        greetingTimeout: 4000,
-        socketTimeout: 8000
+        connectionTimeout: 6000,
+        greetingTimeout: 6000,
+        socketTimeout: 12000
       });
 
       // Quick connection verification
       await transporter.verify();
-      console.log(`✅ SMTP Connected & Verified Successfully on ${cfg.name}!`);
+      console.log(`✅ Hostinger SMTP Connected & Verified Successfully on ${cfg.name}!`);
       return transporter;
     } catch (err) {
+      lastErr = err;
       console.warn(`⚠️ Connection to ${cfg.name} failed: ${err.message}. Trying next config...`);
     }
   }
 
-  // 3. Ethereal Test Account Fallback (Guarantees email success even if cloud firewall blocks outbound SMTP)
-  console.warn('⚠️ Primary SMTP connections unreachable. Initializing Ethereal Test Email Account...');
-  const testAccount = await nodemailer.createTestAccount();
+  // Direct Fallback Transporter if loop completes
+  console.log('⚡ Direct Fallback to Hostinger Port 587 Direct Transport...');
   return nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
+    host: 'smtp.hostinger.com',
     port: 587,
     secure: false,
+    requireTLS: true,
     auth: {
-      user: testAccount.user,
-      pass: testAccount.pass
-    }
+      user: 'hiddenlamp@ems.hiddenlamp.in',
+      pass: 'Hiddenlamp@734006'
+    },
+    tls: { rejectUnauthorized: false }
   });
 }
 
 async function sendPayslipEmail(data) {
   const { to, employeeName, period, payDate, grossPay, totalDeductions, netPay, netPayInWords, breakdown, payslipUrl, payslipDownloadUrl } = data;
 
-  const senderEmail = process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in';
+  const senderEmail = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
   const from = `"Hidden Lamp Payroll" <${senderEmail}>`;
   const subject = `Salary Payslip for Period ${period} - Hidden Lamp Pvt. Ltd.`;
 
@@ -224,42 +230,15 @@ async function sendPayslipEmail(data) {
     });
   }
 
-  let transporter;
-  try {
-    transporter = await createTransporterWithFailover();
-  } catch (err) {
-    console.warn('⚠️ Primary SMTP initialization error:', err.message);
-    const testAccount = await nodemailer.createTestAccount();
-    transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass }
-    });
-  }
+  const transporter = await createTransporterWithFailover();
 
   try {
     const info = await transporter.sendMail({ from, to, subject, html, attachments });
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    if (previewUrl) {
-      console.log(`✉️ Email Dispatched to Ethereal Sandbox: ${to} (Preview: ${previewUrl})`);
-    } else {
-      console.log(`✅ Hostinger SMTP Email sent successfully with PDF attachment to ${to} (MessageID: ${info.messageId})`);
-    }
-    return { messageId: info.messageId, previewUrl: previewUrl || null };
+    console.log(`✅ Hostinger SMTP Email sent successfully with PDF attachment to ${to} (MessageID: ${info.messageId})`);
+    return { messageId: info.messageId, previewUrl: null };
   } catch (sendErr) {
-    console.warn(`⚠️ Hostinger Mail Send Error: ${sendErr.message}. Dispatching via Backup Service...`);
-    const testAccount = await nodemailer.createTestAccount();
-    const backupTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass }
-    });
-    const fallbackInfo = await backupTransporter.sendMail({ from, to, subject, html, attachments });
-    const fallbackPreviewUrl = nodemailer.getTestMessageUrl(fallbackInfo);
-    console.log(`✅ Backup Email sent successfully! Preview: ${fallbackPreviewUrl}`);
-    return { messageId: fallbackInfo.messageId, previewUrl: fallbackPreviewUrl || null };
+    console.error(`❌ Hostinger Email Send Error for ${to}:`, sendErr.message);
+    throw sendErr;
   }
 }
 
