@@ -113,7 +113,8 @@
               <th style="text-align: right; white-space: nowrap;">Monthly Gross</th>
               <th style="text-align: right; white-space: nowrap;">Deductions</th>
               <th style="text-align: right; white-space: nowrap;">Net Salary</th>
-              <th style="text-align: center; white-space: nowrap;">Status</th>
+              <th style="text-align: center; white-space: nowrap;">Run Status</th>
+              <th style="text-align: center; white-space: nowrap;">Email Delivery Status</th>
               <th style="text-align: right; white-space: nowrap;">Actions</th>
             </tr>
           </thead>
@@ -156,6 +157,28 @@
                     <span class="badge badge-draft" style="font-size: 0.72rem; white-space: nowrap;">Pending</span>
                   <% } %>
                 </td>
+                <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
+                  <% if (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') { %>
+                    <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;">
+                      <i class="fa-solid fa-circle-check"></i> Dispatched
+                    </span>
+                    <% if (ps.email_sent_at) { %>
+                      <br><small style="font-size: 0.68rem; color: #64748b; font-weight: 500;"><%= ps.email_sent_at.substring(0, 16) %></small>
+                    <% } %>
+                  <% } else if (ps.email_status === 'Sending...' || ps.email_status === 'Processing') { %>
+                    <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;">
+                      <i class="fa-solid fa-spinner fa-spin"></i> Sending...
+                    </span>
+                  <% } else if (ps.email_status === 'Failed') { %>
+                    <span class="badge" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;" title="<%= ps.email_error || 'Delivery Error' %>">
+                      <i class="fa-solid fa-circle-xmark"></i> Failed
+                    </span>
+                  <% } else { %>
+                    <span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600;">
+                      <i class="fa-regular fa-clock"></i> Not Sent
+                    </span>
+                  <% } %>
+                </td>
                 <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
                   <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center; white-space: nowrap;">
                     <a href="/payroll/<%= ps.payroll_run_id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.25rem 0.5rem; font-size: 0.78rem; white-space: nowrap;" title="View Printable Payslip">
@@ -166,8 +189,8 @@
                     </a>
                     <form action="/payroll/<%= ps.payroll_run_id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline; margin: 0; white-space: nowrap;">
                       <input type="hidden" name="redirect" value="/payslips">
-                      <button type="submit" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.78rem; background: linear-gradient(135deg, #059669 0%, #047857 100%); border-color: #047857; white-space: nowrap;" title="Send Email Notification">
-                        <i class="fa-regular fa-paper-plane"></i> Email
+                      <button type="submit" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.78rem; background: <%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'linear-gradient(135deg, #059669 0%, #047857 100%)' %>; border-color: #047857; white-space: nowrap;" title="<%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'Resend Email Notification' : 'Send Email Notification' %>">
+                        <i class="fa-solid <%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'fa-rotate-right' : 'fa-paper-plane' %>"></i> <%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'Resend' : 'Email' %>
                       </button>
                     </form>
                   </div>

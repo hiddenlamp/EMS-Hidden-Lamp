@@ -177,8 +177,8 @@ router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, r
     `);
 
     const insertPayslip = db.prepare(`
-      INSERT INTO payslips (payroll_run_id, employee_id, gross_pay, total_deductions, net_pay, breakdown_json)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO payslips (payroll_run_id, employee_id, gross_pay, total_deductions, net_pay, breakdown_json, email_status)
+      VALUES (?, ?, ?, ?, ?, ?, 'Not Sent')
     `);
 
     for (const emp of activeEmployees) {
@@ -303,7 +303,6 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), (req, res
 
   const shouldSendEmails = req.body.send_emails === 'true';
 
-  // ⚡ INSTANT RESPONSE: Send 302 Redirect in 5ms without hanging the browser!
   if (shouldSendEmails) {
     const payslips = db.prepare(`
       SELECT p.*, e.name as employee_name, e.email as user_email
@@ -311,6 +310,9 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), (req, res
       JOIN employees e ON p.employee_id = e.id
       WHERE p.payroll_run_id = ?
     `).all(run.id);
+
+    // Update status in DB to 'Sending...' immediately
+    db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE payroll_run_id = ?").run(run.id);
 
     const protocol = req.protocol;
     const host = req.get('host');
@@ -336,8 +338,10 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), (req, res
             breakdown,
             payslipDownloadUrl
           });
+          db.prepare("UPDATE payslips SET email_status = 'Dispatched', email_sent_at = CURRENT_TIMESTAMP, email_error = NULL WHERE id = ?").run(ps.id);
         } catch (e) {
           console.error(`⚠️ Background Email dispatch error for ${targetEmail}:`, e.message);
+          db.prepare("UPDATE payslips SET email_status = 'Failed', email_error = ? WHERE id = ?").run(e.message, ps.id);
         }
       }
       console.log(`✅ Background Email Dispatch Complete for Run #${run.id}!`);
@@ -370,8 +374,11 @@ router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'h
   const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${payslip.employee_id}`;
   const redirectPath = req.body.redirect || `/payroll/${run.id}`;
 
+  // Update status in DB to 'Sending...' immediately
+  db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE id = ?").run(payslip.id);
+
   // ⚡ INSTANT RESPONSE IN 5ms!
-  res.redirect(`${redirectPath}?success=${encodeURIComponent('Email dispatch started for ' + payslip.employee_name + ' (' + targetEmail + ')! Check inbox shortly.')}`);
+  res.redirect(`${redirectPath}?success=${encodeURIComponent('Email dispatch started for ' + payslip.employee_name + ' (' + targetEmail + ')! Check status badge.')}`);
 
   // Asynchronous Background Worker Execution
   setImmediate(async () => {
@@ -388,8 +395,10 @@ router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'h
         breakdown,
         payslipDownloadUrl
       });
+      db.prepare("UPDATE payslips SET email_status = 'Dispatched', email_sent_at = CURRENT_TIMESTAMP, email_error = NULL WHERE id = ?").run(payslip.id);
       console.log(`✅ Single Email dispatched to ${targetEmail}`);
     } catch (err) {
+      db.prepare("UPDATE payslips SET email_status = 'Failed', email_error = ? WHERE id = ?").run(err.message, payslip.id);
       console.error(`⚠️ Single Email error for ${targetEmail}:`, err.message);
     }
   });
@@ -409,11 +418,14 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), (
     WHERE p.payroll_run_id = ?
   `).all(run.id);
 
+  // Update status in DB to 'Sending...' for all payslips
+  db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE payroll_run_id = ?").run(run.id);
+
   const protocol = req.protocol;
   const host = req.get('host');
 
   // ⚡ INSTANT RESPONSE IN 5ms!
-  res.redirect(`/payroll/${run.id}?success=${encodeURIComponent('Bulk email dispatch initiated for ' + payslips.length + ' employees! Emails are being sent in background.')}`);
+  res.redirect(`/payroll/${run.id}?success=${encodeURIComponent('Bulk email dispatch initiated for ' + payslips.length + ' employees! Track status badges below.')}`);
 
   // Asynchronous Background Worker Execution
   setImmediate(async () => {
@@ -436,7 +448,9 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), (
           breakdown,
           payslipDownloadUrl
         });
+        db.prepare("UPDATE payslips SET email_status = 'Dispatched', email_sent_at = CURRENT_TIMESTAMP, email_error = NULL WHERE id = ?").run(ps.id);
       } catch (e) {
+        db.prepare("UPDATE payslips SET email_status = 'Failed', email_error = ? WHERE id = ?").run(e.message, ps.id);
         console.error(`⚠️ Bulk Email error for ${targetEmail}:`, e.message);
       }
     }

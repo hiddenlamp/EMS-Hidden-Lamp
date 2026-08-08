@@ -108,6 +108,7 @@
             <th style="text-align: right;">Gross Pay (Prorated)</th>
             <th style="text-align: right;">Deductions</th>
             <th style="text-align: right;">Net Pay</th>
+            <th style="text-align: center;">Email Delivery Status</th>
             <th style="text-align: center;">Actions</th>
           </tr>
         </thead>
@@ -123,14 +124,38 @@
               <td style="text-align: right; color: #059669;">₹<%= ps.gross_pay.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %></td>
               <td style="text-align: right; color: #dc2626;">₹<%= ps.total_deductions.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %></td>
               <td style="text-align: right; font-weight: 700; color: #2563eb;">₹<%= ps.net_pay.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %></td>
+              <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
+                <% if (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') { %>
+                  <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-weight: 700;">
+                    <i class="fa-solid fa-circle-check"></i> Dispatched
+                  </span>
+                  <% if (ps.email_sent_at) { %>
+                    <br><small style="font-size: 0.68rem; color: #64748b; font-weight: 500;"><%= ps.email_sent_at.substring(0, 16) %></small>
+                  <% } %>
+                <% } else if (ps.email_status === 'Sending...' || ps.email_status === 'Processing') { %>
+                  <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-weight: 700;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Sending...
+                  </span>
+                <% } else if (ps.email_status === 'Failed') { %>
+                  <span class="badge" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-weight: 700;" title="<%= ps.email_error || 'Delivery Error' %>">
+                    <i class="fa-solid fa-circle-xmark"></i> Failed
+                  </span>
+                <% } else { %>
+                  <span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-weight: 600;">
+                    <i class="fa-regular fa-clock"></i> Not Sent
+                  </span>
+                <% } %>
+              </td>
               <td style="text-align: center; white-space: nowrap;">
-                <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center;">
                   <a href="/payroll/<%= run.id %>/payslip/<%= ps.employee_id %>" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">👁️ View</a>
                   <a href="/payroll/<%= run.id %>/payslip/<%= ps.employee_id %>/pdf" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">📥 PDF</a>
+                  <form action="/payroll/<%= run.id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline-block; margin: 0;">
+                    <button type="submit" class="btn btn-sm btn-outline-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" title="<%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'Resend Email' : 'Send Email' %>">
+                      <i class="fa-solid <%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'fa-rotate-right' : 'fa-paper-plane' %>"></i> <%= (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') ? 'Resend' : 'Email' %>
+                    </button>
+                  </form>
                 </div>
-                <form action="/payroll/<%= run.id %>/send-email/<%= ps.employee_id %>" method="POST" style="display: inline-block; margin-top: 0.5rem;">
-                  <button type="submit" class="btn btn-sm btn-outline-primary">📧 Email</button>
-                </form>
               </td>
             </tr>
           <% }); %>

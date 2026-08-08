@@ -157,8 +157,9 @@ try { db.exec("ALTER TABLE company_expenses ADD COLUMN expense_type TEXT DEFAULT
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN advance_paid REAL DEFAULT 0;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_expenses ADD COLUMN dues_amount REAL DEFAULT 0;"); } catch (e) {}
 try { db.exec("ALTER TABLE travel_expenses ADD COLUMN project_name TEXT DEFAULT 'General Corporate';"); } catch (e) {}
-try { db.exec("ALTER TABLE company_expenses ADD COLUMN responsible_employee_id INTEGER REFERENCES employees(id);"); } catch (e) {}
-try { db.exec("ALTER TABLE employees ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch (e) {}
+try { db.exec("ALTER TABLE payslips ADD COLUMN email_status TEXT DEFAULT 'Not Sent';"); } catch (e) {}
+try { db.exec("ALTER TABLE payslips ADD COLUMN email_sent_at DATETIME;"); } catch (e) {}
+try { db.exec("ALTER TABLE payslips ADD COLUMN email_error TEXT;"); } catch (e) {}
 
 // Backfill expense_type & dues for existing records
 try {

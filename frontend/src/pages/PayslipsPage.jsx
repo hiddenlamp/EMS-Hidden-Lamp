@@ -155,13 +155,18 @@ const PayslipsPage = () => {
                   <th style={{ textAlign: 'right' }}>MONTHLY GROSS</th>
                   <th style={{ textAlign: 'right' }}>DEDUCTIONS</th>
                   <th style={{ textAlign: 'right' }}>NET SALARY</th>
-                  <th style={{ textAlign: 'center' }}>STATUS</th>
+                  <th style={{ textAlign: 'center' }}>RUN STATUS</th>
+                  <th style={{ textAlign: 'center' }}>EMAIL DELIVERY STATUS</th>
                   <th style={{ textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {payslips.map(ps => {
-                  const refNo = `HL/PS/${ps.period?.replace('-', '/')}/${String(ps.id).padStart(3, '0')}`;
+                  const refNo = `HL/PS/${ps.period?.replace('-', '/')}/${String(ps.employee_id || 1).padStart(3, '0')}`;
+                  const isDispatched = ps.email_status === 'Dispatched' || ps.email_status === 'Sent';
+                  const isSending = ps.email_status === 'Sending...' || ps.email_status === 'Processing';
+                  const isFailed = ps.email_status === 'Failed';
+
                   return (
                     <tr key={ps.id}>
                       <td>
@@ -172,13 +177,37 @@ const PayslipsPage = () => {
                       <td><strong>{ps.period}</strong></td>
                       <td>
                         <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{ps.employee_name}</strong>
-                        <br /><small style={{ color: 'var(--text-muted)' }}><i className="fa-solid fa-envelope"></i> {ps.employee_email}</small>
+                        <br /><small style={{ color: 'var(--text-muted)' }}><i className="fa-solid fa-envelope"></i> {ps.user_email || ps.employee_email || (ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@hiddenlamp.com')}</small>
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>₹{(ps.gross_pay || 0).toLocaleString('en-IN')}</td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: '#dc2626' }}>₹{(ps.total_deductions || 0).toLocaleString('en-IN')}</td>
                       <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb', fontSize: '1rem' }}>₹{(ps.net_pay || 0).toLocaleString('en-IN')}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span className="badge badge-approved" style={{ background: '#d1fae5', color: '#065f46' }}>Issued</span>
+                      </td>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        {isDispatched ? (
+                          <div>
+                            <span className="badge" style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '9999px', fontWeight: 700 }}>
+                              <i className="fa-solid fa-circle-check"></i> Dispatched
+                            </span>
+                            {ps.email_sent_at && (
+                              <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>{ps.email_sent_at.substring(0, 16)}</div>
+                            )}
+                          </div>
+                        ) : isSending ? (
+                          <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd', fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '9999px', fontWeight: 700 }}>
+                            <i className="fa-solid fa-spinner fa-spin"></i> Sending...
+                          </span>
+                        ) : isFailed ? (
+                          <span className="badge" style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fca5a5', fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '9999px', fontWeight: 700 }} title={ps.email_error || 'Delivery Error'}>
+                            <i className="fa-solid fa-circle-xmark"></i> Failed
+                          </span>
+                        ) : (
+                          <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '9999px', fontWeight: 600 }}>
+                            <i className="fa-regular fa-clock"></i> Not Sent
+                          </span>
+                        )}
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
@@ -189,7 +218,7 @@ const PayslipsPage = () => {
                           <i className="fa-solid fa-eye"></i> View
                         </button>
                         <a
-                          href={`/api/payroll/${ps.payroll_run_id}/payslip/${ps.employee_id}/pdf`}
+                          href={`/payroll/${ps.payroll_run_id}/payslip/${ps.employee_id}/pdf`}
                           target="_blank"
                           rel="noreferrer"
                           className="btn btn-sm btn-primary"
@@ -200,9 +229,9 @@ const PayslipsPage = () => {
                         <button
                           onClick={() => handleSendEmail(ps.payroll_run_id, ps.employee_id)}
                           className="btn btn-sm btn-primary"
-                          style={{ fontSize: '0.78rem' }}
+                          style={{ fontSize: '0.78rem', background: isDispatched ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
                         >
-                          <i className="fa-solid fa-paper-plane"></i> Email
+                          <i className={`fa-solid ${isDispatched ? 'fa-rotate-right' : 'fa-paper-plane'}`}></i> {isDispatched ? 'Resend' : 'Email'}
                         </button>
                       </td>
                     </tr>
