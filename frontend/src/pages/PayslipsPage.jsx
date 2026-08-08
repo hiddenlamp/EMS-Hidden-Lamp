@@ -189,7 +189,7 @@ const PayslipsPage = () => {
                         {isDispatched ? (
                           <div>
                             <span className="badge" style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '9999px', fontWeight: 700 }}>
-                              <i className="fa-solid fa-circle-check"></i> Dispatched
+                              <i className="fa-solid fa-circle-check"></i> Email Sent
                             </span>
                             {ps.email_sent_at && (
                               <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>{ps.email_sent_at.substring(0, 16)}</div>

@@ -127,7 +127,7 @@
               <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
                 <% if (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') { %>
                   <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-weight: 700;">
-                    <i class="fa-solid fa-circle-check"></i> Dispatched
+                    <i class="fa-solid fa-circle-check"></i> Email Sent
                   </span>
                   <% if (ps.email_sent_at) { %>
                     <br><small style="font-size: 0.68rem; color: #64748b; font-weight: 500;"><%= ps.email_sent_at.substring(0, 16) %></small>
