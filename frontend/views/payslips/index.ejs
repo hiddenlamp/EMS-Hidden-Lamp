@@ -260,4 +260,16 @@
   <% } %>
 </div>
 
+<script>
+  // Auto-refresh page once after 3.5s if email dispatch was just triggered or is currently sending
+  const hasSendingBadge = document.querySelector('.fa-spinner');
+  const hasSuccessAlert = document.querySelector('.alert-success');
+  if (hasSendingBadge || (hasSuccessAlert && window.location.search.includes('success='))) {
+    setTimeout(() => {
+      // Retain search parameter if present so user stays on target employee
+      window.location.reload();
+    }, 3500);
+  }
+</script>
+
 <%- include('../partials/footer') %>

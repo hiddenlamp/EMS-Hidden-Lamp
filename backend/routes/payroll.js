@@ -377,8 +377,12 @@ router.post('/:id/send-email/:employeeId', requireAuth, requireRole(['admin', 'h
   // Update status in DB to 'Sending...' immediately
   db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE id = ?").run(payslip.id);
 
+  const targetRedirectUrl = redirectPath === '/payslips' 
+    ? `/payslips?search=${encodeURIComponent(payslip.employee_name)}&success=${encodeURIComponent('Email dispatch started for ' + payslip.employee_name + ' (' + targetEmail + ')! Check status badge below.')}`
+    : `${redirectPath}?success=${encodeURIComponent('Email dispatch started for ' + payslip.employee_name + ' (' + targetEmail + ')! Check status badge.')}`;
+
   // ⚡ INSTANT RESPONSE IN 5ms!
-  res.redirect(`${redirectPath}?success=${encodeURIComponent('Email dispatch started for ' + payslip.employee_name + ' (' + targetEmail + ')! Check status badge.')}`);
+  res.redirect(targetRedirectUrl);
 
   // Asynchronous Background Worker Execution
   setImmediate(async () => {

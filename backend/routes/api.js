@@ -417,12 +417,95 @@ router.post('/payroll/:id/calculate', requireRole(['admin', 'hr']), (req, res) =
 
 router.post('/payroll/:id/approve', requireRole(['admin', 'hr']), async (req, res) => {
   const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  res.json({ success: true });
+});
+
+router.post('/payroll/:id/send-email/:employeeId', requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+  const payslip = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ? AND p.employee_id = ?
+  `).get(req.params.id, req.params.employeeId);
+
+  if (!run || !payslip) {
+    return res.status(404).json({ error: 'Payslip record not found.' });
+  }
+
+  const targetEmail = payslip.user_email || `${payslip.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+  const breakdown = JSON.parse(payslip.breakdown_json);
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${payslip.employee_id}`;
+
+  db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE id = ?").run(payslip.id);
+
+  res.json({ success: true, message: `Email dispatch started for ${payslip.employee_name} (${targetEmail})` });
+
+  setImmediate(async () => {
+    try {
+      await sendPayslipEmail({
+        to: targetEmail,
+        employeeName: payslip.employee_name,
+        period: run.period,
+        payDate: run.pay_date,
+        grossPay: payslip.gross_pay,
+        totalDeductions: payslip.total_deductions,
+        netPay: payslip.net_pay,
+        netPayInWords: breakdown.net_pay_in_words,
+        breakdown,
+        payslipDownloadUrl
+      });
+      db.prepare("UPDATE payslips SET email_status = 'Dispatched', email_sent_at = CURRENT_TIMESTAMP, email_error = NULL WHERE id = ?").run(payslip.id);
+    } catch (err) {
+      db.prepare("UPDATE payslips SET email_status = 'Failed', email_error = ? WHERE id = ?").run(err.message, payslip.id);
+    }
+  });
+});
+
+router.post('/payroll/:id/send-all-emails', requireRole(['admin', 'hr']), (req, res) => {
+  const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Payroll run not found.' });
 
-  db.prepare("UPDATE payroll_runs SET status = 'approved' WHERE id = ?").run(run.id);
-  logAction(req.session.user.email, 'APPROVE_PAYROLL', 'Payroll Run', run.id, { period: run.period });
+  const payslips = db.prepare(`
+    SELECT p.*, e.name as employee_name, e.email as user_email
+    FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.payroll_run_id = ?
+  `).all(run.id);
 
-  res.json({ success: true });
+  db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE payroll_run_id = ?").run(run.id);
+  res.json({ success: true, message: `Bulk email dispatch initiated for ${payslips.length} employees.` });
+
+  const protocol = req.protocol;
+  const host = req.get('host');
+
+  setImmediate(async () => {
+    for (const ps of payslips) {
+      const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
+      const breakdown = JSON.parse(ps.breakdown_json);
+      const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${ps.employee_id}`;
+
+      try {
+        await sendPayslipEmail({
+          to: targetEmail,
+          employeeName: ps.employee_name,
+          period: run.period,
+          payDate: run.pay_date,
+          grossPay: ps.gross_pay,
+          totalDeductions: ps.total_deductions,
+          netPay: ps.net_pay,
+          netPayInWords: breakdown.net_pay_in_words,
+          breakdown,
+          payslipDownloadUrl
+        });
+        db.prepare("UPDATE payslips SET email_status = 'Dispatched', email_sent_at = CURRENT_TIMESTAMP, email_error = NULL WHERE id = ?").run(ps.id);
+      } catch (e) {
+        db.prepare("UPDATE payslips SET email_status = 'Failed', email_error = ? WHERE id = ?").run(e.message, ps.id);
+      }
+    }
+  });
 });
 
 // ----------------------------------------------------
