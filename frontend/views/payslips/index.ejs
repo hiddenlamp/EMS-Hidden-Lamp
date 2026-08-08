@@ -261,14 +261,21 @@
 </div>
 
 <script>
-  // Auto-refresh page once after 3.5s if email dispatch was just triggered or is currently sending
-  const hasSendingBadge = document.querySelector('.fa-spinner');
-  const hasSuccessAlert = document.querySelector('.alert-success');
-  if (hasSendingBadge || (hasSuccessAlert && window.location.search.includes('success='))) {
+  // Only auto-refresh ONCE if an email is actively sending (blue spinner on screen)
+  const hasSendingSpinner = document.querySelector('.fa-spinner');
+  if (hasSendingSpinner) {
     setTimeout(() => {
-      // Retain search parameter if present so user stays on target employee
       window.location.reload();
-    }, 3500);
+    }, 3000);
+  }
+
+  // Auto-clean success message parameter from address bar after 4s to prevent reload loops
+  if (window.location.search.includes('success=')) {
+    setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : ''));
+    }, 4000);
   }
 </script>
 
