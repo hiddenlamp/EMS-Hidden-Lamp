@@ -157,7 +157,7 @@
                     <span class="badge badge-draft" style="font-size: 0.72rem; white-space: nowrap;">Pending</span>
                   <% } %>
                 </td>
-                <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
+                <td class="email-status-cell" data-payslip-id="<%= ps.id %>" style="text-align: center; white-space: nowrap; vertical-align: middle;">
                   <% if (ps.email_status === 'Dispatched' || ps.email_status === 'Sent') { %>
                     <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;">
                       <i class="fa-solid fa-circle-check"></i> Email Sent
@@ -224,9 +224,9 @@
           </div>
 
           <div style="margin-bottom: 0.75rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 0.15rem 0;"><%= ps.employee_name %></h3>
-            <div style="font-size: 0.82rem; color: var(--accent); font-weight: 600;"><i class="fa-regular fa-envelope"></i> <%= registeredEmail %></div>
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Pay Period: <strong><%- periodFormatted %></strong></div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a;"><%= ps.employee_name %></div>
+            <div style="font-size: 0.8rem; color: var(--accent); font-weight: 600;"><i class="fa-regular fa-envelope"></i> <%= registeredEmail %></div>
+            <div style="font-size: 0.78rem; color: #64748b; margin-top: 0.2rem;">Period: <strong><%- periodFormatted %></strong></div>
           </div>
 
           <div style="background: #f8fafc; border-radius: 8px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border: 1px solid #e2e8f0;">
@@ -261,21 +261,63 @@
 </div>
 
 <script>
-  // Only auto-refresh ONCE if an email is actively sending (blue spinner on screen)
-  const hasSendingSpinner = document.querySelector('.fa-spinner');
-  if (hasSendingSpinner) {
-    setTimeout(() => {
-      window.location.reload();
-    }, 3000);
+  // SILENT AJAX POLLING (NO PAGE RELOAD / NO FLICKERING)
+  let pollInterval = null;
+
+  function pollStatus() {
+    fetch('/payslips/live-status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.statuses)) {
+          let hasPendingSending = false;
+          data.statuses.forEach(st => {
+            const cell = document.querySelector(`.email-status-cell[data-payslip-id="${st.id}"]`);
+            if (cell) {
+              if (st.email_status === 'Dispatched' || st.email_status === 'Sent') {
+                cell.innerHTML = `
+                  <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;">
+                    <i class="fa-solid fa-circle-check"></i> Email Sent
+                  </span>
+                  ${st.email_sent_at ? `<br><small style="font-size: 0.68rem; color: #64748b; font-weight: 500;">${st.email_sent_at.substring(0, 16)}</small>` : ''}
+                `;
+              } else if (st.email_status === 'Sending...' || st.email_status === 'Processing') {
+                hasPendingSending = true;
+                cell.innerHTML = `
+                  <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Sending...
+                  </span>
+                `;
+              } else if (st.email_status === 'Failed') {
+                cell.innerHTML = `
+                  <span class="badge" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;" title="${st.email_error || 'Delivery Error'}">
+                    <i class="fa-solid fa-circle-xmark"></i> Failed
+                  </span>
+                `;
+              }
+            }
+          });
+
+          if (!hasPendingSending && pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      })
+      .catch(e => console.log('Poll silent catch:', e));
   }
 
-  // Auto-clean success message parameter from address bar after 4s to prevent reload loops
+  // Start polling if any badge is currently Sending...
+  if (document.querySelector('.fa-spinner')) {
+    pollInterval = setInterval(pollStatus, 2500);
+  }
+
+  // Clean success parameter from address bar after 3 seconds without refreshing
   if (window.location.search.includes('success=')) {
     setTimeout(() => {
       const url = new URL(window.location.href);
       url.searchParams.delete('success');
       window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : ''));
-    }, 4000);
+    }, 3000);
   }
 </script>
 

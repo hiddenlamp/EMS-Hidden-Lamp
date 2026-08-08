@@ -6,6 +6,20 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 router.use(requireAuth);
 router.use(requireRole(['admin', 'hr']));
 
+// GET /payslips/live-status (Lightweight JSON endpoint for zero-reload AJAX badge polling)
+router.get('/live-status', (req, res) => {
+  try {
+    const statuses = db.prepare(`
+      SELECT id, email_status, email_sent_at, email_error 
+      FROM payslips 
+      ORDER BY id DESC
+    `).all();
+    res.json({ success: true, statuses });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /payslips (Global Payslip Directory with Month & Year Filtering)
 router.get('/', (req, res) => {
   const selectedYear = req.query.year || '';
