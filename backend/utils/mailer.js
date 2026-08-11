@@ -5,8 +5,8 @@ const { generatePayslipPDFBuffer } = require('./pdfGenerator');
 let cachedTransporter = null;
 
 /**
- * Creates or reuses a pooled Nodemailer transporter with Port 465 SSL primary.
- * Reuses active SMTP socket connections for ultra-fast instant email dispatch.
+ * Creates or reuses a pooled Nodemailer transporter supporting Zoho Mail, Hostinger, or Custom SMTP.
+ * Supports Port 465 SSL primary and Port 587 TLS fallback.
  */
 async function getTransporter() {
   if (cachedTransporter) {
@@ -21,79 +21,92 @@ async function getTransporter() {
   const rawHost = (process.env.SMTP_HOST || '').trim();
   const rawUser = (process.env.SMTP_USER || '').trim();
   const rawPass = (process.env.SMTP_PASS || '').trim();
+  const rawPort = parseInt(process.env.SMTP_PORT) || 465;
+  const rawSecure = process.env.SMTP_SECURE === 'true' || rawPort === 465;
 
-  const host = (rawHost && rawHost !== 'missing') ? rawHost : 'smtp.hostinger.com';
+  // Determine configuration (Zoho Mail default fallback or Hostinger default)
+  let host = 'smtp.zoho.in'; // Default Zoho Mail India host
+  if (rawHost && rawHost !== 'missing') {
+    host = rawHost;
+  } else if (rawUser.endsWith('@zoho.com') || rawUser.includes('zoho.com')) {
+    host = 'smtp.zoho.com';
+  } else if (!rawUser.includes('zoho')) {
+    host = 'smtp.hostinger.com';
+  }
+
   const user = (rawUser && rawUser !== 'missing') ? rawUser : 'hiddenlamp@ems.hiddenlamp.in';
   const pass = (rawPass && rawPass !== 'missing') ? rawPass : 'Hiddenlamp@734006';
 
-  // 1. Primary Config: Port 465 SSL (Fastest & most reliable on cloud VMs)
+  const isZoho = host.includes('zoho');
+  console.log(`🔌 Initializing ${isZoho ? 'Zoho Mail' : 'Hostinger'} SMTP connection (${host}:${rawPort})...`);
+
+  // 1. Primary Config: Port 465 SSL (or specified port)
   try {
-    console.log('🔌 Connecting to Hostinger SMTP Port 465 (SSL)...');
     const transporter = nodemailer.createTransport({
       host: host,
-      port: 465,
-      secure: true,
-      pool: false, // Single connection per request prevents Render socket pool timeouts
+      port: rawPort,
+      secure: rawSecure,
+      pool: false,
       auth: { user, pass },
-      family: 4, // Force IPv4 resolution (critical for Render Linux containers)
+      family: 4, // IPv4 resolution
       tls: {
         rejectUnauthorized: false,
-        servername: 'smtp.hostinger.com'
+        servername: host
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
       socketTimeout: 15000
     });
 
     await transporter.verify();
-    console.log('✅ Hostinger SMTP Port 465 SSL Connected & Verified!');
+    console.log(`✅ ${isZoho ? 'Zoho Mail' : 'SMTP'} Port ${rawPort} SSL Connected & Verified!`);
     cachedTransporter = transporter;
     return transporter;
-  } catch (err465) {
-    console.warn(`⚠️ Port 465 SSL Connection failed: ${err465.message}. Trying Port 587 TLS...`);
+  } catch (errPrimary) {
+    console.warn(`⚠️ Primary Port ${rawPort} connection failed: ${errPrimary.message}. Trying TLS fallback...`);
   }
 
-  // 2. Fallback Config: Port 587 TLS
+  // 2. Fallback Config: Port 587 TLS (or Port 465 fallback)
+  const fallbackPort = rawPort === 465 ? 587 : 465;
+  const fallbackSecure = fallbackPort === 465;
+
   try {
-    console.log('🔌 Fallback to Hostinger SMTP Port 587 (TLS)...');
+    console.log(`🔌 Fallback to ${host}:${fallbackPort}...`);
     const transporter = nodemailer.createTransport({
       host: host,
-      port: 587,
-      secure: false,
-      requireTLS: true,
+      port: fallbackPort,
+      secure: fallbackSecure,
+      requireTLS: !fallbackSecure,
       family: 4,
       auth: { user, pass },
       tls: {
         rejectUnauthorized: false,
-        servername: 'smtp.hostinger.com'
+        servername: host
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
       socketTimeout: 15000
     });
 
     await transporter.verify();
-    console.log('✅ Hostinger SMTP Port 587 TLS Connected & Verified!');
+    console.log(`✅ ${isZoho ? 'Zoho Mail' : 'SMTP'} Port ${fallbackPort} Fallback Verified!`);
     cachedTransporter = transporter;
     return transporter;
-  } catch (err587) {
-    console.warn(`⚠️ Port 587 TLS Connection failed: ${err587.message}`);
+  } catch (errFallback) {
+    console.warn(`⚠️ Fallback Port ${fallbackPort} connection failed: ${errFallback.message}`);
   }
 
-  // 3. Direct Emergency Transporter
-  console.log('⚡ Using Direct Single Transport Connection...');
+  // 3. Direct Transporter Fallback
+  console.log('⚡ Using Direct Transport Connection...');
   return nodemailer.createTransport({
-    host: 'smtp.hostinger.com',
-    port: 465,
-    secure: true,
+    host: host,
+    port: rawPort,
+    secure: rawSecure,
     family: 4,
-    auth: {
-      user: 'hiddenlamp@ems.hiddenlamp.in',
-      pass: 'Hiddenlamp@734006'
-    },
+    auth: { user, pass },
     tls: {
       rejectUnauthorized: false,
-      servername: 'smtp.hostinger.com'
+      servername: host
     },
     connectionTimeout: 15000
   });
@@ -236,14 +249,27 @@ async function sendPayslipEmail(data) {
     </html>
   `;
 
+  const mailOptions = { from, to, subject, html };
+
+  if (pdfBuffer) {
+    const safeEmpName = (employeeName || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
+    mailOptions.attachments = [
+      {
+        filename: `Payslip_${safeEmpName}_${period}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf'
+      }
+    ];
+  }
+
   const transporter = await getTransporter();
 
   try {
-    const info = await transporter.sendMail({ from, to, subject, html });
-    console.log(`✅ Hostinger SMTP Email sent successfully to ${to} (MessageID: ${info.messageId})`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent successfully to ${to} (MessageID: ${info.messageId})`);
     return { messageId: info.messageId, previewUrl: null };
   } catch (sendErr) {
-    console.error(`❌ Hostinger Email Send Error for ${to}:`, sendErr.message);
+    console.error(`❌ Email Send Error for ${to}:`, sendErr.message);
     throw sendErr;
   }
 }

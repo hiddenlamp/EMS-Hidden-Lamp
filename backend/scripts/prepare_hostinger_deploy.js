@@ -26,7 +26,7 @@ window.ENV = {
 fs.writeFileSync(path.join(distDir, 'config.js'), configContent, 'utf8');
 console.log('  ✅ Injected Production config.js with API URL https://ems-hidden-lamp-1.onrender.com');
 
-// 2. Create Hostinger SPA .htaccess File (Fixes 403 Forbidden & 404 on page refresh)
+// 2. Create Hostinger SPA .htaccess File (Fixes 403 Forbidden, 404 on refresh, and Browser Caching)
 const htaccessContent = `<IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
@@ -42,11 +42,20 @@ const htaccessContent = `<IfModule mod_rewrite.c>
   RewriteRule ^ index.html [L]
 </IfModule>
 
+# Prevent aggressive caching of HTML & Config JS so new UI updates show instantly
+<IfModule mod_headers.c>
+  <FilesMatch "\\.(html|htm|js|json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+  </FilesMatch>
+</IfModule>
+
 Options -Indexes
 DirectoryIndex index.html
 `;
 fs.writeFileSync(path.join(distDir, '.htaccess'), htaccessContent, 'utf8');
-console.log('  ✅ Created Hostinger React SPA .htaccess file with DirectoryIndex index.html');
+console.log('  ✅ Created Hostinger React SPA .htaccess file with Cache-Busting headers');
 
 console.log('\n====================================================');
 console.log('   REACT SPA HOSTINGER PACKAGE READY AT frontend/dist-hostinger ');
