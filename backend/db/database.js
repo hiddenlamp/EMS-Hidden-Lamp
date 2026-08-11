@@ -192,6 +192,10 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN project_name TEXT DEFAULT 
 try { db.exec("ALTER TABLE payslips ADD COLUMN email_status TEXT DEFAULT 'Not Sent';"); } catch (e) {}
 try { db.exec("ALTER TABLE payslips ADD COLUMN email_sent_at DATETIME;"); } catch (e) {}
 try { db.exec("ALTER TABLE payslips ADD COLUMN email_error TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN tenure_months INTEGER DEFAULT 12;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN calculated_emi REAL DEFAULT 0;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN total_interest REAL DEFAULT 0;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN repayment_schedule_json TEXT;"); } catch (e) {}
 
 // Backfill expense_type & dues for existing records
 try {

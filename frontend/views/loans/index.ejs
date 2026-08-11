@@ -1,9 +1,9 @@
-<%- include('../partials/header', { title: 'Corporate Loans & Fund Rotations', path: '/loans' }) %>
+<%- include('../partials/header', { title: 'Corporate Loans & Financial Projections', path: '/loans' }) %>
 
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
   <div>
-    <h1 class="page-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Loans & Fund Rotations Management</h1>
-    <p class="page-description">Manage company borrowings, vendor credit lines, marketplace advances, and inter-project capital transfers.</p>
+    <h1 class="page-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Loans & Financial Projections Engine</h1>
+    <p class="page-description">Standard banking EMI amortization schedules, 6-month cash outflow forecasts, and inter-project capital rotation audit.</p>
   </div>
 
   <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -97,21 +97,66 @@
   </div>
 
   <div class="metric-card bg-pastel-green">
+    <div class="metric-icon"><i class="fa-solid fa-calendar-check"></i></div>
+    <div>
+      <div class="metric-value">₹<%= (financialProjections ? financialProjections.next30DaysObligation : 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
+      <div class="metric-label">Next 30-Day EMI Obligation</div>
+    </div>
+  </div>
+
+  <div class="metric-card bg-pastel-yellow">
     <div class="metric-icon"><i class="fa-solid fa-arrows-spin"></i></div>
     <div>
       <div class="metric-value">₹<%= activeRotatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
       <div class="metric-label">Capital in Active Rotation</div>
     </div>
   </div>
+</div>
 
-  <div class="metric-card bg-pastel-yellow">
-    <div class="metric-icon"><i class="fa-solid fa-folder-open"></i></div>
-    <div>
-      <div class="metric-value"><%= activeRotationsCount %></div>
-      <div class="metric-label">Active Rotations / Transfers</div>
+<!-- 6-MONTH FINANCIAL CASH OUTFLOW PROJECTION CARD -->
+<% if (financialProjections && financialProjections.monthlyProjections && financialProjections.monthlyProjections.length > 0) { %>
+  <div class="card" style="padding: 1.25rem; background: #ffffff; border-top: 4px solid #2563eb;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0;">
+        <i class="fa-solid fa-chart-line" style="color: #2563eb;"></i> 6-Month Debt Cash Outflow Forecast & EMI Projections
+      </h3>
+      <span class="badge" style="background: #eff6ff; color: #1e40af; font-size: 0.8rem;">
+        Next 30-Day Commitment: ₹<%= financialProjections.next30DaysObligation.toLocaleString('en-IN') %>
+      </span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table" style="width: 100%; font-size: 0.85rem;">
+        <thead>
+          <tr style="background: #f8fafc;">
+            <th>Month / Period</th>
+            <th style="text-align: right;">Principal Outflow (₹)</th>
+            <th style="text-align: right;">Interest Cost (₹)</th>
+            <th style="text-align: right;">Total Outflow (EMI Sum)</th>
+            <th style="text-align: center;">Cash Commitment Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% financialProjections.monthlyProjections.forEach((p, idx) => { %>
+            <tr>
+              <td><strong style="color: #0f172a;"><%= p.label %></strong></td>
+              <td style="text-align: right; font-weight: 600; color: #475569;">₹<%= p.totalPrincipal.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 600; color: #dc2626;">₹<%= p.totalInterest.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 800; color: #2563eb;">₹<%= p.totalEmi.toLocaleString('en-IN') %></td>
+              <td style="text-align: center;">
+                <% if (idx === 0) { %>
+                  <span class="badge" style="background: #fee2e2; color: #991b1b; font-size: 0.75rem;">Urgent (Current Month)</span>
+                <% } else { %>
+                  <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 0.75rem;">Projected</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
     </div>
   </div>
-</div>
+<% } %>
 
 <!-- PROJECT-WISE CAPITAL SUMMARY TABLE CARD -->
 <% if (projectSummaries && projectSummaries.length > 0) { %>
@@ -149,7 +194,7 @@
 <!-- TABS NAVIGATION -->
 <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap;">
   <a href="/loans?tab=company_loans<%= selectedProject ? '&project=' + selectedProject : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %>" class="btn" style="<%= activeTab === 'company_loans' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
-    <i class="fa-solid fa-building-columns"></i> 🏦 Corporate Loans & Vendor Credit Lines (<%= companyLoans.length %>)
+    <i class="fa-solid fa-building-columns"></i> 🏦 Corporate Loans & Credit Lines (<%= companyLoans.length %>)
   </a>
   <a href="/loans?tab=fund_rotations<%= selectedProject ? '&project=' + selectedProject : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %>" class="btn" style="<%= activeTab === 'fund_rotations' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
     <i class="fa-solid fa-arrows-rotate"></i> 🔄 Inter-Project Fund Rotations (<%= fundRotations.length %>)
@@ -160,7 +205,7 @@
 <% if (activeTab === 'company_loans') { %>
   <div class="card" style="padding: 1.25rem;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <h2 class="card-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Borrowings & Credit Accounts</h2>
+      <h2 class="card-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Borrowings & Amortization Accounts</h2>
     </div>
 
     <% if (companyLoans.length === 0) { %>
@@ -180,7 +225,7 @@
               <th style="white-space: nowrap;">Credit Type</th>
               <th style="white-space: nowrap;">Allocated Project</th>
               <th style="text-align: right; white-space: nowrap;">Principal Amount</th>
-              <th style="text-align: right; white-space: nowrap;">Interest Rate</th>
+              <th style="text-align: right; white-space: nowrap;">Tenure / EMI</th>
               <th style="text-align: right; white-space: nowrap;">Total Payable</th>
               <th style="text-align: right; white-space: nowrap;">Paid Amount</th>
               <th style="text-align: right; white-space: nowrap;">Balance Due</th>
@@ -208,10 +253,11 @@
                 <td style="text-align: right; font-weight: 700; color: #0f172a; white-space: nowrap; vertical-align: middle;">
                   ₹<%= l.principal_amount.toLocaleString('en-IN') %>
                 </td>
-                <td style="text-align: right; font-weight: 600; color: #64748b; white-space: nowrap; vertical-align: middle;">
-                  <%= l.interest_rate %>%
+                <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
+                  <strong style="color: #2563eb;">₹<%= (l.calculated_emi || 0).toLocaleString('en-IN') %>/mo</strong>
+                  <br><small style="color: #64748b;"><%= l.tenure_months || 12 %> Mos @ <%= l.interest_rate || 0 %>%</small>
                 </td>
-                <td style="text-align: right; font-weight: 700; color: #2563eb; white-space: nowrap; vertical-align: middle;">
+                <td style="text-align: right; font-weight: 700; color: #0f172a; white-space: nowrap; vertical-align: middle;">
                   ₹<%= l.total_payable.toLocaleString('en-IN') %>
                 </td>
                 <td style="text-align: right; font-weight: 700; color: #059669; white-space: nowrap; vertical-align: middle;">
@@ -229,6 +275,9 @@
                 </td>
                 <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
                   <div style="display: flex; gap: 0.3rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick='openAmortizationModal(<%- JSON.stringify(l) %>)' style="padding: 0.25rem 0.5rem; font-size: 0.78rem; background: #f0fdf4; color: #15803d; border-color: #bbf7d0;" title="View EMI Amortization Schedule">
+                      <i class="fa-solid fa-calendar-days"></i> Schedule
+                    </button>
                     <button type="button" class="btn btn-sm btn-secondary" onclick='openEditCompanyLoanModal(<%- JSON.stringify(l) %>)' style="padding: 0.25rem 0.45rem; font-size: 0.78rem;" title="Edit Record">
                       <i class="fa-solid fa-pen"></i> Edit
                     </button>
@@ -347,6 +396,45 @@
   </div>
 <% } %>
 
+<!-- VIEW AMORTIZATION SCHEDULE MODAL -->
+<div id="amortizationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 95%; max-width: 840px; max-height: 85vh; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border); display: flex; flex-direction: column;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+      <div>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
+          <i class="fa-solid fa-calendar-days" style="color: var(--accent);"></i> Monthly EMI Amortization Schedule
+        </h3>
+        <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #64748b;" id="amortLenderTitle">Lender Name</p>
+      </div>
+      <button type="button" onclick="document.getElementById('amortizationModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem;">
+      <table class="table" style="width: 100%; font-size: 0.83rem;">
+        <thead>
+          <tr style="background: #f8fafc;">
+            <th style="text-align: center;">#</th>
+            <th>Due Date</th>
+            <th style="text-align: right;">Beginning Balance</th>
+            <th style="text-align: right;">Monthly EMI</th>
+            <th style="text-align: right;">Principal</th>
+            <th style="text-align: right;">Interest</th>
+            <th style="text-align: right;">Ending Balance</th>
+            <th style="text-align: center;">Status</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="amortTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 1rem; pt-0.75rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('amortizationModal').style.display='none'">Close Schedule</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD CORPORATE LOAN MODAL -->
 <div id="newCompanyLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
   <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
@@ -391,20 +479,20 @@
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate / Fee (%)</label>
-          <input type="number" step="0.1" name="interest_rate" class="form-control" placeholder="e.g. 10.5">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Tenure (Months) *</label>
+          <input type="number" step="1" name="tenure_months" class="form-control" value="12" required>
         </div>
       </div>
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Disbursed Date *</label>
-          <input type="date" name="disbursed_date" class="form-control" value="<%= new Date().toISOString().substring(0, 10) %>" required>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate (%)</label>
+          <input type="number" step="0.1" name="interest_rate" class="form-control" placeholder="e.g. 10.5">
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Due Date</label>
-          <input type="date" name="due_date" class="form-control">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Disbursed Date *</label>
+          <input type="date" name="disbursed_date" class="form-control" value="<%= new Date().toISOString().substring(0, 10) %>" required>
         </div>
       </div>
 
@@ -415,7 +503,7 @@
 
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
         <button type="button" class="btn btn-secondary" onclick="document.getElementById('newCompanyLoanModal').style.display='none'">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Record Corporate Loan</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Generate Loan & EMI Schedule</button>
       </div>
     </form>
   </div>
@@ -465,8 +553,8 @@
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Repaid Amount (₹)</label>
-          <input type="number" step="1" name="repaid_amount" id="editRepaid" class="form-control" required>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Tenure (Months)</label>
+          <input type="number" step="1" name="tenure_months" id="editTenure" class="form-control" required>
         </div>
       </div>
 
@@ -712,13 +800,59 @@
 </div>
 
 <script>
+  function openAmortizationModal(loan) {
+    document.getElementById('amortLenderTitle').innerText = loan.lender_name + ' (' + loan.project_name + ') - Principal: ₹' + Number(loan.principal_amount).toLocaleString('en-IN') + ' @ ' + (loan.interest_rate || 0) + '% p.a.';
+    
+    let schedule = [];
+    try {
+      schedule = typeof loan.repayment_schedule_json === 'string' ? JSON.parse(loan.repayment_schedule_json) : (loan.repayment_schedule_json || []);
+    } catch(e) {}
+
+    const tbody = document.getElementById('amortTableBody');
+    tbody.innerHTML = '';
+
+    if (!schedule || schedule.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 2rem; color: #64748b;">No schedule generated for this loan. Edit record to compute EMI schedule.</td></tr>';
+    } else {
+      schedule.forEach(item => {
+        const tr = document.createElement('tr');
+        const isPaid = item.status === 'Paid';
+        tr.style.background = isPaid ? '#f0fdf4' : '#ffffff';
+
+        tr.innerHTML = `
+          <td style="text-align: center; font-weight: 700;">#${item.installment}</td>
+          <td style="white-space: nowrap; font-weight: 600; color: #0f172a;">${item.dueDate}</td>
+          <td style="text-align: right; color: #475569;">₹${Number(item.beginningBalance).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 800; color: #2563eb;">₹${Number(item.emi).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 600; color: #059669;">₹${Number(item.principal).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 600; color: #dc2626;">₹${Number(item.interest).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 700; color: #0f172a;">₹${Number(item.endingBalance).toLocaleString('en-IN')}</td>
+          <td style="text-align: center;">
+            ${isPaid ? '<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.75rem;">Paid</span>' : '<span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.75rem;">Due</span>'}
+          </td>
+          <td style="text-align: right;">
+            ${!isPaid ? `
+              <form action="/loans/company-loan/${loan.id}/pay-installment" method="POST" style="margin:0;">
+                <input type="hidden" name="installment" value="${item.installment}">
+                <button type="submit" class="btn btn-sm btn-primary" style="padding:0.15rem 0.45rem; font-size:0.72rem;">Pay EMI</button>
+              </form>
+            ` : '<span style="color:#059669; font-weight:700; font-size:0.78rem;">✓ Complete</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('amortizationModal').style.display = 'flex';
+  }
+
   function openEditCompanyLoanModal(loan) {
     document.getElementById('editCompanyLoanForm').action = '/loans/company-loan/' + loan.id + '/edit';
     document.getElementById('editLenderName').value = loan.lender_name || '';
     document.getElementById('editLenderType').value = loan.lender_type || 'Bank / NBFC';
     document.getElementById('editProjectName').value = loan.project_name || '';
     document.getElementById('editPrincipal').value = loan.principal_amount || 0;
-    document.getElementById('editRepaid').value = loan.repaid_amount || 0;
+    document.getElementById('editTenure').value = loan.tenure_months || 12;
     document.getElementById('editInterest').value = loan.interest_rate || 0;
     document.getElementById('editStatus').value = loan.status || 'Active';
     document.getElementById('editDisbursedDate').value = loan.disbursed_date || '';
