@@ -170,8 +170,8 @@
                       <i class="fa-solid fa-spinner fa-spin"></i> Sending...
                     </span>
                   <% } else if (ps.email_status === 'Failed') { %>
-                    <span class="badge" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;" title="<%= ps.email_error || 'Delivery Error' %>">
-                      <i class="fa-solid fa-circle-xmark"></i> Failed
+                    <span class="badge" onclick="alert('Email Delivery Error Details:\n\n<%= (ps.email_error || 'SMTP Delivery Error').replace(/'/g, '') %>')" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700; cursor: pointer;" title="Click to view error details">
+                      <i class="fa-solid fa-circle-xmark"></i> Failed (Click info)
                     </span>
                   <% } else { %>
                     <span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600;">
@@ -288,9 +288,10 @@
                   </span>
                 `;
               } else if (st.email_status === 'Failed') {
+                const errText = (st.email_error || 'SMTP Delivery Error').replace(/'/g, '');
                 cell.innerHTML = `
-                  <span class="badge" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700;" title="${st.email_error || 'Delivery Error'}">
-                    <i class="fa-solid fa-circle-xmark"></i> Failed
+                  <span class="badge" onclick="alert('Email Delivery Error Details:\\n\\n${errText}')" style="background: #fff1f2; color: #e11d48; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 700; cursor: pointer;" title="Click to view error details">
+                    <i class="fa-solid fa-circle-xmark"></i> Failed (Click info)
                   </span>
                 `;
               }

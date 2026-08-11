@@ -18,9 +18,13 @@ async function getTransporter() {
     }
   }
 
-  const host = (process.env.SMTP_HOST || 'smtp.hostinger.com').trim();
-  const user = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
-  const pass = (process.env.SMTP_PASS || 'Hiddenlamp@734006').trim();
+  const rawHost = (process.env.SMTP_HOST || '').trim();
+  const rawUser = (process.env.SMTP_USER || '').trim();
+  const rawPass = (process.env.SMTP_PASS || '').trim();
+
+  const host = (rawHost && rawHost !== 'missing') ? rawHost : 'smtp.hostinger.com';
+  const user = (rawUser && rawUser !== 'missing') ? rawUser : 'hiddenlamp@ems.hiddenlamp.in';
+  const pass = (rawPass && rawPass !== 'missing') ? rawPass : 'Hiddenlamp@734006';
 
   // 1. Primary Config: Port 465 SSL (Fastest & most reliable on cloud VMs)
   try {
@@ -29,14 +33,16 @@ async function getTransporter() {
       host: host,
       port: 465,
       secure: true,
-      pool: true,
-      maxConnections: 5,
-      maxMessages: 100,
+      pool: false, // Single connection per request prevents Render socket pool timeouts
       auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 10000
+      family: 4, // Force IPv4 resolution (critical for Render Linux containers)
+      tls: {
+        rejectUnauthorized: false,
+        servername: 'smtp.hostinger.com'
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
     });
 
     await transporter.verify();
@@ -55,10 +61,15 @@ async function getTransporter() {
       port: 587,
       secure: false,
       requireTLS: true,
-      pool: true,
+      family: 4,
       auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 5000
+      tls: {
+        rejectUnauthorized: false,
+        servername: 'smtp.hostinger.com'
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
     });
 
     await transporter.verify();
@@ -75,11 +86,16 @@ async function getTransporter() {
     host: 'smtp.hostinger.com',
     port: 465,
     secure: true,
+    family: 4,
     auth: {
       user: 'hiddenlamp@ems.hiddenlamp.in',
       pass: 'Hiddenlamp@734006'
     },
-    tls: { rejectUnauthorized: false }
+    tls: {
+      rejectUnauthorized: false,
+      servername: 'smtp.hostinger.com'
+    },
+    connectionTimeout: 15000
   });
 }
 
