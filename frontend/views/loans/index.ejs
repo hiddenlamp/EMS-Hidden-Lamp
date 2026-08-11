@@ -39,12 +39,12 @@
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
         <i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i> Filter by Project / Site
       </label>
-      <select name="project" class="form-control" style="font-size: 0.88rem;">
-        <option value="">⚡ All Projects & Sites</option>
+      <input type="text" name="project" class="form-control" list="projectFilterList" placeholder="Search project name..." value="<%= selectedProject %>" style="font-size: 0.88rem;">
+      <datalist id="projectFilterList">
         <% projects.forEach(p => { %>
-          <option value="<%= p %>" <%= selectedProject === p ? 'selected' : '' %>><%= p %></option>
+          <option value="<%= p %>"></option>
         <% }); %>
-      </select>
+      </datalist>
     </div>
 
     <div style="flex: 1; min-width: 140px;">
@@ -64,7 +64,7 @@
       <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
         <i class="fa-solid fa-magnifying-glass" style="color: var(--accent);"></i> Search Records
       </label>
-      <input type="text" name="search" class="form-control" placeholder="Search lender, UTR, purpose, or manager..." value="<%= searchQuery %>" style="font-size: 0.88rem;">
+      <input type="text" name="search" class="form-control" placeholder="Search lender, account no, UTR, or manager..." value="<%= searchQuery %>" style="font-size: 0.88rem;">
     </div>
 
     <div style="display: flex; gap: 0.5rem;">
@@ -158,39 +158,6 @@
   </div>
 <% } %>
 
-<!-- PROJECT-WISE CAPITAL SUMMARY TABLE CARD -->
-<% if (projectSummaries && projectSummaries.length > 0) { %>
-  <div class="card" style="padding: 1.25rem; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 4px solid var(--accent);">
-    <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.75rem;">
-      <i class="fa-solid fa-chart-pie" style="color: var(--accent);"></i> Project Capital Allocation Summary
-    </h3>
-    <div class="table-responsive">
-      <table class="table" style="width: 100%; font-size: 0.85rem;">
-        <thead>
-          <tr style="background: #f1f5f9;">
-            <th>Project Site / Location</th>
-            <th style="text-align: right;">Outstanding Debt</th>
-            <th style="text-align: right;">Active Capital in Rotation</th>
-            <th style="text-align: right;">Total Capital Allocated</th>
-            <th style="text-align: center;">Active Credit Accounts</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% projectSummaries.forEach(ps => { %>
-            <tr>
-              <td><strong style="color: #0f172a;"><%= ps.projectName %></strong></td>
-              <td style="text-align: right; font-weight: 700; color: #dc2626;">₹<%= ps.totalDebt.toLocaleString('en-IN') %></td>
-              <td style="text-align: right; font-weight: 700; color: #2563eb;">₹<%= ps.activeRotation.toLocaleString('en-IN') %></td>
-              <td style="text-align: right; font-weight: 800; color: #0f172a;">₹<%= ps.totalAllocated.toLocaleString('en-IN') %></td>
-              <td style="text-align: center;"><span class="badge badge-approved"><%= ps.loanCount + ps.rotationCount %> Accounts</span></td>
-            </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
-  </div>
-<% } %>
-
 <!-- TABS NAVIGATION -->
 <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap;">
   <a href="/loans?tab=company_loans<%= selectedProject ? '&project=' + selectedProject : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %>" class="btn" style="<%= activeTab === 'company_loans' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
@@ -238,8 +205,11 @@
               <tr>
                 <td style="white-space: nowrap; vertical-align: middle;">
                   <strong style="font-size: 0.95rem; color: #0f172a;"><%= l.lender_name %></strong>
+                  <% if (l.account_number) { %>
+                    <br><small style="color: #64748b;">Acc: <%= l.account_number %></small>
+                  <% } %>
                   <% if (l.disbursed_date) { %>
-                    <br><small style="color: #64748b;">Disbursed: <%= l.disbursed_date %></small>
+                    <br><small style="color: #94a3b8;">Disbursed: <%= l.disbursed_date %></small>
                   <% } %>
                 </td>
                 <td style="white-space: nowrap; vertical-align: middle;">
@@ -435,10 +405,10 @@
   </div>
 </div>
 
-<!-- ADD CORPORATE LOAN MODAL -->
+<!-- ADD CORPORATE LOAN MODAL (WITH FLEXIBLE MANUAL TEXT INPUTS & ESSENTIAL DETAILS) -->
 <div id="newCompanyLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
-  <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+  <div style="background: #ffffff; width: 92%; max-width: 580px; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
       <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
         <i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Add Corporate Loan / Vendor Credit
       </h3>
@@ -448,27 +418,30 @@
     <form action="/loans/company-loan" method="POST">
       <div style="margin-bottom: 1rem;">
         <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender / Vendor Name *</label>
-        <input type="text" name="lender_name" class="form-control" placeholder="e.g. HDFC Bank, Vendor Credit, Amazon Marketplace Line..." required>
+        <input type="text" name="lender_name" class="form-control" placeholder="e.g. HDFC Bank, Vendor Credit, Amazon Marketplace, Personal Loan..." required>
       </div>
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender / Credit Type *</label>
-          <select name="lender_type" class="form-control" required>
-            <option value="Bank / NBFC">Bank / NBFC</option>
-            <option value="Vendor Credit Line">Vendor Credit Line</option>
-            <option value="Marketplace Advance">Marketplace Advance</option>
-            <option value="Private Investor / Partner">Private Investor / Partner</option>
-          </select>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender / Credit Type (Type Anything) *</label>
+          <input type="text" name="lender_type" class="form-control" list="lenderTypeList" placeholder="e.g. Bank Loan, Vendor Credit, Marketplace Advance..." value="Bank / NBFC" required>
+          <datalist id="lenderTypeList">
+            <option value="Bank / NBFC"></option>
+            <option value="Vendor Credit Line"></option>
+            <option value="Marketplace Advance"></option>
+            <option value="Private Investor / Partner"></option>
+            <option value="Personal Loan"></option>
+          </datalist>
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Allocated Project *</label>
-          <select name="project_name" class="form-control" required>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Allocated Project / Location (Type Anything) *</label>
+          <input type="text" name="project_name" class="form-control" list="projectList" placeholder="e.g. Gomia Site, Bokaro, General Corporate..." value="General Corporate Treasury" required>
+          <datalist id="projectList">
             <% projects.forEach(p => { %>
-              <option value="<%= p %>"><%= p %></option>
+              <option value="<%= p %>"></option>
             <% }); %>
-          </select>
+          </datalist>
         </div>
       </div>
 
@@ -486,24 +459,53 @@
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Monthly EMI Amount (₹) (Manual Override)</label>
+          <input type="number" step="1" name="manual_emi" class="form-control" placeholder="Enter custom EMI or leave blank for auto-calc">
+        </div>
+
+        <div style="flex: 1;">
           <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate (%)</label>
           <input type="number" step="0.1" name="interest_rate" class="form-control" placeholder="e.g. 10.5">
         </div>
+      </div>
 
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Processing Fee / Charges (₹)</label>
+          <input type="number" step="1" name="processing_fee" class="form-control" placeholder="e.g. 5000">
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Account / Loan Agreement No.</label>
+          <input type="text" name="account_number" class="form-control" placeholder="e.g. LN-889977">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
           <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Disbursed Date *</label>
           <input type="date" name="disbursed_date" class="form-control" value="<%= new Date().toISOString().substring(0, 10) %>" required>
         </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Loan Officer / Contact Person</label>
+          <input type="text" name="contact_person" class="form-control" placeholder="e.g. Ramesh Manager">
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Collateral / Security Details</label>
+        <input type="text" name="collateral_details" class="form-control" placeholder="e.g. Site Machinery, Property Mortgaged, Unsecured Line...">
       </div>
 
       <div style="margin-bottom: 1.25rem;">
         <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Notes / Terms</label>
-        <textarea name="notes" class="form-control" rows="2" placeholder="Credit terms, repayment schedule..."></textarea>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Credit terms, repayment schedule details..."></textarea>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
         <button type="button" class="btn btn-secondary" onclick="document.getElementById('newCompanyLoanModal').style.display='none'">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Generate Loan & EMI Schedule</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Save Loan & Generate Amortization</button>
       </div>
     </form>
   </div>
@@ -511,8 +513,8 @@
 
 <!-- EDIT CORPORATE LOAN MODAL -->
 <div id="editCompanyLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
-  <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+  <div style="background: #ffffff; width: 92%; max-width: 580px; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
       <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
         <i class="fa-solid fa-pen-to-square" style="color: var(--accent);"></i> Edit Corporate Loan Record
       </h3>
@@ -527,22 +529,13 @@
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender Type</label>
-          <select name="lender_type" id="editLenderType" class="form-control">
-            <option value="Bank / NBFC">Bank / NBFC</option>
-            <option value="Vendor Credit Line">Vendor Credit Line</option>
-            <option value="Marketplace Advance">Marketplace Advance</option>
-            <option value="Private Investor / Partner">Private Investor / Partner</option>
-          </select>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender Type (Type Anything)</label>
+          <input type="text" name="lender_type" id="editLenderType" class="form-control" list="lenderTypeList">
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Allocated Project</label>
-          <select name="project_name" id="editProjectName" class="form-control">
-            <% projects.forEach(p => { %>
-              <option value="<%= p %>"><%= p %></option>
-            <% }); %>
-          </select>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Allocated Project (Type Anything)</label>
+          <input type="text" name="project_name" id="editProjectName" class="form-control" list="projectList">
         </div>
       </div>
 
@@ -560,16 +553,25 @@
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate (%)</label>
-          <input type="number" step="0.1" name="interest_rate" id="editInterest" class="form-control">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Monthly EMI (₹) (Manual Override)</label>
+          <input type="number" step="1" name="manual_emi" id="editManualEMI" class="form-control">
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Status</label>
-          <select name="status" id="editStatus" class="form-control">
-            <option value="Active">Active</option>
-            <option value="Fully Repaid">Fully Repaid</option>
-          </select>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate (%)</label>
+          <input type="number" step="0.1" name="interest_rate" id="editInterest" class="form-control">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Processing Fee (₹)</label>
+          <input type="number" step="1" name="processing_fee" id="editProcessingFee" class="form-control">
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Account No.</label>
+          <input type="text" name="account_number" id="editAccountNo" class="form-control">
         </div>
       </div>
 
@@ -580,8 +582,11 @@
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Due Date</label>
-          <input type="date" name="due_date" id="editDueDate" class="form-control">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Status</label>
+          <select name="status" id="editStatus" class="form-control">
+            <option value="Active">Active</option>
+            <option value="Fully Repaid">Fully Repaid</option>
+          </select>
         </div>
       </div>
 
@@ -610,18 +615,14 @@
 
     <form action="/loans/fund-rotation" method="POST">
       <div style="margin-bottom: 1rem;">
-        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Source Pool / Account *</label>
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Source Pool / Account (Type Anything) *</label>
         <input type="text" name="source_pool" class="form-control" placeholder="e.g. Main Corporate Treasury, Gomia Site Pool..." required>
       </div>
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Destination Project / Site *</label>
-          <select name="destination_project" class="form-control" required>
-            <% projects.forEach(p => { %>
-              <option value="<%= p %>"><%= p %></option>
-            <% }); %>
-          </select>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Destination Project / Site (Type Anything) *</label>
+          <input type="text" name="destination_project" class="form-control" list="projectList" placeholder="e.g. Gomia Site, Bokaro..." required>
         </div>
 
         <div style="flex: 1;">
@@ -681,11 +682,7 @@
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
           <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Destination Project</label>
-          <select name="destination_project" id="editRotDest" class="form-control">
-            <% projects.forEach(p => { %>
-              <option value="<%= p %>"><%= p %></option>
-            <% }); %>
-          </select>
+          <input type="text" name="destination_project" id="editRotDest" class="form-control" list="projectList" required>
         </div>
 
         <div style="flex: 1;">
@@ -849,14 +846,16 @@
   function openEditCompanyLoanModal(loan) {
     document.getElementById('editCompanyLoanForm').action = '/loans/company-loan/' + loan.id + '/edit';
     document.getElementById('editLenderName').value = loan.lender_name || '';
-    document.getElementById('editLenderType').value = loan.lender_type || 'Bank / NBFC';
+    document.getElementById('editLenderType').value = loan.lender_type || 'Bank Loan';
     document.getElementById('editProjectName').value = loan.project_name || '';
     document.getElementById('editPrincipal').value = loan.principal_amount || 0;
     document.getElementById('editTenure').value = loan.tenure_months || 12;
+    document.getElementById('editManualEMI').value = loan.manual_emi || '';
     document.getElementById('editInterest').value = loan.interest_rate || 0;
+    document.getElementById('editProcessingFee').value = loan.processing_fee || 0;
+    document.getElementById('editAccountNo').value = loan.account_number || '';
     document.getElementById('editStatus').value = loan.status || 'Active';
     document.getElementById('editDisbursedDate').value = loan.disbursed_date || '';
-    document.getElementById('editDueDate').value = loan.due_date || '';
     document.getElementById('editNotes').value = loan.notes || '';
     document.getElementById('editCompanyLoanModal').style.display = 'flex';
   }

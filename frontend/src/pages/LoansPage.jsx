@@ -16,10 +16,16 @@ export default function LoansPage() {
 
   const [loanForm, setLoanForm] = useState({
     lender_name: '',
-    lender_type: 'Bank / NBFC',
-    project_name: 'Gomia Project Site',
+    lender_type: 'Bank Loan',
+    project_name: 'General Corporate Treasury',
     principal_amount: '',
+    tenure_months: '12',
+    manual_emi: '',
     interest_rate: '0',
+    processing_fee: '',
+    account_number: '',
+    contact_person: '',
+    collateral_details: '',
     disbursed_date: new Date().toISOString().substring(0, 10),
     due_date: '',
     notes: ''
@@ -86,10 +92,16 @@ export default function LoansPage() {
         setEditingLoan(null);
         setLoanForm({
           lender_name: '',
-          lender_type: 'Bank / NBFC',
-          project_name: 'Gomia Project Site',
+          lender_type: 'Bank Loan',
+          project_name: 'General Corporate Treasury',
           principal_amount: '',
+          tenure_months: '12',
+          manual_emi: '',
           interest_rate: '0',
+          processing_fee: '',
+          account_number: '',
+          contact_person: '',
+          collateral_details: '',
           disbursed_date: new Date().toISOString().substring(0, 10),
           due_date: '',
           notes: ''
@@ -141,7 +153,13 @@ export default function LoansPage() {
       lender_type: l.lender_type,
       project_name: l.project_name,
       principal_amount: l.principal_amount,
+      tenure_months: l.tenure_months || '12',
+      manual_emi: l.manual_emi || '',
       interest_rate: l.interest_rate || '0',
+      processing_fee: l.processing_fee || '',
+      account_number: l.account_number || '',
+      contact_person: l.contact_person || '',
+      collateral_details: l.collateral_details || '',
       disbursed_date: l.disbursed_date,
       due_date: l.due_date || '',
       notes: l.notes || ''
@@ -366,9 +384,9 @@ export default function LoansPage() {
       )}
 
       {showLoanModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
               <h3 className="text-lg font-bold text-slate-900">{editingLoan ? 'Edit Corporate Loan' : 'Add Corporate Loan / Credit Line'}</h3>
               <button onClick={() => setShowLoanModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
@@ -377,7 +395,7 @@ export default function LoansPage() {
                 <label className="block text-xs font-bold text-slate-600 mb-1">Lender / Vendor Name *</label>
                 <input
                   type="text"
-                  placeholder="HDFC Bank, Amazon Credit Line..."
+                  placeholder="HDFC Bank, Amazon Credit Line, Personal Loan..."
                   value={loanForm.lender_name}
                   onChange={e => setLoanForm({ ...loanForm, lender_name: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded-lg text-sm"
@@ -386,22 +404,21 @@ export default function LoansPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Lender Type</label>
-                  <select
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Lender / Credit Type (Type Anything) *</label>
+                  <input
+                    type="text"
+                    placeholder="Bank Loan, Vendor Credit..."
                     value={loanForm.lender_type}
                     onChange={e => setLoanForm({ ...loanForm, lender_type: e.target.value })}
                     className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                  >
-                    <option value="Bank / NBFC">Bank / NBFC</option>
-                    <option value="Vendor Credit Line">Vendor Credit Line</option>
-                    <option value="Marketplace Advance">Marketplace Advance</option>
-                    <option value="Private Investor / Partner">Private Investor / Partner</option>
-                  </select>
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Allocated Project</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Allocated Project (Type Anything) *</label>
                   <input
                     type="text"
+                    placeholder="Gomia Site, Bokaro..."
                     value={loanForm.project_name}
                     onChange={e => setLoanForm({ ...loanForm, project_name: e.target.value })}
                     className="w-full p-2 border border-slate-300 rounded-lg text-sm"
@@ -411,7 +428,7 @@ export default function LoansPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Principal Amount (₹)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Principal Amount (₹) *</label>
                   <input
                     type="number"
                     placeholder="500000"
@@ -422,12 +439,56 @@ export default function LoansPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Tenure (Months) *</label>
+                  <input
+                    type="number"
+                    value={loanForm.tenure_months}
+                    onChange={e => setLoanForm({ ...loanForm, tenure_months: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Monthly EMI (₹) (Manual Override)</label>
+                  <input
+                    type="number"
+                    placeholder="Enter custom EMI"
+                    value={loanForm.manual_emi}
+                    onChange={e => setLoanForm({ ...loanForm, manual_emi: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Interest Rate (%)</label>
                   <input
                     type="number"
                     placeholder="10.5"
                     value={loanForm.interest_rate}
                     onChange={e => setLoanForm({ ...loanForm, interest_rate: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Processing Fee (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="5000"
+                    value={loanForm.processing_fee}
+                    onChange={e => setLoanForm({ ...loanForm, processing_fee: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Account No.</label>
+                  <input
+                    type="text"
+                    placeholder="LN-889977"
+                    value={loanForm.account_number}
+                    onChange={e => setLoanForm({ ...loanForm, account_number: e.target.value })}
                     className="w-full p-2 border border-slate-300 rounded-lg text-sm"
                   />
                 </div>
@@ -444,7 +505,7 @@ export default function LoansPage() {
       )}
 
       {showRotationModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">{editingRotation ? 'Edit Fund Rotation' : 'Record Inter-Project Fund Rotation'}</h3>
@@ -452,7 +513,7 @@ export default function LoansPage() {
             </div>
             <form onSubmit={handleCreateRotation} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Source Pool / Account *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Source Pool / Account (Type Anything) *</label>
                 <input
                   type="text"
                   placeholder="Main Corporate Treasury, Gomia Site Pool..."
@@ -464,7 +525,7 @@ export default function LoansPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Destination Project</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Destination Project (Type Anything)</label>
                   <input
                     type="text"
                     value={rotationForm.destination_project}

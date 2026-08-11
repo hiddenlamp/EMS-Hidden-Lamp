@@ -18,7 +18,7 @@ router.get('/', (req, res) => {
   let cParams = [];
   if (selectedProject) { cSql += ' AND project_name = ?'; cParams.push(selectedProject); }
   if (selectedStatus) { cSql += ' AND status = ?'; cParams.push(selectedStatus); }
-  if (searchQuery) { cSql += ' AND (lender_name LIKE ? OR notes LIKE ?)'; cParams.push(`%${searchQuery}%`, `%${searchQuery}%`); }
+  if (searchQuery) { cSql += ' AND (lender_name LIKE ? OR lender_type LIKE ? OR account_number LIKE ? OR notes LIKE ?)'; cParams.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`); }
   cSql += ' ORDER BY created_at DESC';
 
   let rSql = 'SELECT * FROM fund_rotations WHERE 1=1';
@@ -34,7 +34,7 @@ router.get('/', (req, res) => {
   const allLoans = db.prepare('SELECT * FROM company_loans').all();
   const allRotations = db.prepare('SELECT * FROM fund_rotations').all();
 
-  // Distinct projects for dropdown selection
+  // Distinct projects for datalist autocomplete
   const projects = db.prepare("SELECT DISTINCT project_name FROM company_expenses WHERE project_name IS NOT NULL AND TRIM(project_name) != '' ORDER BY project_name ASC").all().map(p => p.project_name);
   if (!projects.includes('Gomia Project Site')) projects.unshift('Gomia Project Site');
   if (!projects.includes('General Corporate Treasury')) projects.unshift('General Corporate Treasury');
@@ -99,7 +99,7 @@ router.get('/', (req, res) => {
 // EXPORT COMPANY LOANS REPORT CSV
 router.get('/export/company-loans', (req, res) => {
   const loans = db.prepare('SELECT * FROM company_loans ORDER BY created_at DESC').all();
-  let csv = 'ID,Lender Name,Credit Type,Allocated Project,Principal Amount,Tenure (Months),Monthly EMI,Interest Rate %,Total Payable,Repaid Amount,Remaining Balance,Disbursed Date,Due Date,Status,Notes\n';
+  let csv = 'ID,Lender Name,Credit Type,Allocated Project,Account No,Principal Amount,Manual EMI,Calculated EMI,Processing Fee,Tenure (Months),Interest Rate %,Total Payable,Repaid Amount,Remaining Balance,Disbursed Date,Due Date,Contact Person,Status,Notes\n';
 
   loans.forEach(l => {
     csv += [
@@ -107,15 +107,19 @@ router.get('/export/company-loans', (req, res) => {
       `"${(l.lender_name || '').replace(/"/g, '""')}"`,
       `"${(l.lender_type || '').replace(/"/g, '""')}"`,
       `"${(l.project_name || '').replace(/"/g, '""')}"`,
+      `"${(l.account_number || '').replace(/"/g, '""')}"`,
       l.principal_amount,
-      l.tenure_months || 12,
+      l.manual_emi || 0,
       l.calculated_emi || 0,
+      l.processing_fee || 0,
+      l.tenure_months || 12,
       l.interest_rate || 0,
       l.total_payable,
       l.repaid_amount,
       l.remaining_balance,
       `"${l.disbursed_date || ''}"`,
       `"${l.due_date || ''}"`,
+      `"${(l.contact_person || '').replace(/"/g, '""')}"`,
       `"${l.status || ''}"`,
       `"${(l.notes || '').replace(/"/g, '""')}"`
     ].join(',') + '\n';
@@ -154,32 +158,49 @@ router.get('/export/fund-rotations', (req, res) => {
   res.send(csv);
 });
 
-// POST /loans/company-loan (Disburse Corporate Loan or Vendor Credit Line with Real Financial Amortization)
+// POST /loans/company-loan (Disburse Corporate Loan or Vendor Credit Line with Flexible Text Inputs & Manual EMI)
 router.post('/company-loan', (req, res) => {
-  const { lender_name, lender_type, project_name, principal_amount, interest_rate, tenure_months, disbursed_date, due_date, notes } = req.body;
+  const { 
+    lender_name, lender_type, project_name, principal_amount, interest_rate, tenure_months, 
+    manual_emi, processing_fee, collateral_details, due_day_of_month, account_number, contact_person,
+    disbursed_date, due_date, notes 
+  } = req.body;
+
   const principal = parseFloat(principal_amount) || 0;
   const rate = parseFloat(interest_rate) || 0;
   const tenure = parseInt(tenure_months) || 12;
+  const manualEMIVal = parseFloat(manual_emi) || 0;
+  const procFee = parseFloat(processing_fee) || 0;
 
   if (!lender_name || principal <= 0 || !disbursed_date) {
     return res.redirect('/loans?tab=company_loans&error=' + encodeURIComponent('Please enter valid lender name, principal amount, and disbursed date.'));
   }
 
-  // Calculate Real Standard Banking EMI & Amortization Schedule
-  const fin = calculateLoanEMISchedule(principal, rate, tenure, disbursed_date);
+  // Calculate Real Standard Banking EMI & Amortization Schedule (or use manual EMI if provided)
+  const fin = calculateLoanEMISchedule(principal, rate, tenure, disbursed_date, manualEMIVal);
 
   try {
     const result = db.prepare(`
-      INSERT INTO company_loans (lender_name, lender_type, project_name, principal_amount, interest_rate, tenure_months, calculated_emi, total_interest, total_payable, repaid_amount, remaining_balance, disbursed_date, due_date, status, notes, repayment_schedule_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 'Active', ?, ?)
+      INSERT INTO company_loans (
+        lender_name, lender_type, project_name, principal_amount, interest_rate, tenure_months, 
+        calculated_emi, manual_emi, processing_fee, collateral_details, due_day_of_month, account_number, contact_person,
+        total_interest, total_payable, repaid_amount, remaining_balance, disbursed_date, due_date, status, notes, repayment_schedule_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 'Active', ?, ?)
     `).run(
       lender_name,
-      lender_type || 'Bank / NBFC',
+      lender_type || 'Bank Loan',
       project_name || 'General Corporate Treasury',
       principal,
       rate,
       tenure,
       fin.emi,
+      manualEMIVal,
+      procFee,
+      collateral_details || '',
+      parseInt(due_day_of_month) || 5,
+      account_number || '',
+      contact_person || '',
       fin.totalInterest,
       fin.totalPayable,
       fin.totalPayable,
@@ -190,7 +211,7 @@ router.post('/company-loan', (req, res) => {
     );
 
     logAction((req.user || req.session?.user || {}).email || 'system', 'CREATE_COMPANY_LOAN', 'Corporate Loan', result.lastInsertRowid, { lender_name, principal, emi: fin.emi });
-    res.redirect('/loans?tab=company_loans&success=' + encodeURIComponent(`Corporate loan recorded with monthly EMI of ₹${fin.emi.toLocaleString('en-IN')} across ${tenure} months!`));
+    res.redirect('/loans?tab=company_loans&success=' + encodeURIComponent(`Corporate loan recorded with EMI of ₹${fin.emi.toLocaleString('en-IN')}/month!`));
   } catch (err) {
     res.redirect('/loans?tab=company_loans&error=' + encodeURIComponent(err.message));
   }
@@ -201,20 +222,28 @@ router.post('/company-loan/:id/edit', (req, res) => {
   const loan = db.prepare('SELECT * FROM company_loans WHERE id = ?').get(req.params.id);
   if (!loan) return res.redirect('/loans?tab=company_loans&error=' + encodeURIComponent('Loan record not found.'));
 
-  const { lender_name, lender_type, project_name, principal_amount, interest_rate, tenure_months, repaid_amount, disbursed_date, due_date, status, notes } = req.body;
+  const { 
+    lender_name, lender_type, project_name, principal_amount, interest_rate, tenure_months, 
+    manual_emi, processing_fee, collateral_details, due_day_of_month, account_number, contact_person,
+    repaid_amount, disbursed_date, due_date, status, notes 
+  } = req.body;
+
   const principal = parseFloat(principal_amount) || loan.principal_amount;
   const rate = parseFloat(interest_rate) || 0;
   const tenure = parseInt(tenure_months) || loan.tenure_months || 12;
   const repaid = parseFloat(repaid_amount) >= 0 ? parseFloat(repaid_amount) : loan.repaid_amount;
+  const manualEMIVal = parseFloat(manual_emi) >= 0 ? parseFloat(manual_emi) : (loan.manual_emi || 0);
 
-  const fin = calculateLoanEMISchedule(principal, rate, tenure, disbursed_date || loan.disbursed_date);
+  const fin = calculateLoanEMISchedule(principal, rate, tenure, disbursed_date || loan.disbursed_date, manualEMIVal);
   const remaining = Math.max(0, Math.round((fin.totalPayable - repaid) * 100) / 100);
   const updatedStatus = remaining <= 0 ? 'Fully Repaid' : (status || loan.status);
 
   try {
     db.prepare(`
       UPDATE company_loans 
-      SET lender_name = ?, lender_type = ?, project_name = ?, principal_amount = ?, interest_rate = ?, tenure_months = ?, calculated_emi = ?, total_interest = ?, total_payable = ?, repaid_amount = ?, remaining_balance = ?, disbursed_date = ?, due_date = ?, status = ?, notes = ?, repayment_schedule_json = ?
+      SET lender_name = ?, lender_type = ?, project_name = ?, principal_amount = ?, interest_rate = ?, tenure_months = ?, 
+          calculated_emi = ?, manual_emi = ?, processing_fee = ?, collateral_details = ?, due_day_of_month = ?, account_number = ?, contact_person = ?,
+          total_interest = ?, total_payable = ?, repaid_amount = ?, remaining_balance = ?, disbursed_date = ?, due_date = ?, status = ?, notes = ?, repayment_schedule_json = ?
       WHERE id = ?
     `).run(
       lender_name,
@@ -224,6 +253,12 @@ router.post('/company-loan/:id/edit', (req, res) => {
       rate,
       tenure,
       fin.emi,
+      manualEMIVal,
+      parseFloat(processing_fee) || 0,
+      collateral_details || '',
+      parseInt(due_day_of_month) || 5,
+      account_number || '',
+      contact_person || '',
       fin.totalInterest,
       fin.totalPayable,
       repaid,

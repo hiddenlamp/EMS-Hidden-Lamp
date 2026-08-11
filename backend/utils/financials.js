@@ -10,16 +10,19 @@
  * @param {string} startDateStr - Disbursed Date / EMI Start Date (YYYY-MM-DD)
  * @returns {object} { emi, totalPayable, totalInterest, schedule }
  */
-function calculateLoanEMISchedule(principal, annualRatePercent, tenureMonths, startDateStr) {
+function calculateLoanEMISchedule(principal, annualRatePercent, tenureMonths, startDateStr, manualEmiAmount) {
   const P = Math.max(0, parseFloat(principal) || 0);
   const annualRate = Math.max(0, parseFloat(annualRatePercent) || 0);
   const n = Math.max(1, parseInt(tenureMonths) || 12);
   const startDate = startDateStr ? new Date(startDateStr) : new Date();
+  const manualEMI = parseFloat(manualEmiAmount) || 0;
 
   const r = annualRate / 12 / 100;
   let emi = 0;
 
-  if (r > 0) {
+  if (manualEMI > 0) {
+    emi = Math.round(manualEMI);
+  } else if (r > 0) {
     const rateFactor = Math.pow(1 + r, n);
     emi = Math.round(P * r * (rateFactor / (rateFactor - 1)));
   } else {

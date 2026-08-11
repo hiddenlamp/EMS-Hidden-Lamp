@@ -196,6 +196,12 @@ try { db.exec("ALTER TABLE company_loans ADD COLUMN tenure_months INTEGER DEFAUL
 try { db.exec("ALTER TABLE company_loans ADD COLUMN calculated_emi REAL DEFAULT 0;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_loans ADD COLUMN total_interest REAL DEFAULT 0;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_loans ADD COLUMN repayment_schedule_json TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN processing_fee REAL DEFAULT 0;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN collateral_details TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN due_day_of_month INTEGER DEFAULT 5;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN account_number TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN contact_person TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE company_loans ADD COLUMN manual_emi REAL DEFAULT 0;"); } catch (e) {}
 
 // Backfill expense_type & dues for existing records
 try {
