@@ -2,11 +2,17 @@
 
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
   <div>
-    <h1 class="page-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Loans & Fund Rotations</h1>
-    <p class="page-description">Track company borrowings, vendor credit lines, marketplace advances, and inter-project capital transfers.</p>
+    <h1 class="page-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Loans & Fund Rotations Management</h1>
+    <p class="page-description">Manage company borrowings, vendor credit lines, marketplace advances, and inter-project capital transfers.</p>
   </div>
 
   <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="/loans/export/company-loans" class="btn btn-secondary" style="font-weight: 700; font-size: 0.85rem;" title="Download CSV Report">
+      <i class="fa-solid fa-file-csv" style="color: #059669;"></i> Export Loans CSV
+    </a>
+    <a href="/loans/export/fund-rotations" class="btn btn-secondary" style="font-weight: 700; font-size: 0.85rem;" title="Download Audit CSV">
+      <i class="fa-solid fa-file-csv" style="color: #2563eb;"></i> Export Rotations CSV
+    </a>
     <button type="button" class="btn btn-primary" onclick="document.getElementById('newCompanyLoanModal').style.display='flex'" style="font-weight: 700; font-size: 0.85rem;">
       <i class="fa-solid fa-plus-circle"></i> + Add Corporate Loan / Credit
     </button>
@@ -23,6 +29,54 @@
 <% if (locals.error) { %>
   <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> <%= error %></div>
 <% } %>
+
+<!-- SEARCH & FILTER BAR -->
+<div class="card" style="background: #ffffff; padding: 1.25rem;">
+  <form action="/loans" method="GET" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin: 0;">
+    <input type="hidden" name="tab" value="<%= activeTab %>">
+    
+    <div style="flex: 1.2; min-width: 160px;">
+      <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
+        <i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i> Filter by Project / Site
+      </label>
+      <select name="project" class="form-control" style="font-size: 0.88rem;">
+        <option value="">⚡ All Projects & Sites</option>
+        <% projects.forEach(p => { %>
+          <option value="<%= p %>" <%= selectedProject === p ? 'selected' : '' %>><%= p %></option>
+        <% }); %>
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
+        <i class="fa-solid fa-filter" style="color: var(--accent);"></i> Filter by Status
+      </label>
+      <select name="status" class="form-control" style="font-size: 0.88rem;">
+        <option value="">⚡ All Statuses</option>
+        <option value="Active" <%= selectedStatus === 'Active' ? 'selected' : '' %>>Active</option>
+        <option value="Fully Repaid" <%= selectedStatus === 'Fully Repaid' ? 'selected' : '' %>>Fully Repaid</option>
+        <option value="In Rotation" <%= selectedStatus === 'In Rotation' ? 'selected' : '' %>>In Rotation</option>
+        <option value="Settled / Returned" <%= selectedStatus === 'Settled / Returned' ? 'selected' : '' %>>Settled / Returned</option>
+      </select>
+    </div>
+
+    <div style="flex: 1.5; min-width: 200px;">
+      <label style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem; display: block;">
+        <i class="fa-solid fa-magnifying-glass" style="color: var(--accent);"></i> Search Records
+      </label>
+      <input type="text" name="search" class="form-control" placeholder="Search lender, UTR, purpose, or manager..." value="<%= searchQuery %>" style="font-size: 0.88rem;">
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; font-weight: 600;">
+        <i class="fa-solid fa-filter"></i> Filter
+      </button>
+      <% if (selectedProject || selectedStatus || searchQuery) { %>
+        <a href="/loans?tab=<%= activeTab %>" class="btn btn-secondary" style="font-size: 0.85rem;">✖ Clear</a>
+      <% } %>
+    </div>
+  </form>
+</div>
 
 <!-- METRICS OVERVIEW CARDS -->
 <div class="metrics-grid">
@@ -59,12 +113,45 @@
   </div>
 </div>
 
+<!-- PROJECT-WISE CAPITAL SUMMARY TABLE CARD -->
+<% if (projectSummaries && projectSummaries.length > 0) { %>
+  <div class="card" style="padding: 1.25rem; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 4px solid var(--accent);">
+    <h3 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.75rem;">
+      <i class="fa-solid fa-chart-pie" style="color: var(--accent);"></i> Project Capital Allocation Summary
+    </h3>
+    <div class="table-responsive">
+      <table class="table" style="width: 100%; font-size: 0.85rem;">
+        <thead>
+          <tr style="background: #f1f5f9;">
+            <th>Project Site / Location</th>
+            <th style="text-align: right;">Outstanding Debt</th>
+            <th style="text-align: right;">Active Capital in Rotation</th>
+            <th style="text-align: right;">Total Capital Allocated</th>
+            <th style="text-align: center;">Active Credit Accounts</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% projectSummaries.forEach(ps => { %>
+            <tr>
+              <td><strong style="color: #0f172a;"><%= ps.projectName %></strong></td>
+              <td style="text-align: right; font-weight: 700; color: #dc2626;">₹<%= ps.totalDebt.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 700; color: #2563eb;">₹<%= ps.activeRotation.toLocaleString('en-IN') %></td>
+              <td style="text-align: right; font-weight: 800; color: #0f172a;">₹<%= ps.totalAllocated.toLocaleString('en-IN') %></td>
+              <td style="text-align: center;"><span class="badge badge-approved"><%= ps.loanCount + ps.rotationCount %> Accounts</span></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% } %>
+
 <!-- TABS NAVIGATION -->
 <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap;">
-  <a href="/loans?tab=company_loans" class="btn" style="<%= activeTab === 'company_loans' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
+  <a href="/loans?tab=company_loans<%= selectedProject ? '&project=' + selectedProject : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %>" class="btn" style="<%= activeTab === 'company_loans' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
     <i class="fa-solid fa-building-columns"></i> 🏦 Corporate Loans & Vendor Credit Lines (<%= companyLoans.length %>)
   </a>
-  <a href="/loans?tab=fund_rotations" class="btn" style="<%= activeTab === 'fund_rotations' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
+  <a href="/loans?tab=fund_rotations<%= selectedProject ? '&project=' + selectedProject : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %>" class="btn" style="<%= activeTab === 'fund_rotations' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
     <i class="fa-solid fa-arrows-rotate"></i> 🔄 Inter-Project Fund Rotations (<%= fundRotations.length %>)
   </a>
 </div>
@@ -79,7 +166,7 @@
     <% if (companyLoans.length === 0) { %>
       <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
         <i class="fa-solid fa-building-columns" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-        <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No corporate loans or vendor credit lines recorded.</p>
+        <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No corporate loans or vendor credit lines match criteria.</p>
         <button type="button" class="btn btn-primary" onclick="document.getElementById('newCompanyLoanModal').style.display='flex'" style="margin-top: 0.75rem; font-size: 0.85rem;">
           + Add First Corporate Loan / Credit Line
         </button>
@@ -93,7 +180,7 @@
               <th style="white-space: nowrap;">Credit Type</th>
               <th style="white-space: nowrap;">Allocated Project</th>
               <th style="text-align: right; white-space: nowrap;">Principal Amount</th>
-              <th style="text-align: right; white-space: nowrap;">Interest / Fee</th>
+              <th style="text-align: right; white-space: nowrap;">Interest Rate</th>
               <th style="text-align: right; white-space: nowrap;">Total Payable</th>
               <th style="text-align: right; white-space: nowrap;">Paid Amount</th>
               <th style="text-align: right; white-space: nowrap;">Balance Due</th>
@@ -141,7 +228,10 @@
                   <% } %>
                 </td>
                 <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
-                  <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                  <div style="display: flex; gap: 0.3rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick='openEditCompanyLoanModal(<%- JSON.stringify(l) %>)' style="padding: 0.25rem 0.45rem; font-size: 0.78rem;" title="Edit Record">
+                      <i class="fa-solid fa-pen"></i> Edit
+                    </button>
                     <% if (l.status === 'Active' && l.remaining_balance > 0) { %>
                       <button type="button" class="btn btn-sm btn-primary" onclick="openCompanyRepayModal('<%= l.id %>', '<%= l.lender_name %>', '<%= l.remaining_balance %>')" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Record Repayment">
                         <i class="fa-solid fa-hand-holding-dollar"></i> Repay
@@ -173,7 +263,7 @@
     <% if (fundRotations.length === 0) { %>
       <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
         <i class="fa-solid fa-arrows-spin" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-        <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No fund rotations or capital transfers recorded.</p>
+        <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No fund rotations match criteria.</p>
         <button type="button" class="btn btn-primary" onclick="document.getElementById('newRotationModal').style.display='flex'" style="margin-top: 0.75rem; font-size: 0.85rem;">
           + Record First Fund Rotation
         </button>
@@ -232,7 +322,10 @@
                   <% } %>
                 </td>
                 <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
-                  <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                  <div style="display: flex; gap: 0.3rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick='openEditRotationModal(<%- JSON.stringify(r) %>)' style="padding: 0.25rem 0.45rem; font-size: 0.78rem;" title="Edit Record">
+                      <i class="fa-solid fa-pen"></i> Edit
+                    </button>
                     <% if (r.status === 'In Rotation' && r.settled_amount < r.amount) { %>
                       <button type="button" class="btn btn-sm btn-primary" onclick="openSettleRotationModal('<%= r.id %>', '<%= r.destination_project %>', '<%= r.amount - r.settled_amount %>')" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Record Return / Settlement">
                         <i class="fa-solid fa-rotate-left"></i> Settle
@@ -254,7 +347,7 @@
   </div>
 <% } %>
 
-<!-- ADD CORPORATE LOAN / CREDIT MODAL -->
+<!-- ADD CORPORATE LOAN MODAL -->
 <div id="newCompanyLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
   <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
@@ -328,6 +421,95 @@
   </div>
 </div>
 
+<!-- EDIT CORPORATE LOAN MODAL -->
+<div id="editCompanyLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
+        <i class="fa-solid fa-pen-to-square" style="color: var(--accent);"></i> Edit Corporate Loan Record
+      </h3>
+      <button type="button" onclick="document.getElementById('editCompanyLoanModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+    </div>
+
+    <form id="editCompanyLoanForm" method="POST">
+      <div style="margin-bottom: 1rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender / Vendor Name *</label>
+        <input type="text" name="lender_name" id="editLenderName" class="form-control" required>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender Type</label>
+          <select name="lender_type" id="editLenderType" class="form-control">
+            <option value="Bank / NBFC">Bank / NBFC</option>
+            <option value="Vendor Credit Line">Vendor Credit Line</option>
+            <option value="Marketplace Advance">Marketplace Advance</option>
+            <option value="Private Investor / Partner">Private Investor / Partner</option>
+          </select>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Allocated Project</label>
+          <select name="project_name" id="editProjectName" class="form-control">
+            <% projects.forEach(p => { %>
+              <option value="<%= p %>"><%= p %></option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Principal Amount (₹)</label>
+          <input type="number" step="1" name="principal_amount" id="editPrincipal" class="form-control" required>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Repaid Amount (₹)</label>
+          <input type="number" step="1" name="repaid_amount" id="editRepaid" class="form-control" required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate (%)</label>
+          <input type="number" step="0.1" name="interest_rate" id="editInterest" class="form-control">
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Status</label>
+          <select name="status" id="editStatus" class="form-control">
+            <option value="Active">Active</option>
+            <option value="Fully Repaid">Fully Repaid</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Disbursed Date</label>
+          <input type="date" name="disbursed_date" id="editDisbursedDate" class="form-control" required>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Due Date</label>
+          <input type="date" name="due_date" id="editDueDate" class="form-control">
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Notes</label>
+        <textarea name="notes" id="editNotes" class="form-control" rows="2"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('editCompanyLoanModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- RECORD FUND ROTATION MODAL -->
 <div id="newRotationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
   <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
@@ -392,6 +574,85 @@
   </div>
 </div>
 
+<!-- EDIT FUND ROTATION MODAL -->
+<div id="editRotationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
+        <i class="fa-solid fa-pen-to-square" style="color: var(--accent);"></i> Edit Fund Rotation Record
+      </h3>
+      <button type="button" onclick="document.getElementById('editRotationModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+    </div>
+
+    <form id="editRotationForm" method="POST">
+      <div style="margin-bottom: 1rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Source Pool / Account *</label>
+        <input type="text" name="source_pool" id="editRotSource" class="form-control" required>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Destination Project</label>
+          <select name="destination_project" id="editRotDest" class="form-control">
+            <% projects.forEach(p => { %>
+              <option value="<%= p %>"><%= p %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Rotation Purpose</label>
+          <input type="text" name="rotation_purpose" id="editRotPurpose" class="form-control" required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Total Transferred (₹)</label>
+          <input type="number" step="1" name="amount" id="editRotAmount" class="form-control" required>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Settled / Returned (₹)</label>
+          <input type="number" step="1" name="settled_amount" id="editRotSettled" class="form-control" required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Transfer Date</label>
+          <input type="date" name="transfer_date" id="editRotDate" class="form-control" required>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Status</label>
+          <select name="status" id="editRotStatus" class="form-control">
+            <option value="In Rotation">In Rotation</option>
+            <option value="Settled / Returned">Settled / Returned</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Ref / UTR No.</label>
+          <input type="text" name="reference_no" id="editRotRef" class="form-control">
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Managed By</label>
+          <input type="text" name="managed_by" id="editRotManaged" class="form-control">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('editRotationModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- COMPANY REPAY MODAL -->
 <div id="companyRepayModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
   <div style="background: #ffffff; width: 90%; max-width: 420px; border-radius: 16px; padding: 1.5rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
@@ -451,6 +712,35 @@
 </div>
 
 <script>
+  function openEditCompanyLoanModal(loan) {
+    document.getElementById('editCompanyLoanForm').action = '/loans/company-loan/' + loan.id + '/edit';
+    document.getElementById('editLenderName').value = loan.lender_name || '';
+    document.getElementById('editLenderType').value = loan.lender_type || 'Bank / NBFC';
+    document.getElementById('editProjectName').value = loan.project_name || '';
+    document.getElementById('editPrincipal').value = loan.principal_amount || 0;
+    document.getElementById('editRepaid').value = loan.repaid_amount || 0;
+    document.getElementById('editInterest').value = loan.interest_rate || 0;
+    document.getElementById('editStatus').value = loan.status || 'Active';
+    document.getElementById('editDisbursedDate').value = loan.disbursed_date || '';
+    document.getElementById('editDueDate').value = loan.due_date || '';
+    document.getElementById('editNotes').value = loan.notes || '';
+    document.getElementById('editCompanyLoanModal').style.display = 'flex';
+  }
+
+  function openEditRotationModal(rot) {
+    document.getElementById('editRotationForm').action = '/loans/fund-rotation/' + rot.id + '/edit';
+    document.getElementById('editRotSource').value = rot.source_pool || '';
+    document.getElementById('editRotDest').value = rot.destination_project || '';
+    document.getElementById('editRotPurpose').value = rot.rotation_purpose || '';
+    document.getElementById('editRotAmount').value = rot.amount || 0;
+    document.getElementById('editRotSettled').value = rot.settled_amount || 0;
+    document.getElementById('editRotDate').value = rot.transfer_date || '';
+    document.getElementById('editRotStatus').value = rot.status || 'In Rotation';
+    document.getElementById('editRotRef').value = rot.reference_no || '';
+    document.getElementById('editRotManaged').value = rot.managed_by || '';
+    document.getElementById('editRotationModal').style.display = 'flex';
+  }
+
   function openCompanyRepayModal(loanId, lender, balance) {
     document.getElementById('companyRepayForm').action = '/loans/company-loan/' + loanId + '/repay';
     document.getElementById('cRepayLender').innerText = lender;

@@ -11,6 +11,8 @@ export default function LoansPage() {
 
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [showRotationModal, setShowRotationModal] = useState(false);
+  const [editingLoan, setEditingLoan] = useState(null);
+  const [editingRotation, setEditingRotation] = useState(null);
 
   const [loanForm, setLoanForm] = useState({
     lender_name: '',
@@ -68,9 +70,12 @@ export default function LoansPage() {
 
   const handleCreateLoan = async (e) => {
     e.preventDefault();
+    const url = editingLoan ? `${API_BASE}/company-loans/${editingLoan.id}` : `${API_BASE}/company-loans`;
+    const method = editingLoan ? 'PUT' : 'POST';
+
     try {
-      const res = await fetch(`${API_BASE}/company-loans`, {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loanForm),
         credentials: 'include'
@@ -78,6 +83,7 @@ export default function LoansPage() {
       const data = await res.json();
       if (data.success) {
         setShowLoanModal(false);
+        setEditingLoan(null);
         setLoanForm({
           lender_name: '',
           lender_type: 'Bank / NBFC',
@@ -97,9 +103,12 @@ export default function LoansPage() {
 
   const handleCreateRotation = async (e) => {
     e.preventDefault();
+    const url = editingRotation ? `${API_BASE}/fund-rotations/${editingRotation.id}` : `${API_BASE}/fund-rotations`;
+    const method = editingRotation ? 'PUT' : 'POST';
+
     try {
-      const res = await fetch(`${API_BASE}/fund-rotations`, {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rotationForm),
         credentials: 'include'
@@ -107,6 +116,7 @@ export default function LoansPage() {
       const data = await res.json();
       if (data.success) {
         setShowRotationModal(false);
+        setEditingRotation(null);
         setRotationForm({
           source_pool: 'Main Corporate Treasury',
           destination_project: 'Gomia Project Site',
@@ -122,6 +132,36 @@ export default function LoansPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const openEditLoan = (l) => {
+    setEditingLoan(l);
+    setLoanForm({
+      lender_name: l.lender_name,
+      lender_type: l.lender_type,
+      project_name: l.project_name,
+      principal_amount: l.principal_amount,
+      interest_rate: l.interest_rate || '0',
+      disbursed_date: l.disbursed_date,
+      due_date: l.due_date || '',
+      notes: l.notes || ''
+    });
+    setShowLoanModal(true);
+  };
+
+  const openEditRotation = (r) => {
+    setEditingRotation(r);
+    setRotationForm({
+      source_pool: r.source_pool,
+      destination_project: r.destination_project,
+      rotation_purpose: r.rotation_purpose,
+      amount: r.amount,
+      transfer_date: r.transfer_date,
+      reference_no: r.reference_no || '',
+      managed_by: r.managed_by || '',
+      notes: r.notes || ''
+    });
+    setShowRotationModal(true);
   };
 
   const handleDeleteLoan = async (id) => {
@@ -151,15 +191,27 @@ export default function LoansPage() {
           <h1 className="text-2xl font-extrabold text-slate-900">Corporate Loans & Fund Rotations</h1>
           <p className="text-sm text-slate-500">Manage company borrowings, marketplace credit lines, and inter-project capital transfers.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <a
+            href="/loans/export/company-loans"
+            className="px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg font-bold text-xs shadow-sm flex items-center gap-1"
+          >
+            📥 Export Loans CSV
+          </a>
+          <a
+            href="/loans/export/fund-rotations"
+            className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg font-bold text-xs shadow-sm flex items-center gap-1"
+          >
+            📥 Export Rotations CSV
+          </a>
           <button
-            onClick={() => setShowLoanModal(true)}
+            onClick={() => { setEditingLoan(null); setShowLoanModal(true); }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm shadow transition"
           >
-            + Add Corporate Loan / Credit
+            + Add Corporate Loan
           </button>
           <button
-            onClick={() => setShowRotationModal(true)}
+            onClick={() => { setEditingRotation(null); setShowRotationModal(true); }}
             className="px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-lg font-bold text-sm shadow-sm transition"
           >
             + Record Fund Rotation
@@ -242,9 +294,14 @@ export default function LoansPage() {
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <button onClick={() => handleDeleteLoan(l.id)} className="px-2 py-1 text-xs text-rose-600 border border-rose-200 hover:bg-rose-50 rounded">
-                          Delete
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => openEditLoan(l)} className="px-2 py-1 text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 rounded">
+                            Edit
+                          </button>
+                          <button onClick={() => handleDeleteLoan(l.id)} className="px-2 py-1 text-xs text-rose-600 border border-rose-200 hover:bg-rose-50 rounded">
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -290,9 +347,14 @@ export default function LoansPage() {
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <button onClick={() => handleDeleteRotation(r.id)} className="px-2 py-1 text-xs text-rose-600 border border-rose-200 hover:bg-rose-50 rounded">
-                          Delete
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => openEditRotation(r)} className="px-2 py-1 text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 rounded">
+                            Edit
+                          </button>
+                          <button onClick={() => handleDeleteRotation(r.id)} className="px-2 py-1 text-xs text-rose-600 border border-rose-200 hover:bg-rose-50 rounded">
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -307,7 +369,7 @@ export default function LoansPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Add Corporate Loan / Credit Line</h3>
+              <h3 className="text-lg font-bold text-slate-900">{editingLoan ? 'Edit Corporate Loan' : 'Add Corporate Loan / Credit Line'}</h3>
               <button onClick={() => setShowLoanModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <form onSubmit={handleCreateLoan} className="space-y-4">
@@ -372,7 +434,9 @@ export default function LoansPage() {
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowLoanModal(false)} className="px-4 py-2 border rounded-lg text-sm font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">Save Loan</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">
+                  {editingLoan ? 'Save Changes' : 'Save Loan'}
+                </button>
               </div>
             </form>
           </div>
@@ -383,7 +447,7 @@ export default function LoansPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Record Inter-Project Fund Rotation</h3>
+              <h3 className="text-lg font-bold text-slate-900">{editingRotation ? 'Edit Fund Rotation' : 'Record Inter-Project Fund Rotation'}</h3>
               <button onClick={() => setShowRotationModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <form onSubmit={handleCreateRotation} className="space-y-4">
@@ -445,7 +509,9 @@ export default function LoansPage() {
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowRotationModal(false)} className="px-4 py-2 border rounded-lg text-sm font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">Save Rotation</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">
+                  {editingRotation ? 'Save Changes' : 'Save Rotation'}
+                </button>
               </div>
             </form>
           </div>

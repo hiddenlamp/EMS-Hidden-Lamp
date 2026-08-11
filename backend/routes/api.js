@@ -811,6 +811,32 @@ router.post('/company-loans', requireRole(['admin', 'hr']), (req, res) => {
   }
 });
 
+router.put('/company-loans/:id', requireRole(['admin', 'hr']), (req, res) => {
+  const loan = db.prepare('SELECT * FROM company_loans WHERE id = ?').get(req.params.id);
+  if (!loan) return res.status(404).json({ error: 'Loan record not found.' });
+
+  const { lender_name, lender_type, project_name, principal_amount, interest_rate, repaid_amount, disbursed_date, due_date, status, notes } = req.body;
+  const principal = parseFloat(principal_amount) || loan.principal_amount;
+  const rate = parseFloat(interest_rate) || 0;
+  const repaid = parseFloat(repaid_amount) >= 0 ? parseFloat(repaid_amount) : loan.repaid_amount;
+
+  const totalPayable = Math.round((principal + (principal * (rate / 100))) * 100) / 100;
+  const remaining = Math.max(0, Math.round((totalPayable - repaid) * 100) / 100);
+  const updatedStatus = remaining <= 0 ? 'Fully Repaid' : (status || loan.status);
+
+  try {
+    db.prepare(`
+      UPDATE company_loans 
+      SET lender_name = ?, lender_type = ?, project_name = ?, principal_amount = ?, interest_rate = ?, total_payable = ?, repaid_amount = ?, remaining_balance = ?, disbursed_date = ?, due_date = ?, status = ?, notes = ?
+      WHERE id = ?
+    `).run(lender_name || loan.lender_name, lender_type || loan.lender_type, project_name || loan.project_name, principal, rate, totalPayable, repaid, remaining, disbursed_date || loan.disbursed_date, due_date || loan.due_date, updatedStatus, notes || '', loan.id);
+
+    res.json({ success: true, message: 'Corporate loan updated.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/company-loans/:id', requireRole(['admin', 'hr']), (req, res) => {
   try {
     db.prepare('DELETE FROM company_loans WHERE id = ?').run(req.params.id);
@@ -845,6 +871,28 @@ router.post('/fund-rotations', requireRole(['admin', 'hr']), (req, res) => {
     `).run(source_pool, destination_project, rotation_purpose || 'Working Capital Rotation', transferAmount, transfer_date, reference_no || '', managed_by || '', notes || '');
 
     res.json({ success: true, message: 'Fund rotation recorded successfully.', id: result.lastInsertRowid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/fund-rotations/:id', requireRole(['admin', 'hr']), (req, res) => {
+  const rotation = db.prepare('SELECT * FROM fund_rotations WHERE id = ?').get(req.params.id);
+  if (!rotation) return res.status(404).json({ error: 'Rotation record not found.' });
+
+  const { source_pool, destination_project, rotation_purpose, amount, settled_amount, transfer_date, reference_no, managed_by, status, notes } = req.body;
+  const transferAmount = parseFloat(amount) || rotation.amount;
+  const settled = parseFloat(settled_amount) >= 0 ? parseFloat(settled_amount) : rotation.settled_amount;
+  const updatedStatus = settled >= transferAmount ? 'Settled / Returned' : (status || rotation.status);
+
+  try {
+    db.prepare(`
+      UPDATE fund_rotations
+      SET source_pool = ?, destination_project = ?, rotation_purpose = ?, amount = ?, settled_amount = ?, transfer_date = ?, reference_no = ?, managed_by = ?, status = ?, notes = ?
+      WHERE id = ?
+    `).run(source_pool || rotation.source_pool, destination_project || rotation.destination_project, rotation_purpose || rotation.rotation_purpose, transferAmount, settled, transfer_date || rotation.transfer_date, reference_no || '', managed_by || '', updatedStatus, notes || '', rotation.id);
+
+    res.json({ success: true, message: 'Fund rotation updated.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
