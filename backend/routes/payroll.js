@@ -636,7 +636,20 @@ router.post('/:id/delete', requireAuth, requireRole(['admin', 'hr']), (req, res)
     db.prepare('DELETE FROM payroll_runs WHERE id = ?').run(run.id);
 
     logAction((req.user || req.session?.user || {}).email || 'system', 'DELETE_PAYROLL_RUN', 'Payroll Run', run.id, { period: run.period });
-    res.redirect('/payroll?success=' + encodeURIComponent(`Payroll run for ${run.period} deleted successfully.`));
+    res.redirect('/payroll?success=' + encodeURIComponent(`Payroll run for ${run.period} reset & unlocked successfully.`));
+  } catch (err) {
+    res.redirect('/payroll?error=' + encodeURIComponent(err.message));
+  }
+});
+
+// POST /payroll/reset-all-runs (Wipe all test payroll runs and payslips)
+router.post('/reset-all-runs', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    db.prepare('DELETE FROM payslips').run();
+    db.prepare('DELETE FROM payroll_runs').run();
+
+    logAction((req.user || req.session?.user || {}).email || 'system', 'RESET_ALL_PAYROLL_RUNS', 'Payroll System', null, {});
+    res.redirect('/payroll?success=' + encodeURIComponent('All payroll runs and payslips have been reset successfully!'));
   } catch (err) {
     res.redirect('/payroll?error=' + encodeURIComponent(err.message));
   }

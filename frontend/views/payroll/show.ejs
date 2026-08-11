@@ -20,6 +20,11 @@
       <a href="/payroll/<%= run.id %>/print-all" target="_blank" class="btn btn-secondary">🖨️ Print All (2-up)</a>
       <a href="/payroll/<%= run.id %>/report" class="btn btn-secondary" download>📊 Download Report</a>
     <% } %>
+    <form action="/payroll/<%= run.id %>/delete" method="POST" onsubmit="return confirm('Reset and delete payroll run for <%= run.period %>? All generated payslips for this period will be deleted.');" style="margin: 0;">
+      <button type="submit" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; background: #fff5f5;">
+        <i class="fa-solid fa-rotate-left"></i> Reset Payroll Run
+      </button>
+    </form>
   </div>
 </div>
 

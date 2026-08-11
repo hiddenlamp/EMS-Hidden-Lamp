@@ -53,7 +53,6 @@ const PayrollPage = () => {
     try {
       await api.post('/payroll', { period: periodStr, pay_date: lastDay });
       await fetchRuns();
-      // Open the newly created run modal
       const updatedRuns = await api.get('/payroll');
       const newlyCreated = updatedRuns.data.runs.find(r => r.period === periodStr);
       if (newlyCreated) openRunModal(newlyCreated);
@@ -108,19 +107,50 @@ const PayrollPage = () => {
     }
   };
 
+  const handleResetRun = async (runId, periodName) => {
+    if (!window.confirm(`Reset and delete payroll run for ${periodName}? All generated payslips for this period will be deleted.`)) return;
+    try {
+      await api.post(`/payroll/${runId}/delete`);
+      setShowRunModal(false);
+      fetchRuns();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to reset payroll run.');
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!window.confirm('Wipe ALL payroll runs and generated payslips? Employee profiles and salaries will remain completely safe.')) return;
+    try {
+      await api.post('/payroll/reset-all-runs');
+      setShowRunModal(false);
+      fetchRuns();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to reset all payroll runs.');
+    }
+  };
+
   return (
     <div>
       {/* Page Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="page-title">Monthly Payroll Calendar & Runs</h1>
-          <p className="page-description">Select any month from the interactive calendar to generate or process payroll based on the actual calendar days of that month.</p>
+          <p className="page-description">Select any month from the interactive calendar to generate, process, or reset payroll runs.</p>
         </div>
+        {runs.length > 0 && (
+          <button
+            onClick={handleResetAll}
+            className="btn btn-secondary"
+            style={{ fontWeight: 700, color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
+          >
+            🔄 Reset All Payroll Runs
+          </button>
+        )}
       </div>
 
       {/* Year Switcher Bar Card */}
       <div className="card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>📅 Calendar Year:</span>
             <button onClick={() => setSelectedYear(selectedYear - 1)} className="btn btn-sm btn-secondary">
@@ -134,13 +164,13 @@ const PayrollPage = () => {
             </button>
           </div>
           <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Click any month card below to launch or open its payroll cycle.
+            Click any month card below to launch, open, or reset its payroll cycle.
           </div>
         </div>
       </div>
 
-      {/* 12-Month Interactive Calendar Grid (Screenshot 2 Match) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+      {/* 12-Month Interactive Calendar Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
         {calendarMonths.map(m => (
           <div
             key={m.num}
@@ -176,13 +206,23 @@ const PayrollPage = () => {
 
             <div style={{ marginTop: '1.25rem' }}>
               {m.existingRun ? (
-                <button
-                  onClick={() => openRunModal(m.existingRun)}
-                  className="btn btn-sm btn-secondary"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                >
-                  {m.existingRun.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process Payroll'}
-                </button>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    onClick={() => openRunModal(m.existingRun)}
+                    className="btn btn-sm btn-secondary"
+                    style={{ flex: 1, justifyContent: 'center', fontSize: '0.82rem' }}
+                  >
+                    {m.existingRun.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process Payroll'}
+                  </button>
+                  <button
+                    onClick={() => handleResetRun(m.existingRun.id, `${m.name} ${selectedYear}`)}
+                    className="btn btn-sm btn-secondary"
+                    style={{ fontSize: '0.82rem', color: '#dc2626', borderColor: '#fca5a5', padding: '0.35rem 0.6rem' }}
+                    title="Reset / Delete Payroll Run"
+                  >
+                    🔄 Reset
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => handleStartPayroll(m.period, m.lastDay)}
@@ -197,7 +237,7 @@ const PayrollPage = () => {
         ))}
       </div>
 
-      {/* All Payroll Runs History Table */}
+      {/* Payroll History Table Card */}
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">All Payroll Runs History</h2>
@@ -224,10 +264,19 @@ const PayrollPage = () => {
                     <td>
                       <span className={`badge badge-${run.status}`}>{run.status}</span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button onClick={() => openRunModal(run)} className="btn btn-sm btn-secondary">
-                        {run.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process & Calculate'}
-                      </button>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                        <button onClick={() => openRunModal(run)} className="btn btn-sm btn-secondary" style={{ fontSize: '0.8rem' }}>
+                          {run.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process & Calculate'}
+                        </button>
+                        <button
+                          onClick={() => handleResetRun(run.id, run.period)}
+                          className="btn btn-sm btn-secondary"
+                          style={{ fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                        >
+                          🔄 Reset Run
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -237,76 +286,78 @@ const PayrollPage = () => {
         )}
       </div>
 
-      {/* MANAGE PAYROLL RUN MODAL */}
+      {/* PAYROLL RUN PROCESSING MODAL */}
       {showRunModal && selectedRun && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', padding: '1rem' }}>
-          <div className="card" style={{ maxWidth: '850px', width: '100%', margin: 'auto', background: '#fff', padding: '1.5rem', borderRadius: '12px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', pb: '0.5rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#ffffff', width: '95%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', padding: '1.75rem', boxShadow: 'var(--shadow-xl)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
               <div>
-                <h2 className="card-title" style={{ margin: 0 }}>Payroll Run Details: {selectedRun.period}</h2>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Pay Date: {selectedRun.pay_date} | Status: <strong style={{ color: '#2563eb' }}>{selectedRun.status?.toUpperCase()}</strong></p>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+                  Payroll Run: {selectedRun.period} ({selectedRun.status.toUpperCase()})
+                </h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Pay Date: {selectedRun.pay_date}
+                </p>
               </div>
-              <button onClick={() => setShowRunModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-muted)' }}>&times;</button>
+              <button onClick={() => setShowRunModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748b', cursor: 'pointer' }}>✕</button>
             </div>
 
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-              {selectedRun.status === 'draft' && (
-                <>
-                  <button onClick={handleCalculatePayroll} className="btn btn-primary btn-sm">
-                    <i className="fa-solid fa-calculator"></i> Calculate Payroll LOP
-                  </button>
-                  <button onClick={handleApproveRun} className="btn btn-success btn-sm">
-                    <i className="fa-solid fa-circle-check"></i> Approve & Lock Run
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Attendance & Payslip Table */}
-            <div className="table-responsive" style={{ flex: 1, overflowY: 'auto' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>LOP Days Input</th>
-                    <th style={{ textAlign: 'right' }}>Gross Pay</th>
-                    <th style={{ textAlign: 'right' }}>Deductions</th>
-                    <th style={{ textAlign: 'right' }}>Net Payable</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeEmps.map(emp => {
-                    const ps = runPayslips.find(p => p.employee_id === emp.id);
-                    return (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem' }}>Attendance & Leave Without Pay (LOP) Days</h4>
+              <div className="table-responsive">
+                <table className="table" style={{ fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      <th>Employee</th>
+                      <th>Designation</th>
+                      <th style={{ textAlign: 'center' }}>LOP Days</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeEmps.map(emp => (
                       <tr key={emp.id}>
-                        <td>
-                          <strong>{emp.name}</strong>
-                          <br /><small style={{ color: 'var(--text-muted)' }}>{emp.work_location}</small>
-                        </td>
-                        <td>
+                        <td><strong>{emp.name}</strong> ({emp.employee_code})</td>
+                        <td>{emp.designation}</td>
+                        <td style={{ textAlign: 'center' }}>
                           <input
                             type="number"
-                            step="0.5"
                             min="0"
+                            max="31"
+                            value={lopInputs[emp.id] || 0}
+                            onChange={e => setLopInputs({ ...lopInputs, [emp.id]: parseInt(e.target.value) || 0 })}
                             disabled={selectedRun.status === 'approved'}
-                            value={lopInputs[emp.id] !== undefined ? lopInputs[emp.id] : 0}
-                            onChange={e => setLopInputs({...lopInputs, [emp.id]: parseFloat(e.target.value) || 0})}
-                            style={{ width: '80px', padding: '0.3rem', textAlign: 'center', border: '1px solid var(--border)', borderRadius: '4px', fontWeight: 700 }}
+                            style={{ width: '70px', padding: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '4px', textAlign: 'center' }}
                           />
                         </td>
-                        <td style={{ textAlign: 'right', color: '#059669', fontWeight: 600 }}>₹{ps ? ps.gross_pay.toLocaleString('en-IN') : '-'}</td>
-                        <td style={{ textAlign: 'right', color: '#dc2626', fontWeight: 600 }}>₹{ps ? ps.total_deductions.toLocaleString('en-IN') : '-'}</td>
-                        <td style={{ textAlign: 'right', color: '#2563eb', fontWeight: 700 }}>₹{ps ? ps.net_pay.toLocaleString('en-IN') : '-'}</td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid var(--border)', marginTop: '1rem' }}>
-              <button onClick={() => setShowRunModal(false)} className="btn btn-secondary btn-sm">Close</button>
+            <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <button
+                onClick={() => handleResetRun(selectedRun.id, selectedRun.period)}
+                className="btn btn-secondary"
+                style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
+              >
+                🔄 Reset / Delete This Payroll Cycle
+              </button>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => setShowRunModal(false)} className="btn btn-secondary">Close</button>
+                {selectedRun.status === 'draft' && (
+                  <>
+                    <button onClick={handleCalculatePayroll} className="btn btn-primary">⚡ Calculate Payroll</button>
+                    {runPayslips.length > 0 && (
+                      <button onClick={handleApproveRun} className="btn btn-success" style={{ background: '#16a34a', color: '#fff' }}>
+                        ✔ Approve & Lock Payroll
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

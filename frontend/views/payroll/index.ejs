@@ -1,19 +1,31 @@
 <%- include('../partials/header', { title: 'Payroll Runs' }) %>
 
-<div class="page-header">
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
   <div>
-    <h1 class="page-title">Monthly Payroll Calendar & Runs</h1>
-    <p class="page-description">Select any month from the interactive calendar to generate or process payroll based on the actual calendar days of that month.</p>
+    <h1 class="page-title"><i class="fa-solid fa-calculator" style="color: var(--accent);"></i> Monthly Payroll Calendar & Runs</h1>
+    <p class="page-description">Select any month from the interactive calendar to generate, process, or reset payroll runs.</p>
   </div>
+
+  <% if (runs && runs.length > 0) { %>
+    <div>
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('resetAllPayrollModal').style.display='flex'" style="font-weight: 700; color: #dc2626; border-color: #fca5a5; background: #fff5f5;" title="Wipe all payroll runs">
+        <i class="fa-solid fa-rotate-left"></i> Reset All Payroll Runs
+      </button>
+    </div>
+  <% } %>
 </div>
 
 <% if (error) { %>
-  <div class="alert alert-danger"><%= error %></div>
+  <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> <%= error %></div>
+<% } %>
+
+<% if (success) { %>
+  <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <%= success %></div>
 <% } %>
 
 <!-- Year Switcher Bar -->
 <div class="card" style="padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
-  <div style="display: flex; align-items: center; justify-content: space-between;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
       <span style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">📅 Calendar Year:</span>
       <a href="/payroll?year=<%= selectedYear - 1 %>" class="btn btn-sm btn-secondary">← <%= selectedYear - 1 %></a>
@@ -21,13 +33,13 @@
       <a href="/payroll?year=<%= selectedYear + 1 %>" class="btn btn-sm btn-secondary"><%= selectedYear + 1 %> →</a>
     </div>
     <div style="font-size: 0.875rem; color: var(--text-muted);">
-      Click any month card below to launch or open its payroll cycle.
+      Click any month card below to launch, open, or reset its payroll cycle.
     </div>
   </div>
 </div>
 
 <!-- Interactive 12-Month Calendar Grid -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
   <% calendarMonths.forEach(m => { %>
     <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid <%= m.existingRun ? (m.existingRun.status === 'approved' ? '#16a34a' : '#d97706') : '#cbd5e1' %>; <%= m.existingRun && m.existingRun.status === 'approved' ? 'background: #f0fdf4;' : '' %>">
       <div>
@@ -50,9 +62,16 @@
 
       <div style="margin-top: 1.25rem;">
         <% if (m.existingRun) { %>
-          <a href="/payroll/<%= m.existingRun.id %>" class="btn btn-sm btn-secondary" style="width: 100%; justify-content: center;">
-            <%= m.existingRun.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process Payroll' %>
-          </a>
+          <div style="display: flex; gap: 0.4rem;">
+            <a href="/payroll/<%= m.existingRun.id %>" class="btn btn-sm btn-secondary" style="flex: 1; justify-content: center; font-size: 0.82rem;">
+              <%= m.existingRun.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process Payroll' %>
+            </a>
+            <form action="/payroll/<%= m.existingRun.id %>/delete" method="POST" onsubmit="return confirm('Reset and delete payroll run for <%= m.name %> <%= selectedYear %>? All generated payslips for this month will be cleared.');" style="margin: 0;">
+              <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 0.82rem; color: #dc2626; border-color: #fca5a5; padding: 0.35rem 0.6rem;" title="Reset / Delete Payroll Run">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+              </button>
+            </form>
+          </div>
         <% } else { %>
           <form action="/payroll" method="POST" style="margin: 0;">
             <input type="hidden" name="period" value="<%= m.period %>">
@@ -70,7 +89,7 @@
 <!-- Payroll History Table Card -->
 <div class="card">
   <div class="card-header">
-    <h2 class="card-title">All Payroll Runs History</h2>
+    <h2 class="card-title"><i class="fa-solid fa-history" style="color: var(--accent);"></i> All Payroll Runs History</h2>
   </div>
 
   <% if (runs.length === 0) { %>
@@ -99,9 +118,9 @@
                   <a href="/payroll/<%= run.id %>" class="btn btn-sm btn-secondary" style="font-size: 0.8rem;">
                     <%= run.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process & Calculate' %>
                   </a>
-                  <form action="/payroll/<%= run.id %>/delete" method="POST" onsubmit="return confirm('Are you sure you want to delete payroll run <%= run.period %> and all its payslips?');" style="display: inline; margin: 0;">
-                    <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" title="Delete Payroll Run">
-                      <i class="fa-solid fa-trash"></i> Delete
+                  <form action="/payroll/<%= run.id %>/delete" method="POST" onsubmit="return confirm('Are you sure you want to reset and delete payroll run for <%= run.period %>?');" style="display: inline; margin: 0;">
+                    <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" title="Reset / Delete Payroll Run">
+                      <i class="fa-solid fa-rotate-left"></i> Reset Run
                     </button>
                   </form>
                 </div>
@@ -112,6 +131,32 @@
       </table>
     </div>
   <% } %>
+</div>
+
+<!-- RESET ALL PAYROLL RUNS MODAL -->
+<div id="resetAllPayrollModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 440px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #dc2626;">
+        <i class="fa-solid fa-triangle-exclamation"></i> Reset All Payroll Runs?
+      </h3>
+      <button type="button" onclick="document.getElementById('resetAllPayrollModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+    </div>
+
+    <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.5;">
+      This action will delete <strong>ALL payroll runs and generated payslips</strong> in the system.<br><br>
+      Employee profiles, salary structures, expenses, and loans will remain <strong>completely safe</strong>.
+    </p>
+
+    <form action="/payroll/reset-all-runs" method="POST">
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('resetAllPayrollModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background: #dc2626; border-color: #dc2626; font-weight: 700;">
+          <i class="fa-solid fa-rotate-left"></i> Yes, Reset All Runs
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <%- include('../partials/footer') %>
