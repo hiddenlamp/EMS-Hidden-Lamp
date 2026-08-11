@@ -5,8 +5,7 @@ const { generatePayslipPDFBuffer } = require('./pdfGenerator');
 let cachedTransporter = null;
 
 /**
- * Creates or reuses a pooled Nodemailer transporter supporting Zoho Mail, Hostinger, or Custom SMTP.
- * Supports Port 465 SSL primary and Port 587 TLS fallback.
+ * Creates or reuses a pooled Nodemailer transporter supporting Resend.com, Zoho Mail, Hostinger, or Custom SMTP.
  */
 async function getTransporter() {
   if (cachedTransporter) {
@@ -18,34 +17,44 @@ async function getTransporter() {
     }
   }
 
+  const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
   const rawHost = (process.env.SMTP_HOST || '').trim();
   const rawUser = (process.env.SMTP_USER || '').trim();
   const rawPass = (process.env.SMTP_PASS || '').trim();
-  const rawPort = parseInt(process.env.SMTP_PORT) || 465;
-  const rawSecure = process.env.SMTP_SECURE === 'true' || rawPort === 465;
 
-  // Determine configuration (Zoho Mail default fallback or Hostinger default)
-  let host = 'smtp.zoho.in'; // Default Zoho Mail India host
-  if (rawHost && rawHost !== 'missing') {
+  let host = 'smtp.hostinger.com';
+  let user = rawUser;
+  let pass = rawPass;
+  let port = parseInt(process.env.SMTP_PORT) || 465;
+  let secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
+  // Auto-detect Resend.com
+  if (resendApiKey || rawHost.includes('resend') || rawPass.startsWith('re_')) {
+    host = 'smtp.resend.com';
+    user = 'resend';
+    pass = resendApiKey || rawPass;
+    port = 465;
+    secure = true;
+    console.log('⚡ Using Resend.com Transactional Email API/SMTP Service!');
+  } else if (rawHost && rawHost !== 'missing') {
     host = rawHost;
   } else if (rawUser.endsWith('@zoho.com') || rawUser.includes('zoho.com')) {
     host = 'smtp.zoho.com';
-  } else if (!rawUser.includes('zoho')) {
-    host = 'smtp.hostinger.com';
+  } else if (rawUser.includes('zoho')) {
+    host = 'smtp.zoho.in';
   }
 
-  const user = (rawUser && rawUser !== 'missing') ? rawUser : 'hiddenlamp@ems.hiddenlamp.in';
-  const pass = (rawPass && rawPass !== 'missing') ? rawPass : 'Hiddenlamp@734006';
+  if (!user || user === 'missing') user = 'hiddenlamp@ems.hiddenlamp.in';
+  if (!pass || pass === 'missing') pass = 'Hiddenlamp@734006';
 
-  const isZoho = host.includes('zoho');
-  console.log(`🔌 Initializing ${isZoho ? 'Zoho Mail' : 'Hostinger'} SMTP connection (${host}:${rawPort})...`);
+  console.log(`🔌 Initializing SMTP connection (${host}:${port})...`);
 
   // 1. Primary Config: Port 465 SSL (or specified port)
   try {
     const transporter = nodemailer.createTransport({
       host: host,
-      port: rawPort,
-      secure: rawSecure,
+      port: port,
+      secure: secure,
       pool: false,
       auth: { user, pass },
       family: 4, // IPv4 resolution
@@ -59,15 +68,15 @@ async function getTransporter() {
     });
 
     await transporter.verify();
-    console.log(`✅ ${isZoho ? 'Zoho Mail' : 'SMTP'} Port ${rawPort} SSL Connected & Verified!`);
+    console.log(`✅ SMTP Port ${port} SSL (${host}) Connected & Verified!`);
     cachedTransporter = transporter;
     return transporter;
   } catch (errPrimary) {
-    console.warn(`⚠️ Primary Port ${rawPort} connection failed: ${errPrimary.message}. Trying TLS fallback...`);
+    console.warn(`⚠️ Primary Port ${port} connection failed on ${host}: ${errPrimary.message}. Trying TLS fallback...`);
   }
 
-  // 2. Fallback Config: Port 587 TLS (or Port 465 fallback)
-  const fallbackPort = rawPort === 465 ? 587 : 465;
+  // 2. Fallback Config: Port 587 TLS
+  const fallbackPort = port === 465 ? 587 : 465;
   const fallbackSecure = fallbackPort === 465;
 
   try {
@@ -89,7 +98,7 @@ async function getTransporter() {
     });
 
     await transporter.verify();
-    console.log(`✅ ${isZoho ? 'Zoho Mail' : 'SMTP'} Port ${fallbackPort} Fallback Verified!`);
+    console.log(`✅ SMTP Port ${fallbackPort} Fallback Verified!`);
     cachedTransporter = transporter;
     return transporter;
   } catch (errFallback) {
@@ -97,17 +106,13 @@ async function getTransporter() {
   }
 
   // 3. Direct Transporter Fallback
-  console.log('⚡ Using Direct Transport Connection...');
   return nodemailer.createTransport({
     host: host,
-    port: rawPort,
-    secure: rawSecure,
+    port: port,
+    secure: secure,
     family: 4,
     auth: { user, pass },
-    tls: {
-      rejectUnauthorized: false,
-      servername: host
-    },
+    tls: { rejectUnauthorized: false, servername: host },
     connectionTimeout: 15000
   });
 }
@@ -115,7 +120,16 @@ async function getTransporter() {
 async function sendPayslipEmail(data) {
   const { to, employeeName, period, payDate, grossPay, totalDeductions, netPay, netPayInWords, breakdown, payslipUrl, payslipDownloadUrl } = data;
 
-  const senderEmail = (process.env.SMTP_USER || 'hiddenlamp@ems.hiddenlamp.in').trim();
+  const rawUser = (process.env.SMTP_USER || '').trim();
+  const rawPass = (process.env.SMTP_PASS || '').trim();
+  const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
+
+  let senderEmail = rawUser || 'hiddenlamp@ems.hiddenlamp.in';
+  if (resendApiKey || rawPass.startsWith('re_') || rawUser === 'resend') {
+    // Resend default onboarding sender or verified domain sender
+    senderEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  }
+
   const from = `"Hidden Lamp Payroll" <${senderEmail}>`;
   const subject = `Salary Payslip for Period ${period} - Hidden Lamp Pvt. Ltd.`;
 
