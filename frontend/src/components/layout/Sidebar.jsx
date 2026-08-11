@@ -8,6 +8,7 @@ const Sidebar = () => {
     { label: 'Payroll', path: '/payroll', icon: 'fa-solid fa-money-check-dollar' },
     { label: 'Payslip', path: '/payslips', icon: 'fa-solid fa-file-invoice' },
     { label: 'Receipts & Expenses', path: '/expenses', icon: 'fa-solid fa-receipt' },
+    { label: 'Loans & Advances', path: '/loans', icon: 'fa-solid fa-hand-holding-dollar' },
     { label: 'Report and Analytics', path: '/analytics', icon: 'fa-solid fa-chart-line' },
     { label: 'Audit & Security Logs', path: '/audit-logs', icon: 'fa-solid fa-shield-halved' },
   ];

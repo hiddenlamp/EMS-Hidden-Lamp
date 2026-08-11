@@ -91,6 +91,8 @@ app.use(session({
 // Attach User Info to Views with Persistent Cookie Fallback
 app.use(attachUser);
 
+const loansRouter = require('./routes/loans');
+
 // Mount EJS & API Application Routes
 app.use('/api', apiRouter);
 app.use('/', authRoutes);
@@ -100,6 +102,7 @@ app.use('/payslips', payslipsRouter);
 app.use('/analytics', analyticsRouter);
 app.use('/audit-logs', auditRouter);
 app.use('/expenses', expensesRouter);
+app.use('/loans', loansRouter);
 
 // 404 Handler
 app.use((req, res) => {

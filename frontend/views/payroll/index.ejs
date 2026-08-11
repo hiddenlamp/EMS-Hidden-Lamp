@@ -94,10 +94,17 @@
               <td>
                 <span class="badge badge-<%= run.status %>"><%= run.status %></span>
               </td>
-              <td style="text-align: right;">
-                <a href="/payroll/<%= run.id %>" class="btn btn-sm btn-secondary">
-                  <%= run.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process & Calculate' %>
-                </a>
+              <td style="text-align: right; white-space: nowrap;">
+                <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+                  <a href="/payroll/<%= run.id %>" class="btn btn-sm btn-secondary" style="font-size: 0.8rem;">
+                    <%= run.status === 'approved' ? '📄 View Locked Run' : '⚙️ Process & Calculate' %>
+                  </a>
+                  <form action="/payroll/<%= run.id %>/delete" method="POST" onsubmit="return confirm('Are you sure you want to delete payroll run <%= run.period %> and all its payslips?');" style="display: inline; margin: 0;">
+                    <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" title="Delete Payroll Run">
+                      <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
           <% }); %>

@@ -96,4 +96,35 @@ router.get('/', (req, res) => {
   });
 });
 
+// POST /payslips/:id/delete (Delete a single payslip record)
+router.post('/:id/delete', (req, res) => {
+  try {
+    db.prepare('DELETE FROM payslips WHERE id = ?').run(req.params.id);
+    res.redirect('/payslips?success=' + encodeURIComponent('Payslip deleted successfully.'));
+  } catch (err) {
+    res.redirect('/payslips?error=' + encodeURIComponent(err.message));
+  }
+});
+
+// POST /payslips/reset-test-data (Clear All Test Payroll Runs & Payslips)
+router.post('/reset-test-data', (req, res) => {
+  const confirmText = (req.body.confirm || '').trim();
+  if (confirmText !== 'CONFIRM RESET') {
+    return res.redirect('/payslips?error=' + encodeURIComponent('Safety check failed! Please type "CONFIRM RESET" to wipe test data.'));
+  }
+
+  try {
+    db.prepare('DELETE FROM payslips').run();
+    db.prepare('DELETE FROM payroll_runs').run();
+    db.prepare('DELETE FROM employee_loans').run();
+    db.prepare('DELETE FROM loan_repayments').run();
+    db.prepare('DELETE FROM company_expenses').run();
+    db.prepare('DELETE FROM travel_expenses').run();
+
+    res.redirect('/payslips?success=' + encodeURIComponent('All test payroll runs, payslips, expenses, and loan records have been wiped cleanly! System is ready for live production data.'));
+  } catch (err) {
+    res.redirect('/payslips?error=' + encodeURIComponent(err.message));
+  }
+});
+
 module.exports = router;

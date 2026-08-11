@@ -775,6 +775,83 @@ router.get('/analytics', (req, res) => {
 });
 
 // ----------------------------------------------------
+// LOANS & SALARY ADVANCES APIs
+// ----------------------------------------------------
+router.get('/loans', requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    const loans = db.prepare(`
+      SELECT l.*, e.name as employee_name, e.employee_code, e.work_location, e.designation
+      FROM employee_loans l
+      JOIN employees e ON l.employee_id = e.id
+      ORDER BY l.created_at DESC
+    `).all();
+
+    const employees = db.prepare("SELECT * FROM employees WHERE status = 'active' ORDER BY name ASC").all();
+
+    const totalLoansDisbursed = loans.reduce((sum, l) => sum + (l.loan_amount || 0), 0);
+    const totalRepaid = loans.reduce((sum, l) => sum + (l.repaid_amount || 0), 0);
+    const totalOutstanding = loans.reduce((sum, l) => sum + (l.remaining_balance || 0), 0);
+
+    res.json({ loans, employees, totalLoansDisbursed, totalRepaid, totalOutstanding });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/loans', requireRole(['admin', 'hr']), (req, res) => {
+  const { employee_id, loan_type, loan_amount, monthly_emi, disbursed_date, notes } = req.body;
+  const amount = parseFloat(loan_amount) || 0;
+  const emi = parseFloat(monthly_emi) || 0;
+
+  if (!employee_id || amount <= 0 || emi <= 0 || !disbursed_date) {
+    return res.status(400).json({ error: 'Please enter valid employee, loan amount, monthly EMI, and disbursed date.' });
+  }
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO employee_loans (employee_id, loan_type, loan_amount, monthly_emi, repaid_amount, remaining_balance, disbursed_date, status, notes)
+      VALUES (?, ?, ?, ?, 0, ?, ?, 'Active', ?)
+    `).run(employee_id, loan_type || 'Salary Advance', amount, emi, amount, disbursed_date, notes || '');
+
+    res.json({ success: true, message: 'Loan disbursed successfully.', loanId: result.lastInsertRowid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/loans/:id', requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    db.prepare('DELETE FROM employee_loans WHERE id = ?').run(req.params.id);
+    res.json({ success: true, message: 'Loan record deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// SYSTEM RESET & CLEANUP APIs
+// ----------------------------------------------------
+router.post('/system/reset-test-data', requireRole(['admin']), (req, res) => {
+  const confirmText = (req.body.confirm || '').trim();
+  if (confirmText !== 'CONFIRM RESET') {
+    return res.status(400).json({ error: 'Safety check failed! Please type "CONFIRM RESET" to wipe test data.' });
+  }
+
+  try {
+    db.prepare('DELETE FROM payslips').run();
+    db.prepare('DELETE FROM payroll_runs').run();
+    db.prepare('DELETE FROM employee_loans').run();
+    db.prepare('DELETE FROM loan_repayments').run();
+    db.prepare('DELETE FROM company_expenses').run();
+    db.prepare('DELETE FROM travel_expenses').run();
+
+    res.json({ success: true, message: 'All test data wiped cleanly! Ready for production.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------
 // AUDIT LOGS APIs
 // ----------------------------------------------------
 router.get('/audit-logs', requireRole(['admin']), (req, res) => {

@@ -137,6 +137,33 @@ function initSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (responsible_employee_id) REFERENCES employees(id) ON DELETE SET NULL
     );
+
+    CREATE TABLE IF NOT EXISTS employee_loans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      loan_type TEXT NOT NULL DEFAULT 'Salary Advance' CHECK(loan_type IN ('Salary Advance', 'Personal Loan', 'Emergency Loan', 'Equipment Loan')),
+      loan_amount REAL NOT NULL DEFAULT 0,
+      monthly_emi REAL NOT NULL DEFAULT 0,
+      repaid_amount REAL NOT NULL DEFAULT 0,
+      remaining_balance REAL NOT NULL DEFAULT 0,
+      disbursed_date TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Active' CHECK(status IN ('Active', 'Completed', 'Cancelled')),
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS loan_repayments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      loan_id INTEGER NOT NULL,
+      payroll_run_id INTEGER,
+      amount REAL NOT NULL DEFAULT 0,
+      payment_date TEXT NOT NULL,
+      payment_type TEXT DEFAULT 'Payroll EMI Deduction' CHECK(payment_type IN ('Payroll EMI Deduction', 'Manual Cash/Bank')),
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (loan_id) REFERENCES employee_loans(id) ON DELETE CASCADE
+    );
   `);
 }
 
@@ -179,6 +206,8 @@ try {
     CREATE INDEX IF NOT EXISTS idx_travel_exp_status ON travel_expenses(status);
     CREATE INDEX IF NOT EXISTS idx_payslips_run ON payslips(payroll_run_id);
     CREATE INDEX IF NOT EXISTS idx_payslips_emp ON payslips(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_employee_loans_emp ON employee_loans(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_employee_loans_status ON employee_loans(status);
   `);
 } catch (e) {}
 

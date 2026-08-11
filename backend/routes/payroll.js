@@ -243,6 +243,19 @@ router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, r
         totalDeductions += lopDeductionAmount;
       }
 
+      // Check for active loan / salary advance for this employee
+      const activeLoan = db.prepare("SELECT * FROM employee_loans WHERE employee_id = ? AND status = 'Active' AND remaining_balance > 0").get(emp.id);
+      if (activeLoan && activeLoan.monthly_emi > 0) {
+        const emiToDeduct = Math.min(activeLoan.monthly_emi, activeLoan.remaining_balance);
+        const roundedEmi = Math.round(emiToDeduct * 100) / 100;
+        deductions.push({
+          name: `Loan / Advance EMI (${activeLoan.loan_type})`,
+          amount: roundedEmi,
+          loan_id: activeLoan.id
+        });
+        totalDeductions += roundedEmi;
+      }
+
       grossPay = Math.round(grossPay * 100) / 100;
       totalDeductions = Math.round(totalDeductions * 100) / 100;
       const netPay = Math.round((grossPay - totalDeductions) * 100) / 100;
@@ -300,6 +313,37 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), (req, res
 
   db.prepare("UPDATE payroll_runs SET status = 'approved' WHERE id = ?").run(run.id);
   logAction((req.user || req.session?.user || {}).email || 'system', 'APPROVE_PAYROLL', 'Payroll Run', run.id, { period: run.period });
+
+  // Process Loan Repayments for all payslips in this approved run
+  const payslipsForRun = db.prepare('SELECT * FROM payslips WHERE payroll_run_id = ?').all(run.id);
+  for (const ps of payslipsForRun) {
+    try {
+      const breakdown = JSON.parse(ps.breakdown_json);
+      if (breakdown && Array.isArray(breakdown.deductions)) {
+        for (const d of breakdown.deductions) {
+          if (d.loan_id && d.amount > 0) {
+            const loan = db.prepare('SELECT * FROM employee_loans WHERE id = ?').get(d.loan_id);
+            if (loan && loan.status === 'Active') {
+              const actualRepay = Math.min(d.amount, loan.remaining_balance);
+              const newRepaid = loan.repaid_amount + actualRepay;
+              const newRemaining = Math.max(0, loan.remaining_balance - actualRepay);
+              const newStatus = newRemaining <= 0 ? 'Completed' : 'Active';
+
+              db.prepare('UPDATE employee_loans SET repaid_amount = ?, remaining_balance = ?, status = ? WHERE id = ?')
+                .run(newRepaid, newRemaining, newStatus, loan.id);
+
+              db.prepare(`
+                INSERT INTO loan_repayments (loan_id, payroll_run_id, amount, payment_date, payment_type, notes)
+                VALUES (?, ?, ?, ?, 'Payroll EMI Deduction', ?)
+              `).run(loan.id, run.id, actualRepay, run.pay_date || new Date().toISOString().substring(0, 10), `Payroll deduction for period ${run.period}`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Loan repayment update error:', e.message);
+    }
+  }
 
   const shouldSendEmails = req.body.send_emails === 'true';
 
@@ -578,6 +622,24 @@ router.get('/:id/report', requireAuth, requireRole(['admin', 'hr']), (req, res) 
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename="Payroll_Report_${run.period}.csv"`);
   res.send(csvContent);
+});
+
+// POST /payroll/:id/delete (Delete a payroll run and its payslips)
+router.post('/:id/delete', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+    if (!run) {
+      return res.redirect('/payroll?error=' + encodeURIComponent('Payroll run not found.'));
+    }
+
+    db.prepare('DELETE FROM payslips WHERE payroll_run_id = ?').run(run.id);
+    db.prepare('DELETE FROM payroll_runs WHERE id = ?').run(run.id);
+
+    logAction((req.user || req.session?.user || {}).email || 'system', 'DELETE_PAYROLL_RUN', 'Payroll Run', run.id, { period: run.period });
+    res.redirect('/payroll?success=' + encodeURIComponent(`Payroll run for ${run.period} deleted successfully.`));
+  } catch (err) {
+    res.redirect('/payroll?error=' + encodeURIComponent(err.message));
+  }
 });
 
 module.exports = router;

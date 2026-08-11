@@ -9,6 +9,7 @@ import EmployeesPage from './pages/EmployeesPage';
 import PayrollPage from './pages/PayrollPage';
 import PayslipsPage from './pages/PayslipsPage';
 import ExpensesPage from './pages/ExpensesPage';
+import LoansPage from './pages/LoansPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 
@@ -43,6 +44,7 @@ function App() {
           <Route path="/payroll" element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} />
           <Route path="/payslips" element={<ProtectedRoute><PayslipsPage /></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
+          <Route path="/loans" element={<ProtectedRoute><LoansPage /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
           <Route path="/audit-logs" element={<ProtectedRoute><AuditLogsPage /></ProtectedRoute>} />
 
