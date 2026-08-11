@@ -775,54 +775,85 @@ router.get('/analytics', (req, res) => {
 });
 
 // ----------------------------------------------------
-// LOANS & SALARY ADVANCES APIs
+// CORPORATE LOANS & FUND ROTATIONS APIs
 // ----------------------------------------------------
-router.get('/loans', requireRole(['admin', 'hr']), (req, res) => {
+router.get('/company-loans', requireRole(['admin', 'hr']), (req, res) => {
   try {
-    const loans = db.prepare(`
-      SELECT l.*, e.name as employee_name, e.employee_code, e.work_location, e.designation
-      FROM employee_loans l
-      JOIN employees e ON l.employee_id = e.id
-      ORDER BY l.created_at DESC
-    `).all();
-
-    const employees = db.prepare("SELECT * FROM employees WHERE status = 'active' ORDER BY name ASC").all();
-
-    const totalLoansDisbursed = loans.reduce((sum, l) => sum + (l.loan_amount || 0), 0);
-    const totalRepaid = loans.reduce((sum, l) => sum + (l.repaid_amount || 0), 0);
-    const totalOutstanding = loans.reduce((sum, l) => sum + (l.remaining_balance || 0), 0);
-
-    res.json({ loans, employees, totalLoansDisbursed, totalRepaid, totalOutstanding });
+    const loans = db.prepare('SELECT * FROM company_loans ORDER BY created_at DESC').all();
+    const totalDebt = loans.reduce((sum, l) => sum + (l.principal_amount || 0), 0);
+    const outstandingDebt = loans.reduce((sum, l) => sum + (l.remaining_balance || 0), 0);
+    res.json({ loans, totalDebt, outstandingDebt });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/loans', requireRole(['admin', 'hr']), (req, res) => {
-  const { employee_id, loan_type, loan_amount, monthly_emi, disbursed_date, notes } = req.body;
-  const amount = parseFloat(loan_amount) || 0;
-  const emi = parseFloat(monthly_emi) || 0;
+router.post('/company-loans', requireRole(['admin', 'hr']), (req, res) => {
+  const { lender_name, lender_type, project_name, principal_amount, interest_rate, disbursed_date, due_date, notes } = req.body;
+  const principal = parseFloat(principal_amount) || 0;
+  const rate = parseFloat(interest_rate) || 0;
 
-  if (!employee_id || amount <= 0 || emi <= 0 || !disbursed_date) {
-    return res.status(400).json({ error: 'Please enter valid employee, loan amount, monthly EMI, and disbursed date.' });
+  if (!lender_name || principal <= 0 || !disbursed_date) {
+    return res.status(400).json({ error: 'Please enter valid lender name, principal amount, and disbursed date.' });
+  }
+
+  const totalPayable = Math.round((principal + (principal * (rate / 100))) * 100) / 100;
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO company_loans (lender_name, lender_type, project_name, principal_amount, interest_rate, total_payable, repaid_amount, remaining_balance, disbursed_date, due_date, status, notes)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 'Active', ?)
+    `).run(lender_name, lender_type || 'Bank / NBFC', project_name || 'General Corporate Treasury', principal, rate, totalPayable, totalPayable, disbursed_date, due_date || null, notes || '');
+
+    res.json({ success: true, message: 'Corporate loan recorded successfully.', id: result.lastInsertRowid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/company-loans/:id', requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    db.prepare('DELETE FROM company_loans WHERE id = ?').run(req.params.id);
+    res.json({ success: true, message: 'Corporate loan deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/fund-rotations', requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    const rotations = db.prepare('SELECT * FROM fund_rotations ORDER BY created_at DESC').all();
+    const totalRotated = rotations.reduce((sum, r) => sum + (r.amount || 0), 0);
+    res.json({ rotations, totalRotated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/fund-rotations', requireRole(['admin', 'hr']), (req, res) => {
+  const { source_pool, destination_project, rotation_purpose, amount, transfer_date, reference_no, managed_by, notes } = req.body;
+  const transferAmount = parseFloat(amount) || 0;
+
+  if (!source_pool || !destination_project || transferAmount <= 0 || !transfer_date) {
+    return res.status(400).json({ error: 'Please enter valid source, destination project, amount, and date.' });
   }
 
   try {
     const result = db.prepare(`
-      INSERT INTO employee_loans (employee_id, loan_type, loan_amount, monthly_emi, repaid_amount, remaining_balance, disbursed_date, status, notes)
-      VALUES (?, ?, ?, ?, 0, ?, ?, 'Active', ?)
-    `).run(employee_id, loan_type || 'Salary Advance', amount, emi, amount, disbursed_date, notes || '');
+      INSERT INTO fund_rotations (source_pool, destination_project, rotation_purpose, amount, transfer_date, settled_amount, status, reference_no, managed_by, notes)
+      VALUES (?, ?, ?, ?, ?, 0, 'In Rotation', ?, ?, ?)
+    `).run(source_pool, destination_project, rotation_purpose || 'Working Capital Rotation', transferAmount, transfer_date, reference_no || '', managed_by || '', notes || '');
 
-    res.json({ success: true, message: 'Loan disbursed successfully.', loanId: result.lastInsertRowid });
+    res.json({ success: true, message: 'Fund rotation recorded successfully.', id: result.lastInsertRowid });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.delete('/loans/:id', requireRole(['admin', 'hr']), (req, res) => {
+router.delete('/fund-rotations/:id', requireRole(['admin', 'hr']), (req, res) => {
   try {
-    db.prepare('DELETE FROM employee_loans WHERE id = ?').run(req.params.id);
-    res.json({ success: true, message: 'Loan record deleted.' });
+    db.prepare('DELETE FROM fund_rotations WHERE id = ?').run(req.params.id);
+    res.json({ success: true, message: 'Fund rotation record deleted.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

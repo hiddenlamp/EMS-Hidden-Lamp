@@ -1,14 +1,19 @@
-<%- include('../partials/header', { title: 'Loans & Salary Advances', path: '/loans' }) %>
+<%- include('../partials/header', { title: 'Corporate Loans & Fund Rotations', path: '/loans' }) %>
 
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
   <div>
-    <h1 class="page-title"><i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent);"></i> Employee Loans & Salary Advances</h1>
-    <p class="page-description">Manage employee loans, salary advances, monthly EMI deductions, and automatic payroll recovery.</p>
+    <h1 class="page-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Loans & Fund Rotations</h1>
+    <p class="page-description">Track company borrowings, vendor credit lines, marketplace advances, and inter-project capital transfers.</p>
   </div>
 
-  <button type="button" class="btn btn-primary" onclick="document.getElementById('newLoanModal').style.display='flex'" style="font-weight: 700; font-size: 0.9rem;">
-    <i class="fa-solid fa-plus-circle"></i> Issue New Loan / Advance
-  </button>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('newCompanyLoanModal').style.display='flex'" style="font-weight: 700; font-size: 0.85rem;">
+      <i class="fa-solid fa-plus-circle"></i> + Add Corporate Loan / Credit
+    </button>
+    <button type="button" class="btn btn-secondary" onclick="document.getElementById('newRotationModal').style.display='flex'" style="font-weight: 700; font-size: 0.85rem; background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+      <i class="fa-solid fa-arrows-rotate"></i> + Record Fund Rotation
+    </button>
+  </div>
 </div>
 
 <% if (locals.success) { %>
@@ -22,236 +27,444 @@
 <!-- METRICS OVERVIEW CARDS -->
 <div class="metrics-grid">
   <div class="metric-card bg-pastel-purple">
-    <div class="metric-icon"><i class="fa-solid fa-money-bill-transfer"></i></div>
+    <div class="metric-icon"><i class="fa-solid fa-building-columns"></i></div>
     <div>
-      <div class="metric-value">₹<%= totalLoansDisbursed.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
-      <div class="metric-label">Total Disbursed Loans</div>
+      <div class="metric-value">₹<%= totalDebt.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
+      <div class="metric-label">Total Sanctioned Debt / Credit</div>
     </div>
   </div>
 
   <div class="metric-card bg-pastel-blue">
     <div class="metric-icon"><i class="fa-solid fa-scale-balanced"></i></div>
     <div>
-      <div class="metric-value">₹<%= totalOutstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
-      <div class="metric-label">Outstanding Balance</div>
+      <div class="metric-value">₹<%= outstandingDebt.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
+      <div class="metric-label">Outstanding Debt Balance</div>
     </div>
   </div>
 
   <div class="metric-card bg-pastel-green">
-    <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="metric-icon"><i class="fa-solid fa-arrows-spin"></i></div>
     <div>
-      <div class="metric-value">₹<%= totalRepaid.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
-      <div class="metric-label">Total Amount Recovered</div>
+      <div class="metric-value">₹<%= activeRotatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 }) %></div>
+      <div class="metric-label">Capital in Active Rotation</div>
     </div>
   </div>
 
   <div class="metric-card bg-pastel-yellow">
-    <div class="metric-icon"><i class="fa-solid fa-user-clock"></i></div>
+    <div class="metric-icon"><i class="fa-solid fa-folder-open"></i></div>
     <div>
-      <div class="metric-value"><%= activeLoansCount %></div>
-      <div class="metric-label">Active Loans & Advances</div>
+      <div class="metric-value"><%= activeRotationsCount %></div>
+      <div class="metric-label">Active Rotations / Transfers</div>
     </div>
   </div>
 </div>
 
-<div class="card" style="padding: 1.25rem;">
-  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-    <h2 class="card-title"><i class="fa-solid fa-list-check" style="color: var(--accent);"></i> Employee Loan Accounts</h2>
-  </div>
+<!-- TABS NAVIGATION -->
+<div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap;">
+  <a href="/loans?tab=company_loans" class="btn" style="<%= activeTab === 'company_loans' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
+    <i class="fa-solid fa-building-columns"></i> 🏦 Corporate Loans & Vendor Credit Lines (<%= companyLoans.length %>)
+  </a>
+  <a href="/loans?tab=fund_rotations" class="btn" style="<%= activeTab === 'fund_rotations' ? 'background: var(--accent); color: #fff; font-weight: 700;' : 'background: #f8fafc; color: #475569;' %> padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.9rem;">
+    <i class="fa-solid fa-arrows-rotate"></i> 🔄 Inter-Project Fund Rotations (<%= fundRotations.length %>)
+  </a>
+</div>
 
-  <% if (loans.length === 0) { %>
-    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
-      <i class="fa-solid fa-hand-holding-hand" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-      <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No active or past employee loans found.</p>
-      <button type="button" class="btn btn-primary" onclick="document.getElementById('newLoanModal').style.display='flex'" style="margin-top: 0.75rem; font-size: 0.85rem;">
-        Issue First Loan / Advance
-      </button>
+<!-- TAB 1: CORPORATE LOANS & VENDOR CREDIT LINES -->
+<% if (activeTab === 'company_loans') { %>
+  <div class="card" style="padding: 1.25rem;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="card-title"><i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Corporate Borrowings & Credit Accounts</h2>
     </div>
-  <% } else { %>
-    <div class="table-responsive">
-      <table class="table" style="width: 100%;">
-        <thead>
-          <tr>
-            <th style="white-space: nowrap;">Employee Name</th>
-            <th style="white-space: nowrap;">Loan Type</th>
-            <th style="text-align: right; white-space: nowrap;">Sanctioned Loan</th>
-            <th style="text-align: right; white-space: nowrap;">Monthly EMI</th>
-            <th style="text-align: right; white-space: nowrap;">Recovered</th>
-            <th style="text-align: right; white-space: nowrap;">Balance Due</th>
-            <th style="white-space: nowrap;">Disbursed Date</th>
-            <th style="text-align: center; white-space: nowrap;">Status</th>
-            <th style="text-align: right; white-space: nowrap;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% loans.forEach(l => { %>
+
+    <% if (companyLoans.length === 0) { %>
+      <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+        <i class="fa-solid fa-building-columns" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+        <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No corporate loans or vendor credit lines recorded.</p>
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('newCompanyLoanModal').style.display='flex'" style="margin-top: 0.75rem; font-size: 0.85rem;">
+          + Add First Corporate Loan / Credit Line
+        </button>
+      </div>
+    <% } else { %>
+      <div class="table-responsive">
+        <table class="table" style="width: 100%;">
+          <thead>
             <tr>
-              <td style="white-space: nowrap; vertical-align: middle;">
-                <strong style="font-size: 0.92rem; color: #0f172a;"><%= l.employee_name %></strong>
-                <br><small style="color: #64748b; font-weight: 500;"><%= l.employee_code || ('ID #' + l.employee_id) %> • <%= l.work_location %></small>
-              </td>
-              <td style="white-space: nowrap; vertical-align: middle;">
-                <span class="badge" style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 0.78rem;">
-                  <%= l.loan_type %>
-                </span>
-              </td>
-              <td style="text-align: right; font-weight: 700; color: #0f172a; white-space: nowrap; vertical-align: middle;">
-                ₹<%= l.loan_amount.toLocaleString('en-IN') %>
-              </td>
-              <td style="text-align: right; font-weight: 700; color: #2563eb; white-space: nowrap; vertical-align: middle;">
-                ₹<%= l.monthly_emi.toLocaleString('en-IN') %>
-              </td>
-              <td style="text-align: right; font-weight: 700; color: #059669; white-space: nowrap; vertical-align: middle;">
-                ₹<%= l.repaid_amount.toLocaleString('en-IN') %>
-              </td>
-              <td style="text-align: right; font-weight: 800; color: <%= l.remaining_balance > 0 ? '#dc2626' : '#15803d' %>; white-space: nowrap; vertical-align: middle;">
-                ₹<%= l.remaining_balance.toLocaleString('en-IN') %>
-              </td>
-              <td style="white-space: nowrap; vertical-align: middle; font-size: 0.85rem; color: #475569;">
-                <%= l.disbursed_date %>
-              </td>
-              <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
-                <% if (l.status === 'Active') { %>
-                  <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 0.75rem;">
-                    <i class="fa-solid fa-spinner fa-spin"></i> Active
-                  </span>
-                <% } else if (l.status === 'Completed') { %>
-                  <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;">
-                    <i class="fa-solid fa-circle-check"></i> Completed
-                  </span>
-                <% } else { %>
-                  <span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; font-size: 0.75rem;">
-                    Cancelled
-                  </span>
-                <% } %>
-              </td>
-              <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
-                <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
-                  <% if (l.status === 'Active' && l.remaining_balance > 0) { %>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="openRepayModal('<%= l.id %>', '<%= l.employee_name %>', '<%= l.remaining_balance %>')" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Record Manual Payment">
-                      <i class="fa-solid fa-hand-holding-hand"></i> Repay
-                    </button>
-                  <% } %>
-
-                  <form action="/loans/<%= l.id %>/delete" method="POST" onsubmit="return confirm('Are you sure you want to delete this loan record?');" style="display: inline; margin: 0;">
-                    <button type="submit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.78rem; color: #dc2626; border-color: #fca5a5;" title="Delete Record">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </form>
-                </div>
-              </td>
+              <th style="white-space: nowrap;">Lender / Vendor Name</th>
+              <th style="white-space: nowrap;">Credit Type</th>
+              <th style="white-space: nowrap;">Allocated Project</th>
+              <th style="text-align: right; white-space: nowrap;">Principal Amount</th>
+              <th style="text-align: right; white-space: nowrap;">Interest / Fee</th>
+              <th style="text-align: right; white-space: nowrap;">Total Payable</th>
+              <th style="text-align: right; white-space: nowrap;">Paid Amount</th>
+              <th style="text-align: right; white-space: nowrap;">Balance Due</th>
+              <th style="text-align: center; white-space: nowrap;">Status</th>
+              <th style="text-align: right; white-space: nowrap;">Actions</th>
             </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
-  <% } %>
-</div>
+          </thead>
+          <tbody>
+            <% companyLoans.forEach(l => { %>
+              <tr>
+                <td style="white-space: nowrap; vertical-align: middle;">
+                  <strong style="font-size: 0.95rem; color: #0f172a;"><%= l.lender_name %></strong>
+                  <% if (l.disbursed_date) { %>
+                    <br><small style="color: #64748b;">Disbursed: <%= l.disbursed_date %></small>
+                  <% } %>
+                </td>
+                <td style="white-space: nowrap; vertical-align: middle;">
+                  <span class="badge" style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 0.78rem;">
+                    <%= l.lender_type %>
+                  </span>
+                </td>
+                <td style="white-space: nowrap; vertical-align: middle; font-weight: 600; color: #334155;">
+                  <i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i> <%= l.project_name %>
+                </td>
+                <td style="text-align: right; font-weight: 700; color: #0f172a; white-space: nowrap; vertical-align: middle;">
+                  ₹<%= l.principal_amount.toLocaleString('en-IN') %>
+                </td>
+                <td style="text-align: right; font-weight: 600; color: #64748b; white-space: nowrap; vertical-align: middle;">
+                  <%= l.interest_rate %>%
+                </td>
+                <td style="text-align: right; font-weight: 700; color: #2563eb; white-space: nowrap; vertical-align: middle;">
+                  ₹<%= l.total_payable.toLocaleString('en-IN') %>
+                </td>
+                <td style="text-align: right; font-weight: 700; color: #059669; white-space: nowrap; vertical-align: middle;">
+                  ₹<%= l.repaid_amount.toLocaleString('en-IN') %>
+                </td>
+                <td style="text-align: right; font-weight: 800; color: <%= l.remaining_balance > 0 ? '#dc2626' : '#15803d' %>; white-space: nowrap; vertical-align: middle;">
+                  ₹<%= l.remaining_balance.toLocaleString('en-IN') %>
+                </td>
+                <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
+                  <% if (l.status === 'Active') { %>
+                    <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 0.75rem;">Active</span>
+                  <% } else { %>
+                    <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;">Fully Repaid</span>
+                  <% } %>
+                </td>
+                <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
+                  <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                    <% if (l.status === 'Active' && l.remaining_balance > 0) { %>
+                      <button type="button" class="btn btn-sm btn-primary" onclick="openCompanyRepayModal('<%= l.id %>', '<%= l.lender_name %>', '<%= l.remaining_balance %>')" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Record Repayment">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> Repay
+                      </button>
+                    <% } %>
+                    <form action="/loans/company-loan/<%= l.id %>/delete" method="POST" onsubmit="return confirm('Delete this corporate loan record?');" style="display: inline; margin: 0;">
+                      <button type="submit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.45rem; font-size: 0.78rem; color: #dc2626; border-color: #fca5a5;" title="Delete Record">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+<% } %>
 
-<!-- ISSUE NEW LOAN / ADVANCE MODAL -->
-<div id="newLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
-  <div style="background: #ffffff; width: 90%; max-width: 500px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+<!-- TAB 2: INTER-PROJECT FUND ROTATIONS -->
+<% if (activeTab === 'fund_rotations') { %>
+  <div class="card" style="padding: 1.25rem;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="card-title"><i class="fa-solid fa-arrows-rotate" style="color: var(--accent);"></i> Inter-Project Fund Rotations & Site Allocations</h2>
+    </div>
+
+    <% if (fundRotations.length === 0) { %>
+      <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+        <i class="fa-solid fa-arrows-spin" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+        <p style="font-size: 0.95rem; font-weight: 600; color: #475569;">No fund rotations or capital transfers recorded.</p>
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('newRotationModal').style.display='flex'" style="margin-top: 0.75rem; font-size: 0.85rem;">
+          + Record First Fund Rotation
+        </button>
+      </div>
+    <% } else { %>
+      <div class="table-responsive">
+        <table class="table" style="width: 100%;">
+          <thead>
+            <tr>
+              <th style="white-space: nowrap;">Source Pool / Account</th>
+              <th style="white-space: nowrap;">Destination Project / Site</th>
+              <th style="white-space: nowrap;">Rotation Purpose</th>
+              <th style="text-align: right; white-space: nowrap;">Transferred Amount</th>
+              <th style="text-align: right; white-space: nowrap;">Settled / Returned</th>
+              <th style="white-space: nowrap;">Transfer Date</th>
+              <th style="white-space: nowrap;">Ref / Manager</th>
+              <th style="text-align: center; white-space: nowrap;">Status</th>
+              <th style="text-align: right; white-space: nowrap;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% fundRotations.forEach(r => { %>
+              <tr>
+                <td style="white-space: nowrap; vertical-align: middle; font-weight: 700; color: #0f172a;">
+                  <%= r.source_pool %>
+                </td>
+                <td style="white-space: nowrap; vertical-align: middle; font-weight: 700; color: #2563eb;">
+                  <i class="fa-solid fa-arrow-right"></i> <%= r.destination_project %>
+                </td>
+                <td style="white-space: nowrap; vertical-align: middle;">
+                  <span class="badge" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-size: 0.78rem;">
+                    <%= r.rotation_purpose %>
+                  </span>
+                </td>
+                <td style="text-align: right; font-weight: 800; color: #0f172a; white-space: nowrap; vertical-align: middle;">
+                  ₹<%= r.amount.toLocaleString('en-IN') %>
+                </td>
+                <td style="text-align: right; font-weight: 700; color: #059669; white-space: nowrap; vertical-align: middle;">
+                  ₹<%= r.settled_amount.toLocaleString('en-IN') %>
+                </td>
+                <td style="white-space: nowrap; vertical-align: middle; font-size: 0.85rem; color: #475569;">
+                  <%= r.transfer_date %>
+                </td>
+                <td style="white-space: nowrap; vertical-align: middle; font-size: 0.8rem; color: #64748b;">
+                  <%= r.reference_no || 'N/A' %> <%= r.managed_by ? '(' + r.managed_by + ')' : '' %>
+                </td>
+                <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
+                  <% if (r.status === 'In Rotation') { %>
+                    <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 0.75rem;">
+                      <i class="fa-solid fa-spinner fa-spin"></i> In Rotation
+                    </span>
+                  <% } else { %>
+                    <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 0.75rem;">
+                      <i class="fa-solid fa-circle-check"></i> Settled
+                    </span>
+                  <% } %>
+                </td>
+                <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
+                  <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                    <% if (r.status === 'In Rotation' && r.settled_amount < r.amount) { %>
+                      <button type="button" class="btn btn-sm btn-primary" onclick="openSettleRotationModal('<%= r.id %>', '<%= r.destination_project %>', '<%= r.amount - r.settled_amount %>')" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Record Return / Settlement">
+                        <i class="fa-solid fa-rotate-left"></i> Settle
+                      </button>
+                    <% } %>
+                    <form action="/loans/fund-rotation/<%= r.id %>/delete" method="POST" onsubmit="return confirm('Delete this fund rotation record?');" style="display: inline; margin: 0;">
+                      <button type="submit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.45rem; font-size: 0.78rem; color: #dc2626; border-color: #fca5a5;" title="Delete Record">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+<% } %>
+
+<!-- ADD CORPORATE LOAN / CREDIT MODAL -->
+<div id="newCompanyLoanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
       <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
-        <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent);"></i> Issue Loan / Salary Advance
+        <i class="fa-solid fa-landmark" style="color: var(--accent);"></i> Add Corporate Loan / Vendor Credit
       </h3>
-      <button type="button" onclick="document.getElementById('newLoanModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+      <button type="button" onclick="document.getElementById('newCompanyLoanModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
     </div>
 
-    <form action="/loans" method="POST">
+    <form action="/loans/company-loan" method="POST">
       <div style="margin-bottom: 1rem;">
-        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Select Employee *</label>
-        <select name="employee_id" class="form-control" required>
-          <option value="">-- Choose Employee --</option>
-          <% employees.forEach(e => { %>
-            <option value="<%= e.id %>"><%= e.name %> (<%= e.work_location %>)</option>
-          <% }); %>
-        </select>
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender / Vendor Name *</label>
+        <input type="text" name="lender_name" class="form-control" placeholder="e.g. HDFC Bank, Vendor Credit, Amazon Marketplace Line..." required>
       </div>
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Loan Type *</label>
-          <select name="loan_type" class="form-control" required>
-            <option value="Salary Advance">Salary Advance</option>
-            <option value="Personal Loan">Personal Loan</option>
-            <option value="Emergency Loan">Emergency Loan</option>
-            <option value="Equipment Loan">Equipment Loan</option>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Lender / Credit Type *</label>
+          <select name="lender_type" class="form-control" required>
+            <option value="Bank / NBFC">Bank / NBFC</option>
+            <option value="Vendor Credit Line">Vendor Credit Line</option>
+            <option value="Marketplace Advance">Marketplace Advance</option>
+            <option value="Private Investor / Partner">Private Investor / Partner</option>
           </select>
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Disbursed Date *</label>
-          <input type="date" name="disbursed_date" class="form-control" value="<%= new Date().toISOString().substring(0, 10) %>" required>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Allocated Project *</label>
+          <select name="project_name" class="form-control" required>
+            <% projects.forEach(p => { %>
+              <option value="<%= p %>"><%= p %></option>
+            <% }); %>
+          </select>
         </div>
       </div>
 
       <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Total Loan Amount (₹) *</label>
-          <input type="number" step="1" name="loan_amount" class="form-control" placeholder="e.g. 10000" required>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Principal Loan Amount (₹) *</label>
+          <input type="number" step="1" name="principal_amount" class="form-control" placeholder="e.g. 500000" required>
         </div>
 
         <div style="flex: 1;">
-          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Monthly EMI Deduction (₹) *</label>
-          <input type="number" step="1" name="monthly_emi" class="form-control" placeholder="e.g. 2000" required>
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Interest Rate / Fee (%)</label>
+          <input type="number" step="0.1" name="interest_rate" class="form-control" placeholder="e.g. 10.5">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Disbursed Date *</label>
+          <input type="date" name="disbursed_date" class="form-control" value="<%= new Date().toISOString().substring(0, 10) %>" required>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Due Date</label>
+          <input type="date" name="due_date" class="form-control">
         </div>
       </div>
 
       <div style="margin-bottom: 1.25rem;">
-        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Notes / Reason</label>
-        <textarea name="notes" class="form-control" rows="2" placeholder="Emergency advance, personal request..."></textarea>
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Notes / Terms</label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Credit terms, repayment schedule..."></textarea>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-        <button type="button" class="btn btn-secondary" onclick="document.getElementById('newLoanModal').style.display='none'">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Disburse Loan</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('newCompanyLoanModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Record Corporate Loan</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- MANUAL REPAYMENT MODAL -->
-<div id="repayModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
-  <div style="background: #ffffff; width: 90%; max-width: 420px; border-radius: 16px; padding: 1.5rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #0f172a;">
-        <i class="fa-solid fa-hand-holding-hand" style="color: var(--accent);"></i> Record Loan Repayment
+<!-- RECORD FUND ROTATION MODAL -->
+<div id="newRotationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 520px; border-radius: 16px; padding: 1.75rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">
+        <i class="fa-solid fa-arrows-rotate" style="color: var(--accent);"></i> Record Inter-Project Fund Rotation
       </h3>
-      <button type="button" onclick="document.getElementById('repayModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+      <button type="button" onclick="document.getElementById('newRotationModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
     </div>
 
-    <form id="repayForm" method="POST">
-      <p style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
-        Recording manual cash/bank repayment for <strong id="repayEmpName">Employee</strong>.<br>
-        Current Balance Due: <strong id="repayBalance" style="color: #dc2626;">₹0</strong>
-      </p>
-
+    <form action="/loans/fund-rotation" method="POST">
       <div style="margin-bottom: 1rem;">
-        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Repayment Amount (₹) *</label>
-        <input type="number" step="1" name="amount" id="repayAmountInput" class="form-control" required>
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Source Pool / Account *</label>
+        <input type="text" name="source_pool" class="form-control" placeholder="e.g. Main Corporate Treasury, Gomia Site Pool..." required>
       </div>
 
-      <div style="margin-bottom: 1.25rem;">
-        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Notes</label>
-        <input type="text" name="notes" class="form-control" placeholder="Direct Bank Transfer / Cash...">
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Destination Project / Site *</label>
+          <select name="destination_project" class="form-control" required>
+            <% projects.forEach(p => { %>
+              <option value="<%= p %>"><%= p %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Rotation Purpose *</label>
+          <input type="text" name="rotation_purpose" class="form-control" placeholder="e.g. Site Material Purchase, Vendor Rotation..." required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Transfer Amount (₹) *</label>
+          <input type="number" step="1" name="amount" class="form-control" placeholder="e.g. 200000" required>
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Transfer Date *</label>
+          <input type="date" name="transfer_date" class="form-control" value="<%= new Date().toISOString().substring(0, 10) %>" required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Ref / UTR No.</label>
+          <input type="text" name="reference_no" class="form-control" placeholder="Bank UTR or Ref">
+        </div>
+
+        <div style="flex: 1;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Managed / Sent By</label>
+          <input type="text" name="managed_by" class="form-control" placeholder="Finance Manager">
+        </div>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-        <button type="button" class="btn btn-secondary" onclick="document.getElementById('repayModal').style.display='none'">Cancel</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('newRotationModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;"><i class="fa-solid fa-check-circle"></i> Record Rotation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- COMPANY REPAY MODAL -->
+<div id="companyRepayModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 420px; border-radius: 16px; padding: 1.5rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #0f172a;">
+        <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent);"></i> Record Debt Repayment
+      </h3>
+      <button type="button" onclick="document.getElementById('companyRepayModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+    </div>
+
+    <form id="companyRepayForm" method="POST">
+      <p style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
+        Recording repayment towards <strong id="cRepayLender">Lender</strong>.<br>
+        Current Balance Due: <strong id="cRepayBalance" style="color: #dc2626;">₹0</strong>
+      </p>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Repayment Amount (₹) *</label>
+        <input type="number" step="1" name="amount" id="cRepayAmountInput" class="form-control" required>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('companyRepayModal').style.display='none'">Cancel</button>
         <button type="submit" class="btn btn-primary" style="font-weight: 700;">Record Repayment</button>
       </div>
     </form>
   </div>
 </div>
 
+<!-- SETTLE ROTATION MODAL -->
+<div id="settleRotationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 90%; max-width: 420px; border-radius: 16px; padding: 1.5rem; box-shadow: var(--shadow-xl); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #0f172a;">
+        <i class="fa-solid fa-rotate-left" style="color: var(--accent);"></i> Settle / Return Fund Rotation
+      </h3>
+      <button type="button" onclick="document.getElementById('settleRotationModal').style.display='none'" style="background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;">✖</button>
+    </div>
+
+    <form id="settleRotationForm" method="POST">
+      <p style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
+        Returning / settling rotated funds for <strong id="settleProj">Project</strong>.<br>
+        Unsettled Balance: <strong id="settleBalance" style="color: #dc2626;">₹0</strong>
+      </p>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.35rem;">Settlement Amount (₹) *</label>
+        <input type="number" step="1" name="amount" id="settleAmountInput" class="form-control" required>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('settleRotationModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700;">Record Settlement</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
-  function openRepayModal(loanId, empName, balance) {
-    document.getElementById('repayForm').action = '/loans/' + loanId + '/repay';
-    document.getElementById('repayEmpName').innerText = empName;
-    document.getElementById('repayBalance').innerText = '₹' + Number(balance).toLocaleString('en-IN');
-    document.getElementById('repayAmountInput').value = balance;
-    document.getElementById('repayModal').style.display = 'flex';
+  function openCompanyRepayModal(loanId, lender, balance) {
+    document.getElementById('companyRepayForm').action = '/loans/company-loan/' + loanId + '/repay';
+    document.getElementById('cRepayLender').innerText = lender;
+    document.getElementById('cRepayBalance').innerText = '₹' + Number(balance).toLocaleString('en-IN');
+    document.getElementById('cRepayAmountInput').value = balance;
+    document.getElementById('companyRepayModal').style.display = 'flex';
+  }
+
+  function openSettleRotationModal(rotId, project, balance) {
+    document.getElementById('settleRotationForm').action = '/loans/fund-rotation/' + rotId + '/settle';
+    document.getElementById('settleProj').innerText = project;
+    document.getElementById('settleBalance').innerText = '₹' + Number(balance).toLocaleString('en-IN');
+    document.getElementById('settleAmountInput').value = balance;
+    document.getElementById('settleRotationModal').style.display = 'flex';
   }
 </script>
 

@@ -138,31 +138,36 @@ function initSchema() {
       FOREIGN KEY (responsible_employee_id) REFERENCES employees(id) ON DELETE SET NULL
     );
 
-    CREATE TABLE IF NOT EXISTS employee_loans (
+    CREATE TABLE IF NOT EXISTS company_loans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
-      loan_type TEXT NOT NULL DEFAULT 'Salary Advance' CHECK(loan_type IN ('Salary Advance', 'Personal Loan', 'Emergency Loan', 'Equipment Loan')),
-      loan_amount REAL NOT NULL DEFAULT 0,
-      monthly_emi REAL NOT NULL DEFAULT 0,
+      lender_name TEXT NOT NULL,
+      lender_type TEXT NOT NULL DEFAULT 'Bank / NBFC',
+      project_name TEXT NOT NULL DEFAULT 'General Corporate',
+      principal_amount REAL NOT NULL DEFAULT 0,
+      interest_rate REAL DEFAULT 0,
+      total_payable REAL NOT NULL DEFAULT 0,
       repaid_amount REAL NOT NULL DEFAULT 0,
       remaining_balance REAL NOT NULL DEFAULT 0,
       disbursed_date TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'Active' CHECK(status IN ('Active', 'Completed', 'Cancelled')),
+      due_date TEXT,
+      status TEXT NOT NULL DEFAULT 'Active' CHECK(status IN ('Active', 'Fully Repaid', 'Overdue', 'Restructured')),
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS loan_repayments (
+    CREATE TABLE IF NOT EXISTS fund_rotations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      loan_id INTEGER NOT NULL,
-      payroll_run_id INTEGER,
+      source_pool TEXT NOT NULL,
+      destination_project TEXT NOT NULL,
+      rotation_purpose TEXT NOT NULL,
       amount REAL NOT NULL DEFAULT 0,
-      payment_date TEXT NOT NULL,
-      payment_type TEXT DEFAULT 'Payroll EMI Deduction' CHECK(payment_type IN ('Payroll EMI Deduction', 'Manual Cash/Bank')),
+      transfer_date TEXT NOT NULL,
+      settled_amount REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'In Rotation' CHECK(status IN ('In Rotation', 'Settled / Returned', 'Absorbed in Expenses')),
+      reference_no TEXT,
+      managed_by TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (loan_id) REFERENCES employee_loans(id) ON DELETE CASCADE
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 }
