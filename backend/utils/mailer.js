@@ -1,11 +1,18 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 const { generatePayslipPDFBuffer } = require('./pdfGenerator');
+
+// Force strict IPv4 DNS resolution for cloud servers (prevents Render IPv6 ENETUNREACH drops)
+function lookupIPv4(hostname, options, callback) {
+  return dns.lookup(hostname, { family: 4, all: false }, callback);
+}
 
 // Cached shared transporter pool for lightning fast instant email delivery
 let cachedTransporter = null;
 
 /**
  * Creates or reuses a pooled Nodemailer transporter supporting Resend.com, Zoho Mail, Hostinger, or Custom SMTP.
+ * Enforces strict IPv4 DNS resolution to prevent cloud container socket errors.
  */
 async function getTransporter() {
   if (cachedTransporter) {
@@ -29,7 +36,7 @@ async function getTransporter() {
   let secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
   // Auto-detect Resend.com
-  if (resendApiKey || rawHost.includes('resend') || rawPass.startsWith('re_')) {
+  if (resendApiKey || rawHost.includes('resend') || rawPass.startsWith('re_') || rawUser === 'resend') {
     host = 'smtp.resend.com';
     user = 'resend';
     pass = resendApiKey || rawPass;
@@ -49,7 +56,7 @@ async function getTransporter() {
 
   console.log(`🔌 Initializing SMTP connection (${host}:${port})...`);
 
-  // 1. Primary Config: Port 465 SSL (or specified port)
+  // 1. Primary Config: Port 465 SSL
   try {
     const transporter = nodemailer.createTransport({
       host: host,
@@ -57,7 +64,8 @@ async function getTransporter() {
       secure: secure,
       pool: false,
       auth: { user, pass },
-      family: 4, // IPv4 resolution
+      family: 4,
+      lookup: lookupIPv4, // Force IPv4 DNS lookup
       tls: {
         rejectUnauthorized: false,
         servername: host
@@ -72,45 +80,43 @@ async function getTransporter() {
     cachedTransporter = transporter;
     return transporter;
   } catch (errPrimary) {
-    console.warn(`⚠️ Primary Port ${port} connection failed on ${host}: ${errPrimary.message}. Trying TLS fallback...`);
+    console.warn(`⚠️ Primary Port ${port} connection failed on ${host}: ${errPrimary.message}. Trying Port 465 Direct...`);
   }
 
-  // 2. Fallback Config: Port 587 TLS
-  const fallbackPort = port === 465 ? 587 : 465;
-  const fallbackSecure = fallbackPort === 465;
-
+  // 2. Port 465 Forced Direct Fallback with strict IPv4
   try {
-    console.log(`🔌 Fallback to ${host}:${fallbackPort}...`);
+    console.log(`🔌 Fallback Direct to ${host}:465 (SSL IPv4)...`);
     const transporter = nodemailer.createTransport({
       host: host,
-      port: fallbackPort,
-      secure: fallbackSecure,
-      requireTLS: !fallbackSecure,
+      port: 465,
+      secure: true,
       family: 4,
+      lookup: lookupIPv4,
       auth: { user, pass },
       tls: {
         rejectUnauthorized: false,
         servername: host
       },
-      connectionTimeout: 12000,
-      greetingTimeout: 12000,
-      socketTimeout: 15000
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000
     });
 
     await transporter.verify();
-    console.log(`✅ SMTP Port ${fallbackPort} Fallback Verified!`);
+    console.log(`✅ SMTP Port 465 Direct Fallback Verified for ${host}!`);
     cachedTransporter = transporter;
     return transporter;
   } catch (errFallback) {
-    console.warn(`⚠️ Fallback Port ${fallbackPort} connection failed: ${errFallback.message}`);
+    console.warn(`⚠️ Direct Fallback failed on ${host}: ${errFallback.message}`);
   }
 
-  // 3. Direct Transporter Fallback
+  // 3. Direct Emergency Transporter with IPv4 Lookup
   return nodemailer.createTransport({
     host: host,
-    port: port,
-    secure: secure,
+    port: 465,
+    secure: true,
     family: 4,
+    lookup: lookupIPv4,
     auth: { user, pass },
     tls: { rejectUnauthorized: false, servername: host },
     connectionTimeout: 15000
