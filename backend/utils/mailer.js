@@ -124,10 +124,15 @@ async function sendPayslipEmail(data) {
   const rawPass = (process.env.SMTP_PASS || '').trim();
   const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
 
-  let senderEmail = rawUser || 'hiddenlamp@ems.hiddenlamp.in';
+  let senderEmail = process.env.RESEND_FROM_EMAIL || 'hiddenlamp@ems.hiddenlamp.in';
   if (resendApiKey || rawPass.startsWith('re_') || rawUser === 'resend') {
-    // Resend default onboarding sender or verified domain sender
-    senderEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    if (process.env.RESEND_FROM_EMAIL) {
+      senderEmail = process.env.RESEND_FROM_EMAIL;
+    } else if (rawUser && rawUser.includes('@') && rawUser !== 'resend') {
+      senderEmail = rawUser;
+    } else {
+      senderEmail = 'hiddenlamp@ems.hiddenlamp.in';
+    }
   }
 
   const from = `"Hidden Lamp Payroll" <${senderEmail}>`;
