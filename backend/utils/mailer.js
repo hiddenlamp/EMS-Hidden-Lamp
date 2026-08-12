@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const https = require('https');
 const { generatePayslipPDFBuffer } = require('./pdfGenerator');
 
 // Force strict IPv4 DNS resolution for cloud servers (prevents Render IPv6 ENETUNREACH drops)
@@ -7,12 +8,79 @@ function lookupIPv4(hostname, options, callback) {
   return dns.lookup(hostname, { family: 4, all: false }, callback);
 }
 
-// Cached shared transporter pool for lightning fast instant email delivery
+// Cached shared transporter pool for Nodemailer
 let cachedTransporter = null;
 
 /**
- * Creates or reuses a pooled Nodemailer transporter supporting Resend.com, Zoho Mail, Hostinger, or Custom SMTP.
- * Enforces strict IPv4 DNS resolution to prevent cloud container socket errors.
+ * Direct HTTPS POST dispatch to Resend.com REST API (Bypasses all SMTP socket timeouts & port blocks).
+ */
+function sendViaResendApi(apiKey, mailData) {
+  const payload = JSON.stringify({
+    from: mailData.from,
+    to: [mailData.to],
+    subject: mailData.subject,
+    html: mailData.html,
+    attachments: mailData.attachments ? mailData.attachments.map(att => ({
+      filename: att.filename,
+      content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : Buffer.from(att.content).toString('base64')
+    })) : []
+  });
+
+  return new Promise((resolve, reject) => {
+    console.log(`🚀 Sending email via Resend HTTPS REST API (Port 443) to ${mailData.to}...`);
+
+    const req = https.request({
+      hostname: 'api.resend.com',
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      },
+      timeout: 15000
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const parsed = JSON.parse(body);
+            console.log(`✅ Resend HTTPS API Success for ${mailData.to} (ID: ${parsed.id})`);
+            resolve({ messageId: parsed.id, previewUrl: null });
+          } catch (e) {
+            resolve({ messageId: 'resend-ok', previewUrl: null });
+          }
+        } else {
+          try {
+            const parsed = JSON.parse(body);
+            const errMsg = parsed.message || parsed.name || body;
+            console.error(`❌ Resend HTTPS API Error (${res.statusCode}):`, errMsg);
+            reject(new Error(errMsg));
+          } catch (e) {
+            reject(new Error(`HTTP ${res.statusCode}: ${body}`));
+          }
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error('❌ Resend HTTPS Request Network Error:', err.message);
+      reject(err);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Resend HTTPS API Request Timeout after 15s'));
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Creates or reuses a pooled Nodemailer transporter for standard SMTP (Zoho, Hostinger, etc.).
  */
 async function getTransporter() {
   if (cachedTransporter) {
@@ -35,14 +103,12 @@ async function getTransporter() {
   let port = parseInt(process.env.SMTP_PORT) || 465;
   let secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
-  // Auto-detect Resend.com
   if (resendApiKey || rawHost.includes('resend') || rawPass.startsWith('re_') || rawUser === 'resend') {
     host = 'smtp.resend.com';
     user = 'resend';
     pass = resendApiKey || rawPass;
     port = 465;
     secure = true;
-    console.log('⚡ Using Resend.com Transactional Email API/SMTP Service!');
   } else if (rawHost && rawHost !== 'missing') {
     host = rawHost;
   } else if (rawUser.endsWith('@zoho.com') || rawUser.includes('zoho.com')) {
@@ -54,9 +120,8 @@ async function getTransporter() {
   if (!user || user === 'missing') user = 'hiddenlamp@ems.hiddenlamp.in';
   if (!pass || pass === 'missing') pass = 'Hiddenlamp@734006';
 
-  console.log(`🔌 Initializing SMTP connection (${host}:${port})...`);
+  console.log(`🔌 Initializing Nodemailer SMTP connection (${host}:${port})...`);
 
-  // 1. Primary Config: Port 465 SSL
   try {
     const transporter = nodemailer.createTransport({
       host: host,
@@ -65,34 +130,7 @@ async function getTransporter() {
       pool: false,
       auth: { user, pass },
       family: 4,
-      lookup: lookupIPv4, // Force IPv4 DNS lookup
-      tls: {
-        rejectUnauthorized: false,
-        servername: host
-      },
-      connectionTimeout: 12000,
-      greetingTimeout: 12000,
-      socketTimeout: 15000
-    });
-
-    await transporter.verify();
-    console.log(`✅ SMTP Port ${port} SSL (${host}) Connected & Verified!`);
-    cachedTransporter = transporter;
-    return transporter;
-  } catch (errPrimary) {
-    console.warn(`⚠️ Primary Port ${port} connection failed on ${host}: ${errPrimary.message}. Trying Port 465 Direct...`);
-  }
-
-  // 2. Port 465 Forced Direct Fallback with strict IPv4
-  try {
-    console.log(`🔌 Fallback Direct to ${host}:465 (SSL IPv4)...`);
-    const transporter = nodemailer.createTransport({
-      host: host,
-      port: 465,
-      secure: true,
-      family: 4,
       lookup: lookupIPv4,
-      auth: { user, pass },
       tls: {
         rejectUnauthorized: false,
         servername: host
@@ -103,24 +141,13 @@ async function getTransporter() {
     });
 
     await transporter.verify();
-    console.log(`✅ SMTP Port 465 Direct Fallback Verified for ${host}!`);
+    console.log(`✅ SMTP Port ${port} SSL (${host}) Connected & Verified!`);
     cachedTransporter = transporter;
     return transporter;
-  } catch (errFallback) {
-    console.warn(`⚠️ Direct Fallback failed on ${host}: ${errFallback.message}`);
+  } catch (errPrimary) {
+    console.warn(`⚠️ Primary Port ${port} connection failed on ${host}: ${errPrimary.message}`);
+    throw errPrimary;
   }
-
-  // 3. Direct Emergency Transporter with IPv4 Lookup
-  return nodemailer.createTransport({
-    host: host,
-    port: 465,
-    secure: true,
-    family: 4,
-    lookup: lookupIPv4,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false, servername: host },
-    connectionTimeout: 15000
-  });
 }
 
 async function sendPayslipEmail(data) {
@@ -130,8 +157,11 @@ async function sendPayslipEmail(data) {
   const rawPass = (process.env.SMTP_PASS || '').trim();
   const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
 
+  // Determine active Resend Key (if any)
+  const activeResendKey = resendApiKey || (rawPass.startsWith('re_') ? rawPass : (rawUser.startsWith('re_') ? rawUser : null));
+
   let senderEmail = process.env.RESEND_FROM_EMAIL || 'hiddenlamp@ems.hiddenlamp.in';
-  if (resendApiKey || rawPass.startsWith('re_') || rawUser === 'resend') {
+  if (activeResendKey || rawUser === 'resend') {
     if (process.env.RESEND_FROM_EMAIL) {
       senderEmail = process.env.RESEND_FROM_EMAIL;
     } else if (rawUser && rawUser.includes('@') && rawUser !== 'resend') {
@@ -274,27 +304,34 @@ async function sendPayslipEmail(data) {
     </html>
   `;
 
-  const mailOptions = { from, to, subject, html };
-
+  const attachments = [];
   if (pdfBuffer) {
     const safeEmpName = (employeeName || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
-    mailOptions.attachments = [
-      {
-        filename: `Payslip_${safeEmpName}_${period}.pdf`,
-        content: pdfBuffer,
-        contentType: 'application/pdf'
-      }
-    ];
+    attachments.push({
+      filename: `Payslip_${safeEmpName}_${period}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    });
   }
 
-  const transporter = await getTransporter();
+  // If Resend API Key is available, send via direct HTTPS REST API (bypasses all SMTP connection timeouts)
+  if (activeResendKey) {
+    try {
+      return await sendViaResendApi(activeResendKey, { from, to, subject, html, attachments });
+    } catch (resendHttpErr) {
+      console.warn('⚠️ Resend HTTPS API dispatch failed, trying Nodemailer SMTP fallback:', resendHttpErr.message);
+    }
+  }
 
+  // Standard Nodemailer SMTP fallback
+  const transporter = await getTransporter();
   try {
+    const mailOptions = { from, to, subject, html, attachments };
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully to ${to} (MessageID: ${info.messageId})`);
+    console.log(`✅ SMTP Email sent successfully to ${to} (MessageID: ${info.messageId})`);
     return { messageId: info.messageId, previewUrl: null };
   } catch (sendErr) {
-    console.error(`❌ Email Send Error for ${to}:`, sendErr.message);
+    console.error(`❌ SMTP Send Error for ${to}:`, sendErr.message);
     throw sendErr;
   }
 }
