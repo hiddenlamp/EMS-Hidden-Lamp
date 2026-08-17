@@ -284,4 +284,32 @@ router.post('/:id/salary', (req, res) => {
   }
 });
 
+// POST /employees/:id/delete (Permanently delete employee record & associated data)
+router.post('/:id/delete', (req, res) => {
+  const empId = req.params.id;
+  const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(empId);
+  if (!employee) {
+    return res.status(404).render('error', { title: '404 Not Found', message: 'Employee not found.' });
+  }
+
+  try {
+    db.exec('BEGIN TRANSACTION');
+    db.prepare('DELETE FROM salary_components WHERE employee_id = ?').run(empId);
+    db.prepare('DELETE FROM payslips WHERE employee_id = ?').run(empId);
+    db.prepare('DELETE FROM employee_loans WHERE employee_id = ?').run(empId);
+    try { db.prepare('DELETE FROM employee_advances WHERE employee_id = ?').run(empId); } catch (_) {}
+    try { db.prepare('DELETE FROM travel_claims WHERE employee_id = ?').run(empId); } catch (_) {}
+    db.prepare('DELETE FROM employees WHERE id = ?').run(empId);
+    db.exec('COMMIT');
+
+    logAction((req.user || req.session?.user || {}).email || 'admin@hiddenlamp.com', 'DELETE_EMPLOYEE', 'Employee', empId, { name: employee.name });
+
+    res.redirect('/employees?success=' + encodeURIComponent(`Employee ${employee.name} deleted successfully.`));
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    console.error('Error deleting employee:', err);
+    res.status(500).render('error', { title: 'Delete Error', message: err.message });
+  }
+});
+
 module.exports = router;

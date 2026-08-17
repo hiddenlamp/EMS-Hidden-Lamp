@@ -10,7 +10,7 @@ router.use(requireRole(['admin', 'hr']));
 router.get('/live-status', (req, res) => {
   try {
     const statuses = db.prepare(`
-      SELECT id, email_status, email_sent_at, email_error 
+      SELECT id, email_status, email_sent_at, email_error, payment_status, payment_date
       FROM payslips 
       ORDER BY id DESC
     `).all();
@@ -20,10 +20,12 @@ router.get('/live-status', (req, res) => {
   }
 });
 
-// GET /payslips (Global Payslip Directory with Month & Year Filtering)
+// GET /payslips (Global Payslip Directory with Month, Year, Location & Payment Status Filtering)
 router.get('/', (req, res) => {
   const selectedYear = req.query.year || '';
   const selectedMonth = req.query.month || '';
+  const selectedLocation = req.query.location || '';
+  const selectedPaymentStatus = req.query.payment_status || '';
   const searchQuery = (req.query.search || '').trim();
 
   let sql = `
@@ -47,6 +49,17 @@ router.get('/', (req, res) => {
     params.push(`%-${String(selectedMonth).padStart(2, '0')}`);
   }
 
+  if (selectedLocation) {
+    sql += ` AND e.work_location = ?`;
+    params.push(selectedLocation);
+  }
+
+  if (selectedPaymentStatus === 'Paid') {
+    sql += ` AND p.payment_status = 'Paid'`;
+  } else if (selectedPaymentStatus === 'Pending') {
+    sql += ` AND (p.payment_status IS NULL OR p.payment_status = 'Pending')`;
+  }
+
   if (searchQuery) {
     sql += ` AND (e.name LIKE ? OR e.employee_code LIKE ? OR e.work_location LIKE ?)`;
     params.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
@@ -56,7 +69,11 @@ router.get('/', (req, res) => {
 
   const payslips = db.prepare(sql).all(...params);
 
-  // Available distinct periods & years for dropdown filters
+  // Available distinct locations, periods & years for dropdown filters
+  let locations = db.prepare("SELECT DISTINCT work_location FROM employees WHERE work_location IS NOT NULL AND TRIM(work_location) != '' ORDER BY work_location ASC").all().map(r => r.work_location);
+  if (!locations || locations.length === 0) {
+    locations = ['Dantewada', 'Deoghar', 'Gomia', 'Gumla', 'Hazaribagh', 'Jaipur', 'Khunti', 'Patna', 'Ranchi', 'Sahibganj'];
+  }
   const periods = db.prepare('SELECT DISTINCT period FROM payroll_runs ORDER BY period DESC').all().map(r => r.period);
   const years = db.prepare("SELECT DISTINCT SUBSTR(period, 1, 4) as yr FROM payroll_runs ORDER BY yr DESC").all().map(r => r.yr);
   if (!years.includes('2026')) years.unshift('2026');
@@ -78,6 +95,11 @@ router.get('/', (req, res) => {
 
   const totalGenerated = payslips.length;
   const totalAmount = payslips.reduce((sum, p) => sum + p.net_pay, 0);
+  const totalPaidAmount = payslips.reduce((sum, p) => sum + (p.payment_status === 'Paid' ? p.net_pay : 0), 0);
+  const totalPendingAmount = payslips.reduce((sum, p) => sum + (p.payment_status !== 'Paid' ? p.net_pay : 0), 0);
+  const paidCount = payslips.filter(p => p.payment_status === 'Paid').length;
+  const pendingCount = payslips.filter(p => p.payment_status !== 'Paid').length;
+
   const success = req.query.success || null;
   const error = req.query.error || null;
 
@@ -85,8 +107,15 @@ router.get('/', (req, res) => {
     payslips,
     totalGenerated,
     totalAmount,
+    totalPaidAmount,
+    totalPendingAmount,
+    paidCount,
+    pendingCount,
+    locations,
+    selectedLocation,
     selectedYear,
     selectedMonth,
+    selectedPaymentStatus,
     searchQuery,
     periods,
     years,

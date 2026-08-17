@@ -162,10 +162,10 @@
       font-weight: 700;
     }
 
-    /* Net Pay Card (Green Accent Box) */
+    /* Net Pay Card (Corporate Blue Accent Box) */
     .net-pay-card {
-      background: #ecfdf5;
-      border: 1px solid #d1fae5;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
       border-radius: 10px;
       padding: 16px 20px;
     }
@@ -178,7 +178,7 @@
     .net-pay-accent-bar {
       width: 4px;
       height: 36px;
-      background: #10b981;
+      background: #2563eb;
       border-radius: 2px;
     }
     .net-pay-val {
@@ -189,7 +189,7 @@
     }
     .net-pay-lbl {
       font-size: 0.78rem;
-      color: #059669;
+      color: #1e40af;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -197,7 +197,7 @@
     }
     .net-pay-divider {
       height: 1px;
-      background: #a7f3d0;
+      background: #e2e8f0;
       margin: 12px 0 10px 0;
     }
     .net-pay-days-table {
@@ -205,15 +205,15 @@
       font-size: 0.82rem;
     }
     .net-pay-days-table td.lbl {
-      color: #047857;
+      color: #475569;
       font-weight: 600;
     }
     .net-pay-days-table td.colon {
       width: 12px;
-      color: #10b981;
+      color: #94a3b8;
     }
     .net-pay-days-table td.val {
-      color: #065f46;
+      color: #0f172a;
       font-weight: 700;
       text-align: right;
     }
@@ -246,8 +246,8 @@
       color: #0f172a;
     }
     .header-deductions {
-      background: #fff1f2;
-      color: #9f1239;
+      background: #f1f5f9;
+      color: #334155;
     }
     .breakdown-table {
       width: 100%;
@@ -454,7 +454,9 @@
     const mNum = periodParts.length >= 2 ? String(periodParts[1]).padStart(2, '0') : '07';
     const yNameShort = periodParts[0] || '2026';
     const payslipRefNo = breakdown.receipt_no || `HL/PS/${mNum}-${yNameShort}/${String(breakdown.employee.id || 1).padStart(3, '0')}`;
-    const empCode = breakdown.employee.employee_code || ('HL' + String(breakdown.employee.id).padStart(12, '0'));
+    const empCode = breakdown.employee.employee_code || (breakdown.employee.id ? ('HL-' + String(breakdown.employee.id).padStart(3, '0')) : 'HL-001');
+    const paymentStatus = breakdown.payment_status || (locals.payslip && locals.payslip.payment_status) || 'Pending';
+    const paymentDate = breakdown.payment_date || (locals.payslip && locals.payslip.payment_date) || null;
     const paidDays = breakdown.days_present || (breakdown.days_in_month ? (breakdown.days_in_month - breakdown.days_lop) : 31);
     const lopDays = breakdown.days_lop || 0;
     const hideTopBar = locals.isPdf || false;
@@ -527,6 +529,21 @@
               <td class="label">Pay Date</td>
               <td class="colon">:</td>
               <td class="value"><%= breakdown.pay_date %></td>
+            </tr>
+            <tr>
+              <td class="label">Payment Status</td>
+              <td class="colon">:</td>
+              <td class="value">
+                <% if (paymentStatus === 'Paid') { %>
+                  <span style="color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 800; display: inline-block;">
+                    ✔ SALARY PAID <%= paymentDate ? ('(' + String(paymentDate).substring(0, 10) + ')') : '' %>
+                  </span>
+                <% } else { %>
+                  <span style="color: #b45309; background: #fef3c7; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 800; display: inline-block;">
+                    ⌛ PENDING PAYMENT
+                  </span>
+                <% } %>
+              </td>
             </tr>
           </table>
         </div>

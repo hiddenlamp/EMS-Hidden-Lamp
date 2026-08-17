@@ -45,7 +45,9 @@ function generatePayslipPDFBuffer(payslipData) {
       const mNum = periodParts.length >= 2 ? String(periodParts[1]).padStart(2, '0') : '07';
       const yNameShort = periodParts[0] || '2026';
       const refNo = breakdown.receipt_no || `HL/PS/${mNum}-${yNameShort}/${String(emp.id || 1).padStart(3, '0')}`;
-      const empCode = emp.employee_code || (`HL${String(emp.id || 1).padStart(12, '0')}`);
+      const empCode = emp.employee_code || (emp.id ? ('HL-' + String(emp.id).padStart(3, '0')) : 'HL-001');
+      const paymentStatus = breakdown.payment_status || payslipData.payment_status || 'Pending';
+      const paymentDate = breakdown.payment_date || payslipData.payment_date || null;
       const paidDays = breakdown.days_present || (breakdown.days_in_month ? (breakdown.days_in_month - breakdown.days_lop) : 31);
       const lopDays = breakdown.days_lop || 0;
 
@@ -104,48 +106,62 @@ function generatePayslipPDFBuffer(payslipData) {
         { label: 'Employee Name', val: emp.name || 'Roshan Kumar' },
         { label: 'Employee ID', val: empCode },
         { label: 'Pay Period', val: monthYearStr },
-        { label: 'Pay Date', val: payDate || '2026-07-30' }
+        { label: 'Pay Date', val: payDate || '2026-07-30' },
+        { label: 'Payment Status', val: paymentStatus === 'Paid' ? `PAID (${paymentDate ? String(paymentDate).substring(0, 10) : 'DONE'})` : 'PENDING', isPaidStatus: true, statusVal: paymentStatus }
       ];
 
       summaryRows.forEach(row => {
         doc.fillColor('#64748b').font('Helvetica').fontSize(9).text(row.label, 36, sumY, { width: 100 });
         doc.fillColor('#94a3b8').text(':', 140, sumY);
-        doc.fillColor(row.isBlue ? '#2563eb' : '#0f172a')
-           .font('Helvetica-Bold')
-           .fontSize(9)
-           .text(row.val, 150, sumY, { width: 170 });
-        sumY += 16;
+        if (row.isPaidStatus) {
+          if (row.statusVal === 'Paid') {
+            doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(8.5).text('✔ ' + row.val, 150, sumY, { width: 170 });
+          } else {
+            doc.fillColor('#b45309').font('Helvetica-Bold').fontSize(8.5).text('⌛ ' + row.val, 150, sumY, { width: 170 });
+          }
+        } else {
+          doc.fillColor(row.isBlue ? '#2563eb' : '#0f172a')
+             .font('Helvetica-Bold')
+             .fontSize(9)
+             .text(row.val, 150, sumY, { width: 170 });
+        }
+        sumY += 15;
       });
 
-      // Right Column: Net Pay Accent Card (Green Card matching website)
-      doc.rect(netPayCardX, y, netPayCardWidth, 98).fillAndStroke('#ecfdf5', '#d1fae5');
+      // Right Column: Net Pay Accent Card (Corporate Blue Accent Box)
+      doc.rect(netPayCardX, y, netPayCardWidth, 98).fillAndStroke('#f8fafc', '#cbd5e1');
       
-      // Green Accent Bar
-      doc.rect(netPayCardX + 14, y + 14, 4, 32).fill('#10b981');
+      // Blue Accent Bar
+      doc.rect(netPayCardX + 14, y + 14, 4, 32).fill('#2563eb');
 
       // Amount
       doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(20)
          .text(`Rs. ${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, netPayCardX + 26, y + 14);
 
-      doc.fillColor('#059669').font('Helvetica-Bold').fontSize(8)
-         .text('TOTAL NET PAY', netPayCardX + 26, y + 36);
+      // Label
+      doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(8)
+         .text('NET PAYABLE SALARY', netPayCardX + 26, y + 36);
 
-      // Card Divider
-      doc.strokeColor('#a7f3d0').lineWidth(1).moveTo(netPayCardX + 14, y + 54).lineTo(netPayCardX + netPayCardWidth - 14, y + 54).stroke();
+      // Divider inside Net Pay Box
+      doc.strokeColor('#e2e8f0').lineWidth(0.75).moveTo(netPayCardX + 14, y + 52).lineTo(netPayCardX + netPayCardWidth - 14, y + 52).stroke();
 
-      // Days Info
-      doc.fillColor('#047857').font('Helvetica').fontSize(8).text('Paid Days', netPayCardX + 14, y + 62);
-      doc.text(':', netPayCardX + 120, y + 62);
-      doc.fillColor('#065f46').font('Helvetica-Bold').text(`${paidDays}`, netPayCardX + 140, y + 62, { align: 'right', width: 75 });
+      // Attendance breakdown inside box
+      let npY = y + 58;
+      doc.fillColor('#475569').font('Helvetica').fontSize(8).text('Total Working Days', netPayCardX + 14, npY);
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8).text(String(breakdown.days_in_month || 31), netPayCardX + 14, npY, { align: 'right', width: netPayCardWidth - 28 });
+      npY += 12;
 
-      doc.fillColor('#047857').font('Helvetica').fontSize(8).text('LOP Days', netPayCardX + 14, y + 78);
-      doc.text(':', netPayCardX + 120, y + 78);
-      doc.fillColor('#065f46').font('Helvetica-Bold').text(`${lopDays}`, netPayCardX + 140, y + 78, { align: 'right', width: 75 });
+      doc.fillColor('#475569').font('Helvetica').fontSize(8).text('Payable Days Present', netPayCardX + 14, npY);
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8).text(String(paidDays), netPayCardX + 14, npY, { align: 'right', width: netPayCardWidth - 28 });
+      npY += 12;
 
-      y = Math.max(sumY, y + 106) + 14;
+      doc.fillColor('#475569').font('Helvetica').fontSize(8).text('LOP / Unpaid Days', netPayCardX + 14, npY);
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8).text(String(lopDays), netPayCardX + 14, npY, { align: 'right', width: netPayCardWidth - 28 });
+
+      y += 110;
 
       // ==========================================
-      // 3. TABLES: EARNINGS & DEDUCTIONS (SIDE BY SIDE)
+      // 3. MAIN DUAL TABLE: EARNINGS & DEDUCTIONS
       // ==========================================
       const tableWidth = 250;
       const earningsX = 36;
@@ -158,8 +174,8 @@ function generatePayslipPDFBuffer(payslipData) {
          .text('AMOUNT (Rs.)', earningsX + 140, y + 7, { align: 'right', width: 100 });
 
       // Deductions Section Header
-      doc.rect(deductionsX, y, tableWidth, 22).fillAndStroke('#fff1f2', '#fecdd3');
-      doc.fillColor('#9f1239').font('Helvetica-Bold').fontSize(8)
+      doc.rect(deductionsX, y, tableWidth, 22).fillAndStroke('#f1f5f9', '#cbd5e1');
+      doc.fillColor('#334155').font('Helvetica-Bold').fontSize(8)
          .text('DEDUCTIONS', deductionsX + 10, y + 7)
          .text('AMOUNT (Rs.)', deductionsX + 140, y + 7, { align: 'right', width: 100 });
 

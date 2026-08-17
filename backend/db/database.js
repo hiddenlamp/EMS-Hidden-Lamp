@@ -192,6 +192,9 @@ try { db.exec("ALTER TABLE travel_expenses ADD COLUMN project_name TEXT DEFAULT 
 try { db.exec("ALTER TABLE payslips ADD COLUMN email_status TEXT DEFAULT 'Not Sent';"); } catch (e) {}
 try { db.exec("ALTER TABLE payslips ADD COLUMN email_sent_at DATETIME;"); } catch (e) {}
 try { db.exec("ALTER TABLE payslips ADD COLUMN email_error TEXT;"); } catch (e) {}
+try { db.exec("ALTER TABLE payslips ADD COLUMN payment_status TEXT DEFAULT 'Pending';"); } catch (e) {}
+try { db.exec("ALTER TABLE payslips ADD COLUMN payment_date DATETIME;"); } catch (e) {}
+try { db.exec("ALTER TABLE payslips ADD COLUMN payment_reference TEXT;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_loans ADD COLUMN tenure_months INTEGER DEFAULT 12;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_loans ADD COLUMN calculated_emi REAL DEFAULT 0;"); } catch (e) {}
 try { db.exec("ALTER TABLE company_loans ADD COLUMN total_interest REAL DEFAULT 0;"); } catch (e) {}
@@ -221,6 +224,7 @@ try {
     CREATE INDEX IF NOT EXISTS idx_travel_exp_status ON travel_expenses(status);
     CREATE INDEX IF NOT EXISTS idx_payslips_run ON payslips(payroll_run_id);
     CREATE INDEX IF NOT EXISTS idx_payslips_emp ON payslips(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_payslips_payment_status ON payslips(payment_status);
     CREATE INDEX IF NOT EXISTS idx_employee_loans_emp ON employee_loans(employee_id);
     CREATE INDEX IF NOT EXISTS idx_employee_loans_status ON employee_loans(status);
   `);

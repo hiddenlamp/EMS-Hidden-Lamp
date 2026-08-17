@@ -20,8 +20,9 @@ function getDaysInMonth(periodStr) {
 // ----------------------------------------------------
 router.get('/download/payslip/:id/:employeeId', async (req, res) => {
   const payslip = db.prepare(`
-    SELECT p.*, r.period, r.pay_date, r.status as run_status
+    SELECT p.*, e.employee_code, r.period, r.pay_date, r.status as run_status
     FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
     JOIN payroll_runs r ON p.payroll_run_id = r.id
     WHERE p.payroll_run_id = ? AND p.employee_id = ?
   `).get(req.params.id, req.params.employeeId);
@@ -31,6 +32,11 @@ router.get('/download/payslip/:id/:employeeId', async (req, res) => {
   }
 
   const breakdown = JSON.parse(payslip.breakdown_json);
+  if (breakdown.employee) {
+    breakdown.employee.employee_code = breakdown.employee.employee_code || payslip.employee_code || '';
+  }
+  breakdown.payment_status = payslip.payment_status || 'Pending';
+  breakdown.payment_date = payslip.payment_date || null;
 
   try {
     const pdfBuffer = await generatePayslipPDFBuffer({
@@ -264,6 +270,7 @@ router.post('/:id/calculate', requireAuth, requireRole(['admin', 'hr']), (req, r
       const breakdown = {
         employee: {
           id: emp.id,
+          employee_code: emp.employee_code || '',
           name: emp.name,
           designation: emp.designation,
           department: emp.department,
@@ -345,55 +352,8 @@ router.post('/:id/approve', requireAuth, requireRole(['admin', 'hr']), (req, res
     }
   }
 
-  const shouldSendEmails = req.body.send_emails === 'true';
-
-  if (shouldSendEmails) {
-    const payslips = db.prepare(`
-      SELECT p.*, e.name as employee_name, e.email as user_email
-      FROM payslips p
-      JOIN employees e ON p.employee_id = e.id
-      WHERE p.payroll_run_id = ?
-    `).all(run.id);
-
-    // Update status in DB to 'Sending...' immediately
-    db.prepare("UPDATE payslips SET email_status = 'Sending...' WHERE payroll_run_id = ?").run(run.id);
-
-    const protocol = req.protocol;
-    const host = req.get('host');
-
-    // Asynchronous Background Worker Execution
-    setImmediate(async () => {
-      console.log(`🚀 Starting Asynchronous Background Email Dispatch for Run #${run.id} (${payslips.length} payslips)...`);
-      for (const ps of payslips) {
-        const targetEmail = ps.user_email || `${ps.employee_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@hiddenlamp.com`;
-        const breakdown = JSON.parse(ps.breakdown_json);
-        const payslipDownloadUrl = `${protocol}://${host}/payroll/download/payslip/${run.id}/${ps.employee_id}`;
-
-        try {
-          await sendPayslipEmail({
-            to: targetEmail,
-            employeeName: ps.employee_name,
-            period: run.period,
-            payDate: run.pay_date,
-            grossPay: ps.gross_pay,
-            totalDeductions: ps.total_deductions,
-            netPay: ps.net_pay,
-            netPayInWords: breakdown.net_pay_in_words,
-            breakdown,
-            payslipDownloadUrl
-          });
-          db.prepare("UPDATE payslips SET email_status = 'Dispatched', email_sent_at = CURRENT_TIMESTAMP, email_error = NULL WHERE id = ?").run(ps.id);
-        } catch (e) {
-          console.error(`⚠️ Background Email dispatch error for ${targetEmail}:`, e.message);
-          db.prepare("UPDATE payslips SET email_status = 'Failed', email_error = ? WHERE id = ?").run(e.message, ps.id);
-        }
-      }
-      console.log(`✅ Background Email Dispatch Complete for Run #${run.id}!`);
-    });
-
-    return res.redirect(`/payroll/${run.id}?success=Payroll+approved!+Payslips+email+dispatch+started+in+background.`);
-  }
-
+  // NOTE: Emails are NEVER sent automatically on approval.
+  // Emails are strictly sent ON-DEMAND when clicking 'Email' for an individual employee.
   res.redirect(`/payroll/${run.id}?success=Payroll+run+approved+and+locked.`);
 });
 
@@ -509,8 +469,9 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), (
 // GET /payroll/:id/payslip/:employeeId (Single printable payslip)
 router.get('/:id/payslip/:employeeId', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
   const payslip = db.prepare(`
-    SELECT p.*, r.period, r.pay_date, r.status as run_status
+    SELECT p.*, e.employee_code, r.period, r.pay_date, r.status as run_status
     FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
     JOIN payroll_runs r ON p.payroll_run_id = r.id
     WHERE p.payroll_run_id = ? AND p.employee_id = ?
   `).get(req.params.id, req.params.employeeId);
@@ -520,14 +481,20 @@ router.get('/:id/payslip/:employeeId', requireAuth, requireRole(['admin', 'hr'])
   }
 
   const breakdown = JSON.parse(payslip.breakdown_json);
+  if (breakdown.employee) {
+    breakdown.employee.employee_code = breakdown.employee.employee_code || payslip.employee_code || '';
+  }
+  breakdown.payment_status = payslip.payment_status || 'Pending';
+  breakdown.payment_date = payslip.payment_date || null;
   res.render('payslips/single', { payslip, breakdown });
 });
 
 // GET /payroll/:id/payslip/:employeeId/pdf (Admin Download PDF payslip via PDFKit)
 router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
   const payslip = db.prepare(`
-    SELECT p.*, r.period, r.pay_date, r.status as run_status
+    SELECT p.*, e.employee_code, r.period, r.pay_date, r.status as run_status
     FROM payslips p
+    JOIN employees e ON p.employee_id = e.id
     JOIN payroll_runs r ON p.payroll_run_id = r.id
     WHERE p.payroll_run_id = ? AND p.employee_id = ?
   `).get(req.params.id, req.params.employeeId);
@@ -537,6 +504,12 @@ router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'h
   }
 
   const breakdown = JSON.parse(payslip.breakdown_json);
+  if (breakdown.employee) {
+    breakdown.employee.employee_code = breakdown.employee.employee_code || payslip.employee_code || '';
+  }
+  breakdown.payment_status = payslip.payment_status || 'Pending';
+  breakdown.payment_date = payslip.payment_date || null;
+
   try {
     const pdfBuffer = await generatePayslipPDFBuffer({
       breakdown,
@@ -566,22 +539,100 @@ router.get('/:id/print-all', requireAuth, requireRole(['admin', 'hr']), (req, re
   }
 
   const payslips = db.prepare(`
-    SELECT p.*
+    SELECT p.*, e.employee_code
     FROM payslips p
     JOIN employees e ON p.employee_id = e.id
     WHERE p.payroll_run_id = ?
     ORDER BY e.work_location ASC, e.name ASC
   `).all(run.id);
 
-  const payslipBreakdowns = payslips.map(p => ({
-    ...p,
-    breakdown: JSON.parse(p.breakdown_json)
-  }));
+  const payslipBreakdowns = payslips.map(p => {
+    const bd = JSON.parse(p.breakdown_json);
+    if (bd.employee) {
+      bd.employee.employee_code = bd.employee.employee_code || p.employee_code || '';
+    }
+    bd.payment_status = p.payment_status || 'Pending';
+    bd.payment_date = p.payment_date || null;
+    return {
+      ...p,
+      breakdown: bd
+    };
+  });
 
   res.render('payslips/print_all', {
     run,
     payslips: payslipBreakdowns
   });
+});
+
+// POST /payroll/payslips/:id/payment-status (Toggle or set salary payment status: Pending <-> Paid)
+router.post('/payslips/:id/payment-status', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    const payslip = db.prepare('SELECT p.*, e.name as employee_name FROM payslips p JOIN employees e ON p.employee_id = e.id WHERE p.id = ?').get(req.params.id);
+    if (!payslip) {
+      if (req.xhr || (req.headers.accept && req.headers.accept.includes('json'))) {
+        return res.status(404).json({ success: false, error: 'Payslip not found.' });
+      }
+      return res.redirect('back');
+    }
+
+    const requestedStatus = req.body.status;
+    const newStatus = requestedStatus || (payslip.payment_status === 'Paid' ? 'Pending' : 'Paid');
+    const paymentDate = newStatus === 'Paid' ? (req.body.payment_date || new Date().toISOString().replace('T', ' ').substring(0, 19)) : null;
+    const paymentRef = req.body.payment_reference || payslip.payment_reference || null;
+
+    db.prepare(`
+      UPDATE payslips
+      SET payment_status = ?, payment_date = ?, payment_reference = ?
+      WHERE id = ?
+    `).run(newStatus, paymentDate, paymentRef, payslip.id);
+
+    logAction((req.user || req.session?.user || {}).email || 'system', 'UPDATE_PAYSLIP_PAYMENT_STATUS', 'Payslip', payslip.id, {
+      employee: payslip.employee_name,
+      status: newStatus
+    });
+
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes('json'))) {
+      return res.json({
+        success: true,
+        payslip_id: payslip.id,
+        payment_status: newStatus,
+        payment_date: paymentDate
+      });
+    }
+
+    const redirectUrl = req.body.redirect || req.get('Referrer') || `/payroll/${payslip.payroll_run_id}`;
+    res.redirect(redirectUrl);
+  } catch (err) {
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes('json'))) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+    res.redirect('back');
+  }
+});
+
+// POST /payroll/:id/mark-all-paid (Bulk mark all payslips in a run as Paid)
+router.post('/:id/mark-all-paid', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
+  try {
+    const run = db.prepare('SELECT * FROM payroll_runs WHERE id = ?').get(req.params.id);
+    if (!run) {
+      return res.status(404).render('error', { title: '404 Not Found', message: 'Payroll run not found.' });
+    }
+
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    db.prepare(`
+      UPDATE payslips
+      SET payment_status = 'Paid', payment_date = COALESCE(payment_date, ?)
+      WHERE payroll_run_id = ?
+    `).run(now, run.id);
+
+    logAction((req.user || req.session?.user || {}).email || 'system', 'MARK_ALL_PAYSLIPS_PAID', 'Payroll Run', run.id, { period: run.period });
+
+    const redirectUrl = req.body.redirect || `/payroll/${run.id}?success=${encodeURIComponent('All employee salaries for ' + run.period + ' marked as Paid!')}`;
+    res.redirect(redirectUrl);
+  } catch (err) {
+    res.status(500).render('error', { title: 'Error', message: err.message });
+  }
 });
 
 // GET /payroll/:id/report (CSV Report Download)

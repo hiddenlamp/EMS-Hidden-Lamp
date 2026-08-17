@@ -7,3 +7,5 @@ backend/.env
 .env
 *.log
 .DS_Store
+*.db-wal
+*.db-shm

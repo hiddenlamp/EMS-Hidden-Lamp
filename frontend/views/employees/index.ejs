@@ -62,10 +62,15 @@
               <td>
                 <span class="badge badge-<%= emp.status %>"><%= emp.status %></span>
               </td>
-              <td style="text-align: right;">
-                <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
-                  <a href="/employees/<%= emp.id %>/salary" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">⚙️ Salary</a>
-                  <a href="/employees/<%= emp.id %>/edit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">✏️ Edit</a>
+              <td style="text-align: right; white-space: nowrap;">
+                <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">
+                  <a href="/employees/<%= emp.id %>/salary" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" title="Configure Salary Structure">⚙️ Salary</a>
+                  <a href="/employees/<%= emp.id %>/edit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" title="Edit Employee Profile">✏️ Edit</a>
+                  <form action="/employees/<%= emp.id %>/delete" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete employee <%= emp.name.replace(/\'/g, "\\'") %> (<%= emp.employee_code %>)? All associated salary data will be removed.');" style="display: inline; margin: 0;">
+                    <button type="submit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.45rem; font-size: 0.8rem; color: #dc2626; border-color: #fca5a5; background: #fff5f5;" title="Delete Employee">
+                      <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                  </form>
                 </div>
               </td>
             </tr>
