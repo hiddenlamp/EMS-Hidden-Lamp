@@ -15,12 +15,35 @@ function getDaysInMonth(periodStr) {
   return new Date(year, month, 0).getDate();
 }
 
+// Helper to ensure payslips ALWAYS use the latest modified employee information from live employees table
+function enrichBreakdownWithLiveEmployee(breakdown, pRecord) {
+  if (!breakdown) return {};
+  if (!breakdown.employee) breakdown.employee = {};
+
+  if (pRecord.employee_code !== undefined && pRecord.employee_code !== null && pRecord.employee_code !== '') {
+    breakdown.employee.employee_code = pRecord.employee_code;
+  }
+  if (pRecord.live_emp_name) breakdown.employee.name = pRecord.live_emp_name;
+  if (pRecord.live_designation) breakdown.employee.designation = pRecord.live_designation;
+  if (pRecord.live_department) breakdown.employee.department = pRecord.live_department;
+  if (pRecord.live_work_location) breakdown.employee.work_location = pRecord.live_work_location;
+  if (pRecord.live_pan) breakdown.employee.pan = pRecord.live_pan;
+  if (pRecord.live_bank_name) breakdown.employee.bank_name = pRecord.live_bank_name;
+  if (pRecord.live_bank_account) breakdown.employee.bank_account = pRecord.live_bank_account;
+  if (pRecord.live_email) breakdown.employee.email = pRecord.live_email;
+
+  breakdown.payment_status = pRecord.payment_status || 'Pending';
+  breakdown.payment_date = pRecord.payment_date || null;
+
+  return breakdown;
+}
+
 // ----------------------------------------------------
 // PUBLIC DIRECT PDF DOWNLOAD (No Login Required For Email Links)
 // ----------------------------------------------------
 router.get('/download/payslip/:id/:employeeId', async (req, res) => {
   const payslip = db.prepare(`
-    SELECT p.*, e.employee_code, r.period, r.pay_date, r.status as run_status
+    SELECT p.*, e.employee_code, e.name as live_emp_name, e.designation as live_designation, e.department as live_department, e.work_location as live_work_location, e.pan as live_pan, e.bank_name as live_bank_name, e.bank_account as live_bank_account, e.email as live_email, r.period, r.pay_date, r.status as run_status
     FROM payslips p
     JOIN employees e ON p.employee_id = e.id
     JOIN payroll_runs r ON p.payroll_run_id = r.id
@@ -31,12 +54,7 @@ router.get('/download/payslip/:id/:employeeId', async (req, res) => {
     return res.status(404).send('Payslip record not found.');
   }
 
-  const breakdown = JSON.parse(payslip.breakdown_json);
-  if (breakdown.employee) {
-    breakdown.employee.employee_code = breakdown.employee.employee_code || payslip.employee_code || '';
-  }
-  breakdown.payment_status = payslip.payment_status || 'Pending';
-  breakdown.payment_date = payslip.payment_date || null;
+  const breakdown = enrichBreakdownWithLiveEmployee(JSON.parse(payslip.breakdown_json), payslip);
 
   try {
     const pdfBuffer = await generatePayslipPDFBuffer({
@@ -469,7 +487,7 @@ router.post('/:id/send-all-emails', requireAuth, requireRole(['admin', 'hr']), (
 // GET /payroll/:id/payslip/:employeeId (Single printable payslip)
 router.get('/:id/payslip/:employeeId', requireAuth, requireRole(['admin', 'hr']), (req, res) => {
   const payslip = db.prepare(`
-    SELECT p.*, e.employee_code, r.period, r.pay_date, r.status as run_status
+    SELECT p.*, e.employee_code, e.name as live_emp_name, e.designation as live_designation, e.department as live_department, e.work_location as live_work_location, e.pan as live_pan, e.bank_name as live_bank_name, e.bank_account as live_bank_account, e.email as live_email, r.period, r.pay_date, r.status as run_status
     FROM payslips p
     JOIN employees e ON p.employee_id = e.id
     JOIN payroll_runs r ON p.payroll_run_id = r.id
@@ -480,19 +498,14 @@ router.get('/:id/payslip/:employeeId', requireAuth, requireRole(['admin', 'hr'])
     return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip not found for this run.' });
   }
 
-  const breakdown = JSON.parse(payslip.breakdown_json);
-  if (breakdown.employee) {
-    breakdown.employee.employee_code = breakdown.employee.employee_code || payslip.employee_code || '';
-  }
-  breakdown.payment_status = payslip.payment_status || 'Pending';
-  breakdown.payment_date = payslip.payment_date || null;
+  const breakdown = enrichBreakdownWithLiveEmployee(JSON.parse(payslip.breakdown_json), payslip);
   res.render('payslips/single', { payslip, breakdown });
 });
 
 // GET /payroll/:id/payslip/:employeeId/pdf (Admin Download PDF payslip via PDFKit)
 router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'hr']), async (req, res) => {
   const payslip = db.prepare(`
-    SELECT p.*, e.employee_code, r.period, r.pay_date, r.status as run_status
+    SELECT p.*, e.employee_code, e.name as live_emp_name, e.designation as live_designation, e.department as live_department, e.work_location as live_work_location, e.pan as live_pan, e.bank_name as live_bank_name, e.bank_account as live_bank_account, e.email as live_email, r.period, r.pay_date, r.status as run_status
     FROM payslips p
     JOIN employees e ON p.employee_id = e.id
     JOIN payroll_runs r ON p.payroll_run_id = r.id
@@ -503,12 +516,7 @@ router.get('/:id/payslip/:employeeId/pdf', requireAuth, requireRole(['admin', 'h
     return res.status(404).render('error', { title: '404 Not Found', message: 'Payslip not found for this run.' });
   }
 
-  const breakdown = JSON.parse(payslip.breakdown_json);
-  if (breakdown.employee) {
-    breakdown.employee.employee_code = breakdown.employee.employee_code || payslip.employee_code || '';
-  }
-  breakdown.payment_status = payslip.payment_status || 'Pending';
-  breakdown.payment_date = payslip.payment_date || null;
+  const breakdown = enrichBreakdownWithLiveEmployee(JSON.parse(payslip.breakdown_json), payslip);
 
   try {
     const pdfBuffer = await generatePayslipPDFBuffer({
@@ -539,7 +547,7 @@ router.get('/:id/print-all', requireAuth, requireRole(['admin', 'hr']), (req, re
   }
 
   const payslips = db.prepare(`
-    SELECT p.*, e.employee_code
+    SELECT p.*, e.employee_code, e.name as live_emp_name, e.designation as live_designation, e.department as live_department, e.work_location as live_work_location, e.pan as live_pan, e.bank_name as live_bank_name, e.bank_account as live_bank_account, e.email as live_email
     FROM payslips p
     JOIN employees e ON p.employee_id = e.id
     WHERE p.payroll_run_id = ?
@@ -547,12 +555,7 @@ router.get('/:id/print-all', requireAuth, requireRole(['admin', 'hr']), (req, re
   `).all(run.id);
 
   const payslipBreakdowns = payslips.map(p => {
-    const bd = JSON.parse(p.breakdown_json);
-    if (bd.employee) {
-      bd.employee.employee_code = bd.employee.employee_code || p.employee_code || '';
-    }
-    bd.payment_status = p.payment_status || 'Pending';
-    bd.payment_date = p.payment_date || null;
+    const bd = enrichBreakdownWithLiveEmployee(JSON.parse(p.breakdown_json), p);
     return {
       ...p,
       breakdown: bd
