@@ -82,6 +82,17 @@ const EmployeesPage = () => {
     }
   };
 
+  const handleDeleteEmployee = async (emp) => {
+    if (!window.confirm(`Are you sure you want to permanently delete employee ${emp.name} (${emp.employee_code || emp.id})? All associated salary data will be removed.`)) return;
+    try {
+      await api.post(`/employees/${emp.id}/delete`);
+      alert(`Employee ${emp.name} deleted successfully!`);
+      fetchEmployees();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete employee.');
+    }
+  };
+
   const openSalaryModal = async (emp) => {
     setSelectedEmp(emp);
     try {
@@ -240,9 +251,17 @@ const EmployeesPage = () => {
                           setShowEditModal(true);
                         }}
                         className="btn btn-sm btn-secondary"
-                        style={{ fontSize: '0.78rem' }}
+                        style={{ marginRight: '0.4rem', fontSize: '0.78rem' }}
                       >
                         <i className="fa-solid fa-pencil"></i> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEmployee(emp)}
+                        className="btn btn-sm btn-secondary"
+                        style={{ fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
+                        title="Delete Employee"
+                      >
+                        <i className="fa-solid fa-trash"></i> Delete
                       </button>
                     </td>
                   </tr>
